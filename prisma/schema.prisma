@@ -1,0 +1,679 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+  // Connection timeout settings for slow connections
+  // These are handled via connection string parameters in DATABASE_URL
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  password            String?
+  role                Role                 @default(CLIENT)
+  isActive            Boolean              @default(true)
+  emailVerified       DateTime?
+  image               String?              @db.Text
+  firstName           String?              @map("first_name")
+  lastName            String?              @map("last_name")
+  address             String?              @db.Text
+  zip                 String?
+  city                String?
+  country             String?              @default("GR")
+  phone               String?
+  mobile              String?
+  workPhone           String?              @map("work_phone")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  lastLoginAt         DateTime?            @map("last_login_at")
+  accounts            Account[]
+  cronJobLogs         CronJobLog[]
+  sessions            Session[]
+  softoneConnections  SoftOneConnection[]
+  softoneIntegrations SoftOneIntegration[]
+  lprCameras          LprCamera[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId], map: "accounts_user_id_fkey")
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "sessions_user_id_fkey")
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([email, token])
+  @@map("password_reset_tokens")
+}
+
+model CUSTORMER {
+  id        Int       @id @default(autoincrement())
+  SODTYPE   Int       @default(13) @map("sodtype")
+  TRDR      String?   @map("trdr")
+  CODE      String?   @map("code")
+  NAME      String?   @map("name")
+  AFM       String?   @map("afm")
+  COUNTRY   String?   @map("country")
+  ADDRESS   String?   @map("address") @db.Text
+  ZIP       String?   @map("zip")
+  CITY      String?   @map("city")
+  PHONE01   String?   @map("phone01")
+  PHONE02   String?   @map("phone02")
+  JOBTYPE   String?   @map("jobtype")
+  WEBPAGE   String?   @map("webpage")
+  EMAIL     String?   @map("email")
+  EMAILACC  String?   @map("emailacc")
+  IRSDATA   String?   @map("irsdata") @db.Text
+  INSDATE   DateTime? @map("insdate")
+  UPDDATE   DateTime? @updatedAt @map("upddate")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@map("custormers")
+}
+
+model iNST {
+  INST       Int         @id @map("inst")
+  CODE       String?     @map("code")
+  NAME       String?     @map("name")
+  ISACTIVE   Int         @map("isactive")
+  INSTTYPE   String?     @map("insttype")
+  TRDR       String?     @map("trdr")
+  TRDBRANCH  String?     @map("trdbranch")
+  BRANCH     String?     @map("branch")
+  BUSUNITS   String?     @map("busunits")
+  SALESMAN   String?     @map("salesman")
+  TRDRS      String?     @map("trdrs")
+  TRDBRANCHS String?     @map("trdbranchs")
+  GPNT       String?     @map("gpnt")
+  PRSN       String?     @map("prsn")
+  PRJC       String?     @map("prjc")
+  FROMDATE   DateTime?   @map("fromdate")
+  BLOCKED    Int?        @map("blocked")
+  BLCKDATE   DateTime?   @map("blckdate")
+  GDATEFROM  DateTime?   @map("gdatefrom")
+  GDATETO    DateTime?   @map("gdateto")
+  WDATEFROM  DateTime?   @map("wdatefrom")
+  WDATETO    DateTime?   @map("wdateto")
+  INSDATE    DateTime?   @map("insdate")
+  UPDDATE    DateTime?   @updatedAt @map("upddate")
+  NUM01      Float?      @map("num01")
+  REMARKS    String?     @map("remarks") @db.Text
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+  lines      iNSTLINES[]
+  contractCar ContractCar?
+
+  @@map("inst")
+}
+
+model ContractCar {
+  id       String   @id @default(cuid()) @map("id")
+  inst     Int      @unique @map("inst")
+  num01    Float?   @map("num01")
+  carsIn   Int      @default(0) @map("cars_in")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  instRef  iNST     @relation(fields: [inst], references: [INST], onDelete: Cascade)
+
+  @@map("contract_cars")
+}
+
+model iNSTLINES {
+  INSTLINES  Int       @id @map("instlines")
+  INST       Int?      @map("inst")
+  LINENUM    Int?      @map("linenum")
+  SODTYPE    Int?      @map("sodtype")
+  MTRL       String?   @map("mtrl")
+  BUSUNITS   String?   @map("busunits")
+  QTY        Float?    @map("qty")
+  PRICE      Float?    @map("price")
+  FROMDATE   DateTime? @map("fromdate")
+  FINALDATE  DateTime? @map("finaldate")
+  COMMENTS   String?   @map("comments") @db.Text
+  SNCODE     String?   @map("sncode")
+  INSTLINESS String?   @map("instliness")
+  MTRUNIT    String?   @map("mtrunit")
+  BAILTYPE   String?   @map("bailtype")
+  GPNT       String?   @map("gpnt")
+  TRDBRANCH  String?   @map("trdbranch")
+  INSDATE    DateTime? @map("insdate")
+  UPDDATE    DateTime? @updatedAt @map("upddate")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  inst       iNST?     @relation(fields: [INST], references: [INST], onDelete: Cascade)
+
+  @@index([INST], map: "instlines_inst_fkey")
+  @@map("instlines")
+}
+
+model iTEMS {
+  ITEMS        Int       @id @map("items")
+  COMPANY      String?   @map("company")
+  SODTYPE      Int?      @map("sodtype")
+  MTRL         String?   @map("mtrl")
+  CODE         String?   @map("code")
+  NAME         String?   @map("name")
+  CODE1        String?   @map("code1")
+  CODE2        String?   @map("code2")
+  RELITEM      String?   @map("relitem")
+  ISACTIVE     Int       @map("isactive")
+  MTRTYPE1     String?   @map("mtrtype1")
+  MTRACN       String?   @map("mtracn")
+  MTRCATEGORY  String?   @map("mtrcategory")
+  VAT          Int?      @map("vat")
+  MTRUNIT1     String?   @map("mtrunit1")
+  MTRUNIT2     String?   @map("mtrunit2")
+  MTRUNIT3     String?   @map("mtrunit3")
+  MTRUNIT4     String?   @map("mtrunit4")
+  MU21         Float?    @map("mu21")
+  MU31         Float?    @map("mu31")
+  MU41         Float?    @map("mu41")
+  MU12MODE     String?   @map("mu12mode")
+  MU13MODE     String?   @map("mu13mode")
+  MU14MODE     String?   @map("mu14mode")
+  MTRGROUP     String?   @map("mtrgroup")
+  MTRMANFCTR   String?   @map("mtrmanfctr")
+  COUNTRY      Int?      @map("country")
+  MTRMARK      String?   @map("mtrmark")
+  MTRMODEL     String?   @map("mtrmodel")
+  SOCURRENCY   Int?      @map("socurrency")
+  INTRASTAT    String?   @map("intrastat")
+  WEIGHT       Float?    @map("weight")
+  WEBPAGE      String?   @map("webpage")
+  WEBNAME      String?   @map("webname")
+  WEBVIEW      String?   @map("webview")
+  PRICEW       Float?    @map("pricew")
+  PRICER       Float?    @map("pricer")
+  DIM1         Float?    @map("dim1")
+  DIM2         Float?    @map("dim2")
+  DIM3         Float?    @map("dim3")
+  DIMMD        String?   @map("dimmd")
+  DIMMTRUNIT   String?   @map("dimmtrunit")
+  SALQTY       Float?    @map("salqty")
+  PURQTY       Float?    @map("purqty")
+  ITEQTY       Float?    @map("iteqty")
+  INSDATE      DateTime? @map("insdate")
+  UPDDATE      DateTime? @updatedAt @map("upddate")
+  GWEIGHT      Float?    @map("gweight")
+  MCOUNTRY     String?   @map("mcountry")
+  KADTAXIS     String?   @map("kadtaxis")
+  cccSubgoup2  String?   @map("ccc_subgoup2")
+  cccSubgroup3 String?   @map("ccc_subgroup3")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("items")
+}
+
+model COUNTRY {
+  COUNTRY     Int       @id @map("country")
+  SHORTCUT    String?   @map("shortcut")
+  NAME        String?   @map("name")
+  SOCURRENCY  Int?      @map("socurrency")
+  INTCODE     String?   @map("intcode")
+  INTERCODE   String?   @map("intercode")
+  ISACTIVE    Int       @map("isactive")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("country")
+}
+
+model IRSDATA {
+  IRSDATA   String   @id @map("irsdata")
+  CODE      String?  @map("code")
+  ISACTIVE  Int      @map("isactive")
+  NAME      String?  @map("name")
+  ADDRESS   String?  @map("address") @db.Text
+  PHONE1    String?  @map("phone1")
+  ZIP       String?  @map("zip")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("irsdata")
+}
+
+model VAT {
+  VAT         Int       @id @map("vat")
+  NAME        String?   @map("name")
+  PERCNT      Float?    @map("percnt")
+  VATS1       Int?      @map("vats1")
+  VATS3       Int?      @map("vats3")
+  ISACTIVE    Int       @map("isactive")
+  MYDATACODE  Int?      @map("mydatacode")
+  DEPART      Int?      @map("depart")
+  ACNMSKS     Int?      @map("acnmsks")
+  ACNMSKX     Int?      @map("acnmskx")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("vat")
+}
+
+model SOCURRENCY {
+  SOCURRENCY Int       @id @map("socurrency")
+  LOCKID     Int?      @map("lockid")
+  SHORTCUT   String?   @map("shortcut")
+  NAME       String?   @map("name")
+  ISACTIVE   Int       @map("isactive")
+  INTERCODE  String?   @map("intercode")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@map("socurrency")
+}
+
+model TRDCATEGORY {
+  TRDCATEGORY Int       @id @map("trdcategory")
+  CODE        String?   @map("code")
+  NAME        String?   @map("name")
+  ACNMSK      String?   @map("acnmsk")
+  KEPYOST     String?   @map("kepyost")
+  COUNTRY     Int?      @map("country")
+  SOCURRENCY  Int?      @map("socurrency")
+  ISACTIVE    Int       @map("isactive")
+  COMPANY     String?   @map("company")
+  SODTYPE     Int?      @map("sodtype")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("trdcategory")
+}
+
+model PAYMENT {
+  PAYMENT       Int       @id @unique @map("payment")
+  CODE          String?   @map("code")
+  NAME          String?   @map("name")
+  ISACTIVE      Int       @map("isactive")
+  ACNMSK        String?   @map("acnmsk")
+  INSPAYMD      String?   @map("inspaymd")
+  INSCLCMD      String?   @map("insclcmd")
+  CREDITCARDS   String?   @map("creditcards")
+  VATPAYMENT    String?   @map("vatpayment")
+  ISDOSE        Int?      @map("isdose")
+  PAYFROMDATE   DateTime? @map("payfromdate")
+  INSTALMENTS   Int?      @map("instalments")
+  MATURE        Int?      @map("mature")
+  PAYROUND      Int?      @map("payround")
+  MATURE1       Int?      @map("mature1")
+  EXPN          String?   @map("expn")
+  SERIES        String?   @map("series")
+  CHQTPRMS      String?   @map("chqtprms")
+  BANK          String?   @map("bank")
+  BANKBRANCH    String?   @map("bankbranch")
+  INTERESTDEB   Float?    @map("interestdeb")
+  INTERESTCRE   Float?    @map("interestcre")
+  SODATA        String?   @map("sodata")
+  MYDATACODE    String?   @map("mydatacode")
+  EFACTURACODE  String?   @map("efacturacode")
+  PAYACNMSK     String?   @map("payacnmsk")
+  INSDATE       DateTime? @map("insdate")
+  UPDDATE       DateTime? @updatedAt @map("upddate")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("payment")
+}
+
+model SoftOneConnection {
+  id             String               @id @default(cuid())
+  userId         String               @map("user_id")
+  name           String               @db.VarChar(255)
+  registeredName String               @map("registered_name") @db.VarChar(255)
+  username       String               @db.VarChar(255)
+  passwordEnc    String               @map("password_enc") @db.Text
+  appId          Int                  @map("app_id")
+  company        Int
+  branch         Int
+  module         Int
+  refid          Int
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  integrations   SoftOneIntegration[]
+
+  @@index([userId], map: "softone_connections_user_id_fkey")
+  @@map("softone_connections")
+}
+
+model SoftOneIntegration {
+  id            String            @id @default(cuid())
+  userId        String            @map("user_id")
+  connectionId  String            @map("connection_id")
+  name          String            @db.VarChar(255)
+  objectName    String            @map("object_name") @db.VarChar(100)
+  objectCaption String?           @map("object_caption") @db.VarChar(255)
+  tableName     String            @map("table_name") @db.VarChar(100)
+  tableDbname   String            @map("table_dbname") @db.VarChar(100)
+  tableCaption  String?           @map("table_caption") @db.VarChar(255)
+  configJson    Json              @map("config_json")
+  lastSyncAt    DateTime?         @map("last_sync_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  cronJobLogs   CronJobLog[]
+  connection    SoftOneConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId], map: "softone_integrations_connection_id_fkey")
+  @@index([userId])
+  @@map("softone_integrations")
+}
+
+model CronJobLog {
+  id            String              @id @default(cuid())
+  userId        String              @map("user_id")
+  integrationId String?             @map("integration_id")
+  jobType       String              @map("job_type") @db.VarChar(100)
+  status        String              @db.VarChar(50)
+  startedAt     DateTime            @map("started_at")
+  completedAt   DateTime?           @map("completed_at")
+  duration      Int?
+  stats         Json?
+  error         String?             @db.Text
+  details       Json?
+  createdAt     DateTime            @default(now()) @map("created_at")
+  integration   SoftOneIntegration? @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([integrationId])
+  @@index([startedAt])
+  @@map("cron_job_logs")
+}
+
+model CronJobProgress {
+  id             String   @id @default(cuid()) @map("id")
+  jobType        String   @map("job_type") @db.VarChar(100)
+  integrationId  String?  @map("integration_id") @db.VarChar(191)
+  modelName     String?  @map("model_name") @db.VarChar(100)
+  lastOffset    Int      @default(0) @map("last_offset")
+  totalSeen     Int?     @map("total_seen")
+  payload       Json?    @map("payload")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([jobType, integrationId, modelName], map: "cron_job_progress_job_integration_model")
+  @@index([jobType])
+  @@index([integrationId])
+  @@map("cron_job_progress")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+  CLIENT
+}
+
+enum LprConnectionType {
+  TCP
+  HTTP
+  RTSP
+}
+
+enum LprDirection {
+  UNKNOWN
+  IN
+  OUT
+}
+
+enum LprPlateType {
+  BLACK
+  WHITE
+  VISITOR
+}
+
+enum LprVehicleType {
+  NONE
+  CAR
+  MOTOR
+  BUS
+  TRUCK
+  VAN
+  SUV
+  FORKLIFT
+  EXCAVATOR
+  TOWTRUCK
+  POLICE_CAR
+  FIRE_ENGINE
+  AMBULANCE
+  BICYCLE
+  E_BIKE
+  OTHER
+}
+
+enum LprImageType {
+  PLATE_IMAGE
+  FULL_IMAGE
+  EVIDENCE_IMAGE0
+  EVIDENCE_IMAGE1
+  SNAPSHOT
+  BACKGROUND_SNAPSHOT
+}
+
+model LprCamera {
+  id                String                @id @default(cuid())
+  userId            String                @map("user_id")
+  name              String                @db.VarChar(255)
+  location          String?               @db.VarChar(255)
+  description       String?               @db.Text
+  ipAddress         String                @map("ip_address") @db.VarChar(255)
+  port              Int                   @default(80)
+  connectionType    LprConnectionType     @map("connection_type") @default(HTTP)
+  username          String?               @db.VarChar(255)
+  passwordEnc       String?               @map("password_enc") @db.Text
+  deviceId          String?               @map("device_id") @db.VarChar(255)
+  isActive          Boolean               @default(true) @map("is_active")
+  lastConnectedAt   DateTime?             @map("last_connected_at")
+  registerAll       Boolean               @default(false) @map("register_all")
+  registerRecognition Boolean             @default(true) @map("register_recognition")
+  registerCounting  Boolean               @default(false) @map("register_counting")
+  registerListEvent Boolean               @default(false) @map("register_list_event")
+  registerAttributes Boolean              @default(false) @map("register_attributes")
+  registerViolation Boolean               @default(false) @map("register_violation")
+  createdAt         DateTime              @default(now()) @map("created_at")
+  updatedAt         DateTime              @updatedAt @map("updated_at")
+  
+  user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recognitionEvents LprRecognitionEvent[]
+  countingEvents    LprVehicleCountingEvent[]
+  listEvents        LprListEvent[]
+  attributesEvents LprAttributesEvent[]
+  violationEvents   LprViolationEvent[]
+  images            LprImage[]
+
+  @@index([userId])
+  @@index([ipAddress])
+  @@index([deviceId])
+  @@map("lpr_cameras")
+}
+
+model LprRecognitionEvent {
+  id                String        @id @default(cuid())
+  cameraId          String?       @map("camera_id")
+  recognitionTime   DateTime      @map("recognition_time")
+  licensePlate      String        @map("license_plate") @db.VarChar(50)
+  vehicleColor      String?       @map("vehicle_color") @db.VarChar(50)
+  vehicleBrand      String?       @map("vehicle_brand") @db.VarChar(100)
+  vehicleType       LprVehicleType? @map("vehicle_type")
+  plateColor        String?       @map("plate_color") @db.VarChar(50)
+  plateType         LprPlateType? @map("plate_type")
+  confidence        Float?
+  speed             Int?          // km/h
+  direction         LprDirection? @default(UNKNOWN)
+  region            String?       @db.VarChar(100)
+  roiId             Int?          @map("roi_id")
+  coordinateX1      Int?           @map("coordinate_x1")
+  coordinateY1      Int?           @map("coordinate_y1")
+  coordinateX2      Int?           @map("coordinate_x2")
+  coordinateY2      Int?           @map("coordinate_y2")
+  resolutionWidth   Int?           @map("resolution_width")
+  resolutionHeight  Int?           @map("resolution_height")
+  distance          Float?
+  azimuth           Float?
+  vehicleCount      Int?           @map("vehicle_count")
+  plateLength       Int?           @map("plate_length")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  
+  camera            LprCamera?    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@index([cameraId])
+  @@index([recognitionTime])
+  @@index([licensePlate])
+  @@index([recognitionTime, cameraId])
+  @@map("lpr_recognition_events")
+}
+
+model LprVehicleCountingEvent {
+  id                String        @id @default(cuid())
+  cameraId          String        @map("camera_id")
+  eventTime         DateTime      @map("event_time")
+  region            Int?
+  regionName        String?       @map("region_name") @db.VarChar(100)
+  reportType        String?       @map("report_type") @db.VarChar(50) // "instant" or "interval"
+  allCar            Int?          @map("all_car")
+  allMotorcycle     Int?          @map("all_motorcycle")
+  allNonMotor       Int?          @map("all_non_motor")
+  car               Int?
+  motorbike         Int?
+  bus                Int?
+  truck              Int?
+  van                Int?
+  suv                Int?
+  fireEngine         Int?          @map("fire_engine")
+  ambulance          Int?
+  bicycle            Int?
+  other              Int?
+  smallVehicle       Int?          @map("small_vehicle")
+  mediumVehicle      Int?          @map("medium_vehicle")
+  largeVehicle       Int?          @map("large_vehicle")
+  snapshotUrl        String?       @map("snapshot_url") @db.Text
+  createdAt          DateTime      @default(now()) @map("created_at")
+  
+  camera             LprCamera     @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@index([cameraId])
+  @@index([eventTime])
+  @@index([eventTime, cameraId])
+  @@map("lpr_vehicle_counting_events")
+}
+
+model LprListEvent {
+  id                String        @id @default(cuid())
+  cameraId          String?       @map("camera_id")
+  eventTime         DateTime      @map("event_time")
+  licensePlate      String        @map("license_plate") @db.VarChar(50)
+  listType          String?       @map("list_type") @db.VarChar(50) // "whitelist" or "blacklist"
+  matchStatus       String?       @map("match_status") @db.VarChar(50)
+  additionalData    Json?         @map("additional_data")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  
+  camera            LprCamera?    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@index([cameraId])
+  @@index([eventTime])
+  @@index([licensePlate])
+  @@map("lpr_list_events")
+}
+
+model LprAttributesEvent {
+  id                String        @id @default(cuid())
+  cameraId          String?       @map("camera_id")
+  eventTime         DateTime      @map("event_time")
+  licensePlate      String        @map("license_plate") @db.VarChar(50)
+  vehicleColor      String?       @map("vehicle_color") @db.VarChar(50)
+  vehicleBrand      String?       @map("vehicle_brand") @db.VarChar(100)
+  vehicleType       LprVehicleType? @map("vehicle_type")
+  plateColor        String?       @map("plate_color") @db.VarChar(50)
+  additionalData    Json?         @map("additional_data")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  
+  camera            LprCamera?    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@index([cameraId])
+  @@index([eventTime])
+  @@index([licensePlate])
+  @@map("lpr_attributes_events")
+}
+
+model LprViolationEvent {
+  id                String        @id @default(cuid())
+  cameraId          String?       @map("camera_id")
+  eventTime         DateTime      @map("event_time")
+  licensePlate      String        @map("license_plate") @db.VarChar(50)
+  violationType     String?       @map("violation_type") @db.VarChar(100)
+  region            Int?
+  regionName        String?       @map("region_name") @db.VarChar(100)
+  details           Json?
+  createdAt         DateTime      @default(now()) @map("created_at")
+  
+  camera            LprCamera?    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@index([cameraId])
+  @@index([eventTime])
+  @@index([licensePlate])
+  @@map("lpr_violation_events")
+}
+
+model LprImage {
+  id                String        @id @default(cuid())
+  cameraId          String?       @map("camera_id")
+  eventType         String        @map("event_type") @db.VarChar(50) // "recognition", "counting", "list", "attributes", "violation"
+  eventId           String        @map("event_id")
+  imageType         LprImageType  @map("image_type")
+  url               String        @db.Text
+  fileName          String?       @map("file_name") @db.VarChar(255)
+  fileSize          Int?          @map("file_size")
+  mimeType          String?       @map("mime_type") @db.VarChar(100)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  
+  camera            LprCamera?    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@index([eventType, eventId])
+  @@index([cameraId])
+  @@index([createdAt])
+  @@map("lpr_images")
+}

@@ -1,0 +1,638 @@
+# Project Rules & Directives
+
+## Core Technology Stack
+- Always use Next.js 16+ (App Router) with TypeScript
+- Use Prisma ORM for all database operations with MySQL
+- Use Tailwind 4.1 CSS for all styling
+- Use shadcn/ui components for all form controls and UI elements
+- Use Auth.js for authentication
+- Use BunnyCDN API for all image, video, and file uploads
+- Use Server-Side Rendering (SSR) for ALL data fetching - never client-side fetching
+- Use `exceljs` for Excel/CSV import/export functionality
+- Use GSAP for all animations
+- Use shadcn charts/graphs for all data visualization
+- Use `node-cron` for all scheduled tasks and cron jobs
+- Prefer Next.js server-side patterns over React client-side patterns
+
+## Next.js App Router Conventions
+- Use App Router (`/app` directory) exclusively - never Pages Router
+- Server Components by default, Client Components only when necessary
+- ALL data fetching must be done server-side in page.tsx or layout.tsx files
+- Pass fetched data as props to client components
+- Prefer Next.js patterns over React patterns whenever possible
+- Use `"use client"` directive ONLY when absolutely necessary
+
+### Server vs Client Component Decision:
+```
+Ask yourself: Does this component need...
+├── User interaction (onClick, onChange)? → Client Component
+├── Browser APIs (window, localStorage)? → Client Component
+├── React state (useState)? → Client Component
+├── React effects (useEffect)? → Try to avoid, use Server Component
+├── Just displaying data? → Server Component ✓
+├── Fetching data? → Server Component ✓
+└── Static content? → Server Component ✓
+```
+
+### Use `"use client"` ONLY for:
+- User interactions (onClick, onChange, onSubmit)
+- Browser APIs (window, document, localStorage)
+- React state that CANNOT be replaced with URL params or server state
+- Third-party client-only libraries (GSAP, etc.)
+- Real-time features (WebSockets, polling)
+
+### Prefer Next.js Over React Patterns:
+| React Pattern | Next.js Alternative |
+|---------------|---------------------|
+| `useState` for URL state | `useSearchParams` + URL params |
+| `useState` for form data | Server Actions + `useFormState` |
+| `useEffect` for data fetch | Server Component async fetch |
+| `useContext` for theme | CSS variables + `next-themes` |
+| `useRouter` (pages) | `useRouter` (app) + `redirect()` |
+| `useMemo` for derived data | Compute in Server Component |
+| Client-side validation | Server Actions + Zod |
+
+## Data Fetching Rules (CRITICAL)
+- ALL data fetching MUST be done server-side
+- Fetch data in Server Components (page.tsx, layout.tsx)
+- Pass data as props to Client Components
+- Never use useEffect for initial data loading
+- Use API routes only for mutations (POST, PUT, DELETE)
+- For real-time updates, use server actions or polling with server-side fetch
+
+### Example Server-Side Data Fetching:
+```tsx
+// app/(app)/users/page.tsx - Server Component
+import { prisma } from "@/lib/prisma";
+import { UsersClient } from "@/components/users/users-client";
+
+export default async function UsersPage() {
+  const users = await prisma.user.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+
+  return <UsersClient initialUsers={users} />;
+}
+```
+
+## ERP Integration Rules
+- When connecting to ERP systems, always use `iconv-lite` for character encoding
+- Convert ANSI 1253 (Greek Windows) to UTF-8 via ArrayBuffer
+- Always handle encoding conversion on the server side
+
+### Example ERP Data Conversion:
+```typescript
+import iconv from "iconv-lite";
+
+async function fetchFromERP(endpoint: string) {
+  const response = await fetch(endpoint);
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const utf8Data = iconv.decode(buffer, "win1253");
+  return JSON.parse(utf8Data);
+}
+```
+
+## Scheduled Tasks & Cron Jobs
+- Always use `node-cron` for scheduled tasks
+- Run cron jobs in a separate process or API route
+- Log all cron job executions for debugging
+- Handle errors gracefully in cron jobs
+- Use environment variables for cron schedules in production
+
+### Example Cron Job Setup:
+```typescript
+// lib/cron.ts
+import cron from "node-cron";
+
+// Run every day at midnight
+cron.schedule("0 0 * * *", async () => {
+  console.log("[CRON] Running daily cleanup task...");
+  try {
+    // Your task logic here
+    await performDailyCleanup();
+    console.log("[CRON] Daily cleanup completed successfully");
+  } catch (error) {
+    console.error("[CRON] Daily cleanup failed:", error);
+  }
+});
+
+// Run every hour
+cron.schedule("0 * * * *", async () => {
+  console.log("[CRON] Running hourly sync...");
+  try {
+    await syncWithERP();
+    console.log("[CRON] Hourly sync completed");
+  } catch (error) {
+    console.error("[CRON] Hourly sync failed:", error);
+  }
+});
+```
+
+### Cron Schedule Reference:
+```
+┌────────────── second (optional, 0-59)
+│ ┌──────────── minute (0-59)
+│ │ ┌────────── hour (0-23)
+│ │ │ ┌──────── day of month (1-31)
+│ │ │ │ ┌────── month (1-12)
+│ │ │ │ │ ┌──── day of week (0-7, 0 and 7 are Sunday)
+│ │ │ │ │ │
+* * * * * *
+
+Examples:
+- "0 0 * * *"     → Every day at midnight
+- "0 */6 * * *"   → Every 6 hours
+- "0 9 * * 1-5"   → Weekdays at 9 AM
+- "*/15 * * * *"  → Every 15 minutes
+```
+
+## Error Handling (CRITICAL for Deployment)
+- NEVER create `global-error.tsx` - it causes prerendering errors in Next.js 15+
+- Use scoped `error.tsx` files in specific route directories instead
+- `error.tsx` files MUST have `"use client"` directive
+- `not-found.tsx` should be a Server Component (no "use client")
+- Error boundaries should use inline styles or basic Tailwind, avoid complex context
+
+### Error File Structure:
+```
+src/app/
+├── error.tsx          # Root error boundary (client component)
+├── not-found.tsx      # 404 page (server component)
+├── (app)/
+│   └── error.tsx      # App routes error boundary (client component)
+└── (auth)/
+    └── error.tsx      # Auth routes error boundary (optional)
+```
+
+### Example error.tsx:
+```tsx
+"use client";
+
+import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
+
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  useEffect(() => {
+    console.error("Error:", error);
+  }, [error]);
+
+  return (
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="text-center space-y-4">
+        <h1 className="text-2xl font-bold text-destructive">Something went wrong!</h1>
+        <Button onClick={reset}>Try again</Button>
+      </div>
+    </div>
+  );
+}
+```
+
+## Database & Prisma Rules
+- Always use `prisma db push` - NEVER use `prisma migrate`
+- Use Prisma Client for all database queries
+- Follow Prisma naming conventions (camelCase for fields, PascalCase for models)
+- Always use connection pooling in production
+- Include Prisma schema in Docker builds
+
+## Deployment Configuration (Coolify)
+
+### Dockerfile Structure:
+```dockerfile
+# Dependencies stage
+FROM node:22-alpine AS dependencies
+WORKDIR /app
+RUN apk add --no-cache libc6-compat
+COPY package.json package-lock.json ./
+COPY prisma ./prisma
+RUN npm ci --legacy-peer-deps
+
+# Builder stage
+FROM node:22-alpine AS builder
+WORKDIR /app
+ENV NODE_ENV=production
+COPY package.json package-lock.json ./
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY prisma ./prisma
+RUN npx prisma generate
+COPY . .
+RUN npm run build
+
+# Production stage
+FROM node:22-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+
+USER nextjs
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+### next.config.ts Requirements:
+```typescript
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  output: "standalone", // Required for Docker deployment
+};
+
+export default nextConfig;
+```
+
+### Environment Variables:
+- Set `NODE_ENV=production` at RUNTIME only, not buildtime
+- Never expose secrets in Dockerfile ARG/ENV instructions
+- Use Coolify's environment variable management for sensitive data
+
+### .dockerignore:
+```
+node_modules
+.next
+.git
+.env*.local
+.DS_Store
+*.log
+npm-debug.log*
+.vscode
+.idea
+```
+
+## File Organization
+```
+src/
+├── app/                    # App Router pages and API routes
+│   ├── (app)/              # Authenticated routes (with layout)
+│   ├── (auth)/             # Auth pages (login, register)
+│   ├── (public)/           # Public pages
+│   ├── api/                # API routes
+│   ├── error.tsx           # Root error boundary
+│   ├── not-found.tsx       # 404 page
+│   ├── layout.tsx          # Root layout
+│   └── page.tsx            # Home page
+├── components/
+│   ├── ui/                 # shadcn/ui components
+│   ├── forms/              # Form components and modals
+│   ├── layout/             # Layout components (sidebar, header)
+│   └── [feature]/          # Feature-specific components
+├── lib/                    # Utilities, auth, prisma client
+├── hooks/                  # Custom React hooks
+└── types/                  # TypeScript type definitions
+prisma/
+└── schema.prisma           # Database schema
+```
+
+## UI/UX Rules
+- Use skeleton components during data loading
+- Use `suppressHydrationWarning` on elements that may differ between server/client
+- Implement proper error boundaries for graceful error handling
+- Use Tailwind's utility-first approach
+- Use CSS variables for theme colors
+- Always use Dialog/Modal components for adding new or editing data
+- Always use shadcn charts for displaying graphs and data visualizations
+- Always use GSAP for animations (page transitions, element animations)
+- Use 8px (0.5rem) font size for all badges
+
+## Form Design System (CRITICAL - REQUIRED FOR ALL FORMS)
+
+### Design System Rules:
+- **ALWAYS** use `formFieldStyles` from `@/lib/form-styles` - NEVER hardcode form field classes
+- All form fields MUST have consistent dimensions and styling across the entire application
+- This ensures uniform appearance, proper spacing, and maintainable code
+
+### Required Form Field Specifications:
+- **Height**: All inputs, selects, and textareas use `h-7` (28px) for consistency
+- **Padding**: `px-2.5` (10px horizontal), `py-1` (4px vertical) for all fields
+- **Text Size**: `text-[9px]` for all field content (matches label size)
+- **Labels**: `text-[9px] uppercase font-medium`
+- **Section Headers**: `text-[10px] font-bold uppercase text-muted-foreground`
+- **Buttons**: `h-7 px-3 text-[10px] gap-1`
+- **Button Icons**: `h-3 w-3`
+- **Spacing**: `space-y-3` for forms, `space-y-1` for field groups, `gap-2` for grids
+
+### Implementation:
+1. Create `src/lib/form-styles.ts` with the centralized style definitions
+2. Import `formFieldStyles` in all form components
+3. Apply styles using the exported constants - never hardcode classes
+
+### form-styles.ts Structure:
+```typescript
+// src/lib/form-styles.ts
+export const formFieldStyles = {
+  // Standard compact form field styling
+  // All fields: h-7 (28px), px-2.5 (10px), py-1 (4px), text-[9px]
+  // Using !important to override default component styles
+  input: "h-7 !px-2.5 !py-1 !text-[9px] rounded-md",
+  select: "h-7 !px-2.5 !py-1 !text-[9px] rounded-md w-full",
+  selectItem: "!text-[9px]",
+  textarea: "min-h-[4rem] !px-2.5 !py-1.5 !text-[9px] rounded-md",
+  
+  // Label styling - matches input text size
+  label: "text-[9px] uppercase font-medium",
+  
+  // Section header styling
+  sectionHeader: "text-[10px] font-bold uppercase text-muted-foreground",
+  
+  // Button styling
+  button: "h-7 px-3 text-[10px] gap-1",
+  buttonIcon: "h-3 w-3",
+  
+  // Form spacing - compact spacing for maximum content density
+  formSpacing: "space-y-3",
+  fieldSpacing: "space-y-1",
+  gridGap: "gap-2",
+} as const;
+```
+
+### Usage Examples:
+
+#### Basic Form Field:
+```tsx
+import { formFieldStyles } from "@/lib/form-styles";
+
+<div className={formFieldStyles.fieldSpacing}>
+  <Label htmlFor="email" className={formFieldStyles.label}>
+    EMAIL ADDRESS *
+  </Label>
+  <Input
+    id="email"
+    name="email"
+    type="email"
+    className={formFieldStyles.input}
+    required
+  />
+</div>
+```
+
+#### Select Field:
+```tsx
+import { formFieldStyles } from "@/lib/form-styles";
+
+<Select name="role" defaultValue="CLIENT">
+  <SelectTrigger className={formFieldStyles.select}>
+    <SelectValue placeholder="Select role" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="ADMIN" className={formFieldStyles.selectItem}>
+      ADMIN
+    </SelectItem>
+  </SelectContent>
+</Select>
+```
+
+#### Form with Sections:
+```tsx
+import { formFieldStyles } from "@/lib/form-styles";
+
+<form action={formAction} className={formFieldStyles.formSpacing}>
+  {/* Section Header */}
+  <h3 className={formFieldStyles.sectionHeader}>
+    BASIC INFORMATION
+  </h3>
+  
+  {/* Field Group */}
+  <div className={formFieldStyles.fieldSpacing}>
+    <Label htmlFor="name" className={formFieldStyles.label}>
+      NAME *
+    </Label>
+    <Input
+      id="name"
+      name="name"
+      className={formFieldStyles.input}
+      required
+    />
+  </div>
+  
+  {/* Grid Layout */}
+  <div className={`grid grid-cols-2 ${formFieldStyles.gridGap}`}>
+    <div className={formFieldStyles.fieldSpacing}>
+      <Label htmlFor="firstName" className={formFieldStyles.label}>
+        FIRST NAME *
+      </Label>
+      <Input
+        id="firstName"
+        name="firstName"
+        className={formFieldStyles.input}
+        required
+      />
+    </div>
+    <div className={formFieldStyles.fieldSpacing}>
+      <Label htmlFor="lastName" className={formFieldStyles.label}>
+        LAST NAME *
+      </Label>
+      <Input
+        id="lastName"
+        name="lastName"
+        className={formFieldStyles.input}
+        required
+      />
+    </div>
+  </div>
+  
+  {/* Submit Button */}
+  <div className="flex justify-end pt-2 border-t">
+    <Button type="submit" className={formFieldStyles.button}>
+      <Save className={formFieldStyles.buttonIcon} />
+      SAVE CHANGES
+    </Button>
+  </div>
+</form>
+```
+
+### Critical Rules:
+1. **NEVER** hardcode form field classes like `h-7`, `text-[9px]`, `px-2.5`, etc.
+2. **ALWAYS** import and use `formFieldStyles` from `@/lib/form-styles`
+3. **ENSURE** all inputs, selects, and textareas have the same height (`h-7`)
+4. **ENSURE** all fields have consistent padding (`px-2.5 py-1`)
+5. **ENSURE** field text size matches label size (`text-[9px]`)
+6. **USE** `!important` modifiers (`!px-2.5`, `!py-1`, `!text-[9px]`) to override default component styles
+7. **APPLY** these rules to ALL internal forms (user management, account settings, etc.)
+8. **NOTE**: Public-facing forms (login, register) may use different sizing for better UX
+
+### Why This Matters:
+- **Consistency**: All forms look and feel the same across the application
+- **Maintainability**: Change styles in one place, update everywhere
+- **Accessibility**: Consistent sizing improves usability
+- **Professional Appearance**: Uniform design creates a polished user experience
+- **Developer Experience**: Clear rules prevent style inconsistencies
+
+## Typography & Fonts
+- Always use Lato font from Google Fonts as the primary font
+- Set default font size to 11px (0.6875rem)
+- Configure Tailwind with Lato as the default sans-serif font
+
+### Tailwind Font Configuration (globals.css):
+```css
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;500;600;700;900&display=swap');
+
+@theme {
+  --font-family-sans: 'Lato', system-ui, sans-serif;
+  --font-size-base: 0.6875rem; /* 11px */
+  --line-height-base: 1.5;
+}
+
+html {
+  font-size: 16px; /* Keep root at 16px for rem calculations */
+}
+
+body {
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+```
+
+### Badge Styling:
+```tsx
+// Always use 8px (0.5rem) for badge text
+<Badge className="text-[0.5rem] px-1.5 py-0.5">Label</Badge>
+```
+
+### Modal/Dialog Pattern for CRUD:
+```tsx
+// Always use modals for create/edit operations
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+// For adding new items
+<Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Add New Item</DialogTitle>
+    </DialogHeader>
+    <ItemForm onSubmit={handleCreate} />
+  </DialogContent>
+</Dialog>
+
+// For editing existing items
+<Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Edit Item</DialogTitle>
+    </DialogHeader>
+    <ItemForm initialData={editingItem} onSubmit={handleUpdate} />
+  </DialogContent>
+</Dialog>
+```
+
+## Animation Rules (GSAP)
+- Use GSAP for all complex animations
+- Prefer CSS transitions for simple hover/focus states
+- Use GSAP ScrollTrigger for scroll-based animations
+- Always clean up GSAP animations in useEffect cleanup
+
+### Example GSAP Animation:
+```tsx
+"use client";
+
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
+
+export function AnimatedComponent() {
+  const elementRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.from(elementRef.current, {
+        opacity: 0,
+        y: 20,
+        duration: 0.5,
+        ease: "power2.out",
+      });
+    });
+
+    return () => ctx.revert(); // Cleanup
+  }, []);
+
+  return <div ref={elementRef}>Animated Content</div>;
+}
+```
+
+## Data Visualization (shadcn Charts)
+- Always use shadcn/ui chart components for graphs
+- Use Recharts (bundled with shadcn) for data visualization
+- Provide proper loading states for chart data
+- Use consistent color schemes from theme variables
+
+### Example Chart Usage:
+```tsx
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+
+<ResponsiveContainer width="100%" height={300}>
+  <BarChart data={chartData}>
+    <CartesianGrid strokeDasharray="3 3" />
+    <XAxis dataKey="name" />
+    <YAxis />
+    <Tooltip />
+    <Bar dataKey="value" fill="var(--color-primary)" />
+  </BarChart>
+</ResponsiveContainer>
+```
+
+## Code Quality
+- Use TypeScript strictly with proper typing
+- Use async/await over promises
+- Implement proper error handling with try-catch
+- Use meaningful variable and function names
+- Use kebab-case for files, PascalCase for components
+
+## API Design
+- Use RESTful principles for API routes
+- Return consistent error response formats
+- Use proper HTTP status codes
+- Validate all user inputs with Zod
+
+## Package & Dependency Rules
+- NEVER use deprecated packages - always find modern alternatives
+- NEVER use packages with critical or high severity vulnerabilities
+- Always check `npm audit` before adding new dependencies
+- Prefer actively maintained packages with recent updates
+- Use official/recommended packages from Next.js, React, and shadcn ecosystems
+
+### Deprecated Package Alternatives:
+| Deprecated | Use Instead |
+|------------|-------------|
+| `moment` | `date-fns` or `dayjs` |
+| `request` | `fetch` (native) or `axios` |
+| `node-uuid` | `uuid` |
+| `querystring` | `URLSearchParams` (native) |
+| `rimraf` < v4 | `rimraf` v4+ or `fs.rm` |
+| `glob` < v9 | `glob` v9+ or `fast-glob` |
+| `lodash.isequal` | `node:util.isDeepStrictEqual` |
+| `inflight` | `lru-cache` |
+
+### Security Best Practices:
+- Run `npm audit` regularly and fix vulnerabilities
+- Use `npm audit fix` for automatic fixes when safe
+- For critical vulnerabilities, manually update or replace the package
+- Keep all dependencies up to date with `npm update`
+- Use Dependabot or similar for automated security updates
+
+## Common Pitfalls to Avoid
+1. Don't create `global-error.tsx` - causes build failures
+2. Don't use `NODE_ENV=development` during Docker builds
+3. Don't forget `output: "standalone"` in next.config.ts for Docker
+4. Don't use React hooks in Server Components
+5. Don't forget `"use client"` for components using browser APIs
+6. Don't use `prisma migrate` - always use `prisma db push`
+7. Don't use deprecated packages - always find modern alternatives
+8. Don't ignore npm audit warnings - fix or replace vulnerable packages
+9. **Don't hardcode form field styles** - always use `formFieldStyles` from `@/lib/form-styles`
+10. **Don't create inconsistent form field heights/padding** - all fields must use the same dimensions
+
