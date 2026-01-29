@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Car, ArrowUpRight, ArrowDownRight, Clock, TrendingUp, TrendingDown, FileText, FileCheck, User, X, Search } from "lucide-react";
 import Image from "next/image";
 import { format } from "date-fns";
-import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { BarChart, Bar, LabelList, XAxis } from "recharts";
 
 interface DashboardStats {
@@ -175,8 +175,6 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   const todayIn = hourlyStats.reduce((s, d) => s + d.in, 0);
   const todayOut = hourlyStats.reduce((s, d) => s + d.out, 0);
   const todayTotal = hourlyStats.reduce((s, d) => s + d.total, 0);
-  const todayContractsIn = hourlyStats.reduce((s, d) => s + d.contractsIn, 0);
-  const todayWalkIns = hourlyStats.reduce((s, d) => s + d.walkIns, 0);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date>(() => {
     // Initialize with the most recent event's time, or current time
     try {
@@ -348,310 +346,180 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
         subtitle={`${getRoleGreeting()}. Here's your overview.`}
       />
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-6">
+      {/* Row 1: Total Vehicles, Total In, Total Out — with colored bar charts and tooltips */}
+      <div className="grid gap-6 md:grid-cols-3">
         <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-cyan-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+          <div className="absolute inset-0 bg-violet-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 relative px-6 pt-6">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
               TOTAL VEHICLES
             </CardTitle>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/10 to-cyan-500/10">
-              <Car className="h-4 w-4 text-violet-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/20">
+              <Car className="h-3.5 w-3.5 text-violet-600" />
             </div>
           </CardHeader>
-          <CardContent className="relative space-y-2">
-            <div className="text-3xl font-bold">
+          <CardContent className="relative px-6 pb-4 pt-0 space-y-1">
+            <div className="text-2xl font-bold">
               {hourlyStats.length > 0 ? todayTotal : stats.totalVehicles}
             </div>
             {hourlyStats.length > 0 && (
               <ChartContainer
                 config={{
-                  total: {
-                    label: "Total",
-                    color: "hsl(var(--chart-1))",
-                  },
+                  total: { label: "Total vehicles", color: "hsl(262 83% 58%)" },
                 } satisfies ChartConfig}
-                className="h-[80px] w-full"
+                className="h-[140px] w-full -mx-1"
               >
-                <BarChart
-                  data={hourlyStats}
-                  margin={{ top: 5, right: 5, left: 5, bottom: 20 }}
-                >
-                  <XAxis
-                    dataKey="hour"
-                    tick={{ fontSize: 6 }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={45}
-                    interval={2}
-                  />
-                  <Bar dataKey="total" fill="hsl(var(--chart-1))" radius={4}>
-                    <LabelList
-                      position="top"
-                      offset={8}
-                      className="fill-foreground"
-                      fontSize={8}
-                      formatter={(value: number) => value > 0 ? value : ""}
-                    />
+                <BarChart data={hourlyStats} margin={{ top: 4, right: 4, left: 4, bottom: 24 }}>
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <XAxis dataKey="hour" tick={{ fontSize: 6 }} angle={-45} textAnchor="end" height={28} interval={2} />
+                  <Bar dataKey="total" fill="hsl(262 83% 58%)" radius={4}>
+                    <LabelList position="top" offset={6} className="fill-foreground" fontSize={8} formatter={(value: number) => value > 0 ? value : ""} />
                   </Bar>
                 </BarChart>
               </ChartContainer>
             )}
-            <p className="text-xs text-muted-foreground">
-              {hourlyStats.length > 0 ? "All vehicles detected (today 07:00–21:00)" : "All vehicles detected"}
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {hourlyStats.length > 0 ? "Today 07:00–21:00" : "All vehicles detected"}
             </p>
           </CardContent>
         </Card>
 
         <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+          <div className="absolute inset-0 bg-green-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 relative px-6 pt-6">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
               TOTAL IN
             </CardTitle>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-green-500/10 to-emerald-500/10">
-              <ArrowUpRight className="h-4 w-4 text-green-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/20">
+              <ArrowUpRight className="h-3.5 w-3.5 text-green-600" />
             </div>
           </CardHeader>
-          <CardContent className="relative space-y-2">
-            <div className="text-3xl font-bold">
+          <CardContent className="relative px-6 pb-4 pt-0 space-y-1">
+            <div className="text-2xl font-bold">
               {hourlyStats.length > 0 ? todayIn : stats.totalIn}
             </div>
             {hourlyStats.length > 0 && (
               <ChartContainer
                 config={{
-                  in: {
-                    label: "In",
-                    color: "hsl(var(--chart-2))",
-                  },
+                  in: { label: "Vehicles in", color: "hsl(142 76% 36%)" },
                 } satisfies ChartConfig}
-                className="h-[80px] w-full"
+                className="h-[140px] w-full -mx-1"
               >
-                <BarChart
-                  data={hourlyStats}
-                  margin={{ top: 5, right: 5, left: 5, bottom: 20 }}
-                >
-                  <XAxis
-                    dataKey="hour"
-                    tick={{ fontSize: 6 }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={45}
-                    interval={2}
-                  />
-                  <Bar dataKey="in" fill="hsl(var(--chart-2))" radius={4}>
-                    <LabelList
-                      position="top"
-                      offset={8}
-                      className="fill-foreground"
-                      fontSize={8}
-                      formatter={(value: number) => value > 0 ? value : ""}
-                    />
+                <BarChart data={hourlyStats} margin={{ top: 4, right: 4, left: 4, bottom: 24 }}>
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <XAxis dataKey="hour" tick={{ fontSize: 6 }} angle={-45} textAnchor="end" height={28} interval={2} />
+                  <Bar dataKey="in" fill="hsl(142 76% 36%)" radius={4}>
+                    <LabelList position="top" offset={6} className="fill-foreground" fontSize={8} formatter={(value: number) => value > 0 ? value : ""} />
                   </Bar>
                 </BarChart>
               </ChartContainer>
             )}
-            <p className="text-xs text-muted-foreground">
-              {hourlyStats.length > 0 ? "Vehicles entering (today 07:00–21:00)" : "Vehicles entering"}
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {hourlyStats.length > 0 ? "Today 07:00–21:00" : "Vehicles entering"}
             </p>
           </CardContent>
         </Card>
 
         <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-orange-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+          <div className="absolute inset-0 bg-red-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 relative px-6 pt-6">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
               TOTAL OUT
             </CardTitle>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-red-500/10 to-orange-500/10">
-              <ArrowDownRight className="h-4 w-4 text-red-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/20">
+              <ArrowDownRight className="h-3.5 w-3.5 text-red-600" />
             </div>
           </CardHeader>
-          <CardContent className="relative space-y-2">
-            <div className="text-3xl font-bold">
+          <CardContent className="relative px-6 pb-4 pt-0 space-y-1">
+            <div className="text-2xl font-bold">
               {hourlyStats.length > 0 ? todayOut : stats.totalOut}
             </div>
             {hourlyStats.length > 0 && (
               <ChartContainer
                 config={{
-                  out: {
-                    label: "Out",
-                    color: "hsl(var(--chart-3))",
-                  },
+                  out: { label: "Vehicles out", color: "hsl(0 84% 60%)" },
                 } satisfies ChartConfig}
-                className="h-[80px] w-full"
+                className="h-[140px] w-full -mx-1"
               >
-                <BarChart
-                  data={hourlyStats}
-                  margin={{ top: 5, right: 5, left: 5, bottom: 20 }}
-                >
-                  <XAxis
-                    dataKey="hour"
-                    tick={{ fontSize: 6 }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={45}
-                    interval={2}
-                  />
-                  <Bar dataKey="out" fill="hsl(var(--chart-3))" radius={4}>
-                    <LabelList
-                      position="top"
-                      offset={8}
-                      className="fill-foreground"
-                      fontSize={8}
-                      formatter={(value: number) => value > 0 ? value : ""}
-                    />
+                <BarChart data={hourlyStats} margin={{ top: 4, right: 4, left: 4, bottom: 24 }}>
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <XAxis dataKey="hour" tick={{ fontSize: 6 }} angle={-45} textAnchor="end" height={28} interval={2} />
+                  <Bar dataKey="out" fill="hsl(0 84% 60%)" radius={4}>
+                    <LabelList position="top" offset={6} className="fill-foreground" fontSize={8} formatter={(value: number) => value > 0 ? value : ""} />
                   </Bar>
                 </BarChart>
               </ChartContainer>
             )}
-            <p className="text-xs text-muted-foreground">
-              {hourlyStats.length > 0 ? "Vehicles exiting (today 07:00–21:00)" : "Vehicles exiting"}
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {hourlyStats.length > 0 ? "Today 07:00–21:00" : "Vehicles exiting"}
             </p>
           </CardContent>
         </Card>
+      </div>
 
+      {/* Row 2: Cars Inside Now, Contracts In, Contracts (with plates), Walk Ins — no graphs */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mt-6">
         <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <div className="absolute inset-0 bg-amber-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
               CARS INSIDE NOW
             </CardTitle>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20">
               <Car className="h-4 w-4 text-amber-600" />
             </div>
           </CardHeader>
           <CardContent className="relative space-y-2">
             <div className="text-3xl font-bold">{stats.carsInsideNow ?? 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Currently in parking
-            </p>
+            <p className="text-xs text-muted-foreground">Currently in parking</p>
           </CardContent>
         </Card>
 
         <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <div className="absolute inset-0 bg-blue-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
               CONTRACTS IN
             </CardTitle>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20">
               <FileText className="h-4 w-4 text-blue-600" />
             </div>
           </CardHeader>
           <CardContent className="relative space-y-2">
-            <div className="text-3xl font-bold">
-              {hourlyStats.length > 0 ? todayContractsIn : stats.contractsIn}
-            </div>
-            {hourlyStats.length > 0 && (
-              <ChartContainer
-                config={{
-                  contractsIn: {
-                    label: "Contracts In",
-                    color: "hsl(var(--chart-4))",
-                  },
-                } satisfies ChartConfig}
-                className="h-[80px] w-full"
-              >
-                <BarChart
-                  data={hourlyStats}
-                  margin={{ top: 5, right: 5, left: 5, bottom: 20 }}
-                >
-                  <XAxis
-                    dataKey="hour"
-                    tick={{ fontSize: 6 }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={45}
-                    interval={2}
-                  />
-                  <Bar dataKey="contractsIn" fill="hsl(var(--chart-4))" radius={4}>
-                    <LabelList
-                      position="top"
-                      offset={8}
-                      className="fill-foreground"
-                      fontSize={8}
-                      formatter={(value: number) => value > 0 ? value : ""}
-                    />
-                  </Bar>
-                </BarChart>
-              </ChartContainer>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Contract vehicles in
-            </p>
+            <div className="text-3xl font-bold">{stats.contractsIn}</div>
+            <p className="text-xs text-muted-foreground">Contract vehicles in</p>
           </CardContent>
         </Card>
 
         <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <div className="absolute inset-0 bg-emerald-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
               CONTRACTS (WITH PLATES)
             </CardTitle>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20">
               <FileCheck className="h-4 w-4 text-emerald-600" />
             </div>
           </CardHeader>
           <CardContent className="relative space-y-2">
             <div className="text-3xl font-bold">{stats.contractsWithPlates ?? 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Contract-based (have plate lines)
-            </p>
+            <p className="text-xs text-muted-foreground">Have plate lines</p>
           </CardContent>
         </Card>
 
         <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <div className="absolute inset-0 bg-purple-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
               WALK INS
             </CardTitle>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-500/10">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/20">
               <User className="h-4 w-4 text-purple-600" />
             </div>
           </CardHeader>
           <CardContent className="relative space-y-2">
-            <div className="text-3xl font-bold">
-              {hourlyStats.length > 0 ? todayWalkIns : stats.walkIns}
-            </div>
-            {hourlyStats.length > 0 && (
-              <ChartContainer
-                config={{
-                  walkIns: {
-                    label: "Walk Ins",
-                    color: "hsl(var(--chart-5))",
-                  },
-                } satisfies ChartConfig}
-                className="h-[80px] w-full"
-              >
-                <BarChart
-                  data={hourlyStats}
-                  margin={{ top: 5, right: 5, left: 5, bottom: 20 }}
-                >
-                  <XAxis
-                    dataKey="hour"
-                    tick={{ fontSize: 6 }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={45}
-                    interval={2}
-                  />
-                  <Bar dataKey="walkIns" fill="hsl(var(--chart-5))" radius={4}>
-                    <LabelList
-                      position="top"
-                      offset={8}
-                      className="fill-foreground"
-                      fontSize={8}
-                      formatter={(value: number) => value > 0 ? value : ""}
-                    />
-                  </Bar>
-                </BarChart>
-              </ChartContainer>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Visitor vehicles in
-            </p>
+            <div className="text-3xl font-bold">{stats.walkIns}</div>
+            <p className="text-xs text-muted-foreground">Visitor vehicles in</p>
           </CardContent>
         </Card>
       </div>
