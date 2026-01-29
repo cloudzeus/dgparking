@@ -248,13 +248,13 @@ export async function POST(request: Request) {
         // INSDATE and UPDDATE removed - they come from INST table
       ];
       
-      const fieldsArray = fieldsString.split(",").map(f => f.trim().toUpperCase());
-      const filteredFields = fieldsArray.filter(field => 
+      const fieldsArray = fieldsString.split(",").map((f: string) => f.trim().toUpperCase());
+      const filteredFields = fieldsArray.filter((field: string) =>
         validInstLinesFields.includes(field.toUpperCase())
       );
-      
+
       // Remove INSDATE and UPDDATE if they were in the original fields list
-      const filteredFieldsWithoutDates = filteredFields.filter(f => 
+      const filteredFieldsWithoutDates = filteredFields.filter((f: string) =>
         f !== "INSDATE" && f !== "UPDDATE"
       );
       
