@@ -39,13 +39,20 @@ export async function initializeCronJobs() {
         include: { connection: true },
       });
     } catch (dbError) {
-      console.error("[CRON] Database connection error - cannot load integrations:", dbError);
-      if (dbError instanceof Error) {
-        console.error("[CRON] Database error details:", dbError.message);
+      const msg = dbError instanceof Error ? dbError.message : String(dbError);
+      const isConnectionError =
+        msg.includes("Can't reach database") ||
+        msg.includes("ECONNREFUSED") ||
+        msg.includes("ETIMEDOUT") ||
+        msg.includes("ENOTFOUND") ||
+        (dbError as Error & { name?: string })?.name === "PrismaClientInitializationError";
+      if (isConnectionError) {
+        console.warn(
+          "[CRON] Database unreachable - skipping cron init. Set NODE_ENV=production and ensure DATABASE_URL is reachable from this host. Will retry on next restart."
+        );
+      } else {
+        console.error("[CRON] Database error loading integrations:", msg);
       }
-      // Don't mark as initialized if we can't connect to the database
-      // This allows retry on next server restart or when database comes back online
-      console.warn("[CRON] Skipping cron job initialization - database unavailable. Will retry on next server restart.");
       return;
     }
 

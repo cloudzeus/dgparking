@@ -140,6 +140,19 @@ NEXTAUTH_URL="http://localhost:3000"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
 
+### Deployment (Coolify / Docker)
+
+When deploying to production:
+
+1. **Set `NODE_ENV=production`** at runtime. Next.js expects this and will warn if you use a non-standard value. In Coolify, add it to your app's environment variables.
+
+2. **Ensure the database is reachable** from the app container. If you see `Can't reach database server at ...`:
+   - Verify `DATABASE_URL` in the deployment environment (host, port, user, password).
+   - Ensure the DB host allows connections from the app server (firewall, security groups).
+   - If the DB starts after the app, cron init will skip and retry on the next server restart.
+
+3. See **DB_CONNECTION_TROUBLESHOOTING.md** for connection issues (SSL, firewall, format).
+
 ## Project Structure
 
 ```

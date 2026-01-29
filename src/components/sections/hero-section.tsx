@@ -58,7 +58,7 @@ export function HeroSection() {
             className="gap-1.5 px-4 py-2 text-sm font-medium shadow-lg"
           >
             <Sparkles className="h-4 w-4" />
-            NEXT.JS 16 BOILERPLATE
+            INTELLIGENT PARKING MANAGEMENT
           </Badge>
         </div>
 
@@ -66,9 +66,9 @@ export function HeroSection() {
           ref={titleRef}
           className="mb-6 text-5xl font-bold tracking-tight text-foreground opacity-0 sm:text-6xl md:text-7xl"
         >
-          BUILD SOMETHING{" "}
+          WELCOME TO{" "}
           <span className="bg-gradient-to-r from-violet-600 via-blue-600 to-cyan-500 bg-clip-text text-transparent">
-            AMAZING
+            SMART-PARK
           </span>
         </h1>
 
@@ -76,28 +76,26 @@ export function HeroSection() {
           ref={subtitleRef}
           className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground opacity-0 sm:text-xl"
         >
-          A production-ready starter template with Next.js 16, Tailwind CSS 4.1,
-          Prisma ORM, shadcn/ui components, and GSAP animations. Everything you
-          need to build modern web applications.
+          License plate recognition, access control, contracts, and real-time
+          dashboards. One platform to manage your parking operations efficiently.
         </p>
 
         <div
           ref={buttonsRef}
           className="flex flex-col items-center justify-center gap-4 opacity-0 sm:flex-row"
         >
-          <Button size="lg" className="gap-2 px-8 shadow-lg">
-            GET STARTED
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+          <Link href="/register">
+            <Button size="lg" className="gap-2 px-8 shadow-lg">
+              GET STARTED
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
           <Link href="/login">
             <Button size="lg" variant="outline" className="gap-2 px-8">
               <LogIn className="h-4 w-4" />
               LOGIN
             </Button>
           </Link>
-          <Button size="lg" variant="ghost" className="px-8">
-            VIEW DOCUMENTATION
-          </Button>
         </div>
       </div>
 

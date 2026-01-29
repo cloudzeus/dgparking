@@ -5,52 +5,52 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Database,
-  Palette,
-  Zap,
+  Camera,
+  Car,
+  BarChart3,
+  FileText,
   Shield,
-  Layers,
-  Sparkles,
+  Plug,
 } from "lucide-react";
 
 gsap.registerPlugin(ScrollTrigger);
 
 const features = [
   {
-    icon: Zap,
-    title: "NEXT.JS 16",
+    icon: Camera,
+    title: "LPR & CAMERAS",
     description:
-      "Built on the latest Next.js with App Router, Server Components, and Turbopack for blazing fast development.",
+      "License plate recognition with IN/OUT events, camera management, and real-time vehicle detection at entry and exit.",
   },
   {
-    icon: Palette,
-    title: "TAILWIND CSS 4.1",
+    icon: Car,
+    title: "CONTRACTS & PLATES",
     description:
-      "Modern styling with Tailwind CSS v4.1, featuring CSS-first configuration and improved performance.",
+      "Manage parking contracts, linked license plates, and vehicle allocations. Sync with your ERP when needed.",
   },
   {
-    icon: Database,
-    title: "PRISMA ORM",
+    icon: BarChart3,
+    title: "LIVE DASHBOARD",
     description:
-      "Type-safe database access with Prisma ORM, configured for MySQL with intuitive schema management.",
+      "Real-time stats: vehicles in/out, cars inside, contract vs visitor. Hourly charts and recent recognition activity.",
   },
   {
-    icon: Layers,
-    title: "SHADCN/UI",
+    icon: FileText,
+    title: "REPORTS",
     description:
-      "Beautiful, accessible UI components built with Radix UI and styled with Tailwind CSS.",
+      "Out-without-in and other parking reports. Export and analyze access and occupancy data.",
   },
   {
-    icon: Sparkles,
-    title: "GSAP ANIMATIONS",
+    icon: Plug,
+    title: "INTEGRATIONS",
     description:
-      "Professional-grade animations with GSAP for smooth, performant transitions and interactions.",
+      "Connect to SoftOne ERP and external systems. Scheduled syncs and configurable field mapping.",
   },
   {
     icon: Shield,
-    title: "TYPESCRIPT",
+    title: "ACCESS & ROLES",
     description:
-      "Full TypeScript support throughout the codebase for type safety and better developer experience.",
+      "Role-based access (Admin, Manager, Employee, Client). Secure auth and audit-friendly logging.",
   },
 ];
 
@@ -100,11 +100,11 @@ export function FeaturesSection() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-16 text-center">
           <h2 className="mb-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            EVERYTHING YOU NEED
+            WHY SMART-PARK
           </h2>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-            A carefully curated stack of modern technologies to accelerate your
-            development workflow.
+            Everything you need to run parking operations: LPR, contracts,
+            dashboards, and integrations in one platform.
           </p>
         </div>
 

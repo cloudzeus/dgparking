@@ -6,8 +6,8 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Kolleris Parking App",
-  description: "Next.js 16 boilerplate with Tailwind CSS 4.1, Prisma, shadcn/ui, and GSAP",
+  title: "SMART-PARK — Intelligent Parking Management",
+  description: "SMART-PARK: license plate recognition, access control, contracts, and real-time dashboards for parking operations.",
 };
 
 export default function RootLayout({

@@ -32,7 +32,7 @@ export function PublicHeader() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <Car className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="font-bold tracking-tight">KOLLERIS</span>
+          <span className="font-bold tracking-tight">SMART-PARK</span>
         </Link>
 
         {/* Navigation */}

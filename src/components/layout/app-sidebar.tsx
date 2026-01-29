@@ -54,6 +54,7 @@ import {
   Camera,
   BarChart3,
   ArrowDownRight,
+  FileCheck,
 } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -182,6 +183,12 @@ const menuGroups: MenuGroup[] = [
         title: "My Account",
         href: "/account",
         icon: UserCog,
+        roles: ["ADMIN", "MANAGER", "EMPLOYEE", "CLIENT"],
+      },
+      {
+        title: "License",
+        href: "/account/license",
+        icon: FileCheck,
         roles: ["ADMIN", "MANAGER", "EMPLOYEE", "CLIENT"],
       },
       {

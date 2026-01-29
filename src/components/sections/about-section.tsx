@@ -11,23 +11,23 @@ gsap.registerPlugin(ScrollTrigger);
 const values = [
   {
     icon: Shield,
-    title: "Security First",
-    description: "Built with enterprise-grade security practices and modern authentication.",
+    title: "Secure Access",
+    description: "Role-based access control and audit trails so only authorized staff manage parking and contracts.",
   },
   {
     icon: Users,
-    title: "User-Centric",
-    description: "Designed with users in mind, providing intuitive and accessible experiences.",
+    title: "Built for Operators",
+    description: "Designed for parking operators and staff: clear dashboards, contracts, and LPR logs.",
   },
   {
     icon: Zap,
-    title: "Performance",
-    description: "Optimized for speed with modern technologies and best practices.",
+    title: "Real-Time",
+    description: "Live vehicle counts, IN/OUT events, and recognition data so you see what’s happening now.",
   },
   {
     icon: Heart,
-    title: "Reliability",
-    description: "Built to last with comprehensive testing and error handling.",
+    title: "Reliable & Scalable",
+    description: "Stable platform for single sites or multiple locations, with optional ERP integration.",
   },
 ];
 
@@ -77,11 +77,11 @@ export function AboutSection() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-16 text-center">
           <h2 className="mb-4 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            WHY CHOOSE US
+            BUILT FOR PARKING
           </h2>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-            We&apos;re committed to building exceptional software that meets the highest
-            standards of quality, security, and user experience.
+            SMART-PARK is built for parking operators who need control, visibility,
+            and reliability every day.
           </p>
         </div>
 
@@ -111,9 +111,9 @@ export function AboutSection() {
 
         <div className="mt-16 text-center">
           <p className="text-muted-foreground">
-            Ready to get started?{" "}
+            Ready to streamline your parking?{" "}
             <span className="text-foreground font-medium">
-              Join thousands of users who trust our platform.
+              Sign up and start managing access with SMART-PARK.
             </span>
           </p>
         </div>

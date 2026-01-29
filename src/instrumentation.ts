@@ -10,9 +10,17 @@ export async function register() {
         await initializeCronJobs();
         console.log("[INSTRUMENTATION] Cron jobs initialization completed");
       } catch (error) {
-        console.error("[INSTRUMENTATION] Failed to initialize cron jobs:", error);
-        if (error instanceof Error) {
-          console.error("[INSTRUMENTATION] Error details:", error.message);
+        const msg = error instanceof Error ? error.message : String(error);
+        const isDbUnreachable =
+          msg.includes("Can't reach database") ||
+          msg.includes("ECONNREFUSED") ||
+          msg.includes("PrismaClientInitializationError");
+        if (isDbUnreachable) {
+          console.warn(
+            "[INSTRUMENTATION] Cron init skipped: database unreachable. Ensure DATABASE_URL is correct and the DB is reachable from this host. Set NODE_ENV=production."
+          );
+        } else {
+          console.error("[INSTRUMENTATION] Cron init failed:", msg);
         }
         // Don't throw - allow server to start even if cron initialization fails
       }
