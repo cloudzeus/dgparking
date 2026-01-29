@@ -306,6 +306,8 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   }, [lastUpdateTime]);
 
   useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
     const ctx = gsap.context(() => {
       gsap.fromTo(
         ".stat-card",
@@ -319,8 +321,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           ease: "power3.out",
         }
       );
-    }, containerRef);
-
+    }, el);
     return () => ctx.revert();
   }, []);
 
@@ -346,7 +347,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
       />
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-6">
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 opacity-0">
+        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
           <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-cyan-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
@@ -400,7 +401,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           </CardContent>
         </Card>
 
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 opacity-0">
+        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
           <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
@@ -454,7 +455,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           </CardContent>
         </Card>
 
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 opacity-0">
+        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
           <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-orange-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
@@ -508,7 +509,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           </CardContent>
         </Card>
 
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 opacity-0">
+        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
@@ -526,7 +527,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           </CardContent>
         </Card>
 
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 opacity-0">
+        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
@@ -580,7 +581,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           </CardContent>
         </Card>
 
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 opacity-0">
+        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
@@ -598,7 +599,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           </CardContent>
         </Card>
 
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 opacity-0">
+        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
