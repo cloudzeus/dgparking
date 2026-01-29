@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
+/** Prevents static prerender of internal routes (_not-found, _global-error) which fail with useContext during build. */
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Kolleris Parking App",
   description: "Next.js 16 boilerplate with Tailwind CSS 4.1, Prisma, shadcn/ui, and GSAP",
