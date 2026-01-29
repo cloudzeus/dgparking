@@ -91,6 +91,12 @@ export async function POST(request: Request) {
       );
     }
 
+    if (clientIdToUse == null || appIdToUse == null) {
+      return NextResponse.json(
+        { success: false, error: "Missing clientID or appId after authentication" },
+        { status: 400 }
+      );
+    }
     // Get tables for the object with appId and version
     const result = await getSoftOneObjectTables(
       objectName,

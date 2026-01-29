@@ -15,7 +15,7 @@
 import cron from "node-cron";
 import { prisma } from "@/lib/prisma";
 
-let cronJobs: Map<string, cron.ScheduledTask> = new Map();
+let cronJobs: Map<string, ReturnType<typeof cron.schedule>> = new Map();
 let isInitialized = false;
 
 /**
@@ -190,7 +190,6 @@ export async function scheduleIntegration(integrationId: string) {
         }
       },
       {
-        scheduled: true,
         timezone: "Europe/Athens", // Adjust to your timezone
       }
     );

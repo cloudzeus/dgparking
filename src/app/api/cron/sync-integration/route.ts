@@ -264,11 +264,11 @@ export async function POST(request: Request) {
       
       fieldsWithDates = filteredFieldsWithoutDates.join(",");
       syncLog(`[SYNC] Filtered INSTLINES fields for GetTable: ${fieldsWithDates}`);
-      syncLog(`[SYNC] Removed invalid fields: ${fieldsArray.filter(f => !validInstLinesFields.includes(f.toUpperCase())).join(", ") || "none"}`);
+      syncLog(`[SYNC] Removed invalid fields: ${fieldsArray.filter((f: string) => !validInstLinesFields.includes(f.toUpperCase())).join(", ") || "none"}`);
     }
     
     // Check if INSDATE and UPDDATE are already in the fields list
-    const fieldsArray = fieldsWithDates.split(",").map(f => f.trim().toUpperCase());
+    const fieldsArray = fieldsWithDates.split(",").map((f: string) => f.trim().toUpperCase());
     const hasInsDate = fieldsArray.includes("INSDATE");
     const hasUpdDate = fieldsArray.includes("UPDDATE");
     
@@ -477,7 +477,7 @@ export async function POST(request: Request) {
       }
       const sqlDataResult = await getSoftOneSqlData(
         sqlName,
-        sqlDataParamDate,
+        sqlDataParamDate ?? "2022-01-01 00:00:00",
         authResult.clientID,
         integration.connection.appId
       );
@@ -826,7 +826,7 @@ export async function POST(request: Request) {
                                        modelField;
           
           let mapAddCount = 0;
-          allExistingRecords.forEach(record => {
+          allExistingRecords.forEach((record: Record<string, unknown>) => {
             const key = record[primaryKeyFieldForMap] ?? record[modelField];
             
             if (modelName.toUpperCase() === "INST" || modelName.toUpperCase() === "INSTLINES") {
@@ -899,7 +899,7 @@ export async function POST(request: Request) {
                                          modelName.toUpperCase() === "INST" ? "INST" :
                                          modelField;
             
-            existingRecords.forEach(record => {
+            existingRecords.forEach((record: Record<string, unknown>) => {
               // Use primary key field for INST/INSTLINES
               const key = record[primaryKeyFieldForMap] ?? record[modelField];
               
@@ -945,7 +945,7 @@ export async function POST(request: Request) {
     let synced = 0;
 
     // Prepare batch operations - use upsert for all records
-    const recordsToUpsert: Array<{ where: any; create: any; update: any }> = [];
+    const recordsToUpsert: Array<{ where: any; create: any; update: any; isNew: boolean }> = [];
 
     // OPTIMIZATION: Process records in chunks with progress logging for large datasets
     const PROCESS_CHUNK_SIZE = 500;
@@ -1200,9 +1200,9 @@ export async function POST(request: Request) {
 
         // Map fields from ERP to model
         let mappedFieldsCount = 0;
-        for (const [erpFieldName, modelFieldName] of Object.entries(fieldMappings)) {
-          if (modelFieldName && modelFieldName !== "none") {
-            const erpValue = erpRecord[erpFieldName] ?? erpRecord[erpFieldName.toLowerCase()] ?? erpRecord[erpFieldName.toUpperCase()];
+        for (const [erpFieldName, modelFieldName] of Object.entries(fieldMappings as Record<string, string>)) {
+          if (typeof modelFieldName === "string" && modelFieldName !== "none") {
+            const erpValue = erpRecord[erpFieldName as string] ?? erpRecord[(erpFieldName as string).toLowerCase()] ?? erpRecord[(erpFieldName as string).toUpperCase()];
             
             if (erpValue !== undefined && erpValue !== null) {
               recordData[modelFieldName] = convertValueToType(erpValue, modelFieldName);

@@ -144,13 +144,14 @@ export async function authenticateSoftOneAPI(
     version,
   });
 
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
     // Make POST request matching axios example pattern
     // Using fetch instead of axios, but same structure
     // Add timeout to handle slow connections (30 seconds)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-    
+    timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
     const response = await fetch(SOFTONE_API_URL, {
       method: "POST",
       headers: {
@@ -160,7 +161,7 @@ export async function authenticateSoftOneAPI(
       signal: controller.signal,
     });
     
-    clearTimeout(timeoutId);
+    if (timeoutId != null) clearTimeout(timeoutId);
 
     // Convert ANSI 1253 to UTF-8 using iconv-lite and ArrayBuffer
     const jsonData = await convertAnsi1253ToUtf8(response);
@@ -188,7 +189,7 @@ export async function authenticateSoftOneAPI(
       data,
     };
   } catch (error) {
-    clearTimeout(timeoutId); // Ensure timeout is cleared on error
+    if (timeoutId != null) clearTimeout(timeoutId); // Ensure timeout is cleared on error
     console.error("SoftOne API - Authentication Error:", error);
     
     // Provide more specific error message for timeout errors

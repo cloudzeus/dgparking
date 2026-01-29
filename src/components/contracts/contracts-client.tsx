@@ -685,9 +685,25 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                             : "—"}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {installation.NUM01 !== null && installation.NUM01 !== undefined
-                            ? String(installation.NUM01)
-                            : "—"}
+                          {(() => {
+                            const platesCount = installation.lines?.length ?? 0;
+                            const num01 = installation.NUM01 != null ? Math.floor(Number(installation.NUM01)) : null;
+                            const exceeded = num01 != null && num01 >= 0 && platesCount > num01;
+                            return (
+                              <span className={exceeded ? "text-destructive font-medium" : ""}>
+                                {num01 != null
+                                  ? `${platesCount} / ${num01}`
+                                  : platesCount > 0
+                                    ? `${platesCount} (no limit)`
+                                    : "—"}
+                                {exceeded && (
+                                  <Badge variant="destructive" className="ml-1.5 text-[0.5rem] px-1 py-0">
+                                    Exceeded
+                                  </Badge>
+                                )}
+                              </span>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="text-sm">
                           {isActiveToday ? (

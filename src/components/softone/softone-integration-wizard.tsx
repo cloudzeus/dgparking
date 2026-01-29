@@ -116,6 +116,7 @@ export function SoftOneIntegrationWizard({
     fullname: string;
     caption: string;
     type: string;
+    size?: number;
     visible: boolean;
     required: boolean;
     readOnly: boolean;
@@ -232,7 +233,6 @@ export function SoftOneIntegrationWizard({
           name: initialIntegration.tableName,
           caption: initialIntegration.tableCaption || initialIntegration.tableName,
           dbname: initialIntegration.tableDbname,
-          type: "table", // Default type
         });
       }
       
@@ -270,9 +270,9 @@ export function SoftOneIntegrationWizard({
       
       // Set selected fields (deduplicate in case of duplicates)
       if (config.selectedFields) {
-        // Remove duplicates, empty fields, and MYDUMMY
-        const cleanedFields = [...new Set(config.selectedFields)]
-          .filter((field) => field && field.trim() !== "" && field.toUpperCase() !== "MYDUMMY");
+        const raw = config.selectedFields as string[];
+        const cleanedFields = [...new Set(raw)]
+          .filter((field: string) => field && field.trim() !== "" && field.toUpperCase() !== "MYDUMMY") as string[];
         setSelectedFields(cleanedFields);
       }
       
@@ -1371,7 +1371,7 @@ export function SoftOneIntegrationWizard({
                                 </div>
                               )}
                               <div className="text-[8px] text-muted-foreground mt-1">
-                                Type: {field.type} {field.size && `(${field.size})`}
+                                Type: {field.type} {field.size != null && `(${field.size})`}
                               </div>
                             </div>
                           </div>

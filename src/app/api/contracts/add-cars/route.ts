@@ -56,6 +56,24 @@ export async function POST(request: Request) {
       );
     }
 
+    // Compare NUM01 (max allowed cars per contract) with current INSTLINES count
+    const num01 = inst.NUM01 != null ? Math.floor(Number(inst.NUM01)) : null;
+    const currentCarsCount = await prisma.iNSTLINES.count({
+      where: { INST: instId },
+    });
+    if (num01 != null && num01 >= 0 && currentCarsCount + mtrlList.length > num01) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Contract allows max ${num01} car(s) (NUM01). It already has ${currentCarsCount} plate(s). Adding ${mtrlList.length} would exceed the limit.`,
+          num01,
+          currentCarsCount,
+          requested: mtrlList.length,
+        },
+        { status: 400 }
+      );
+    }
+
     // Get the next INSTLINES ID (max + 1)
     const maxInstLines = await prisma.iNSTLINES.findFirst({
       orderBy: { INSTLINES: "desc" },

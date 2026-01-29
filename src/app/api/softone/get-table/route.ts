@@ -99,6 +99,12 @@ export async function POST(request: Request) {
     }
 
     // Get table data with selected fields and filter
+    if (clientIdToUse == null || appIdToUse == null) {
+      return NextResponse.json(
+        { success: false, error: "Missing clientID or appId after authentication" },
+        { status: 400 }
+      );
+    }
     const result = await getSoftOneTableData(
       tableName,
       fields,

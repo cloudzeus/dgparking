@@ -3,6 +3,7 @@
  * All cron jobs should save where they stopped (offset, state) and load it on start.
  */
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 const NORMALIZE = (s: string | null | undefined) => s ?? "";
@@ -78,12 +79,12 @@ export async function saveCronProgress(
       modelName: model,
       lastOffset: data.lastOffset,
       totalSeen: data.totalSeen ?? undefined,
-      payload: data.payload ?? undefined,
+      payload: (data.payload ?? undefined) as Prisma.InputJsonValue | undefined,
     },
     update: {
       lastOffset: data.lastOffset,
       totalSeen: data.totalSeen ?? undefined,
-      payload: data.payload ?? undefined,
+      payload: (data.payload ?? undefined) as Prisma.InputJsonValue | undefined,
     },
   });
 }

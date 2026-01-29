@@ -61,19 +61,19 @@ export async function GET(
     }) : [];
 
     // Find Greece (ΕΛΛΑΔΑ) country code for default
-    const greeceCountry = countries.find((c) => 
-      c.NAME && (c.NAME.toLowerCase().includes("ελλάδα") || 
+    const greeceCountry = countries.find((c: { NAME: string | null; COUNTRY: number }) =>
+      c.NAME && (c.NAME.toLowerCase().includes("ελλάδα") ||
                  c.NAME.toLowerCase().includes("greece") ||
                  c.NAME.toLowerCase().includes("ellada"))
     );
 
     return NextResponse.json({
       success: true,
-      countries: countries.map((c) => ({
+      countries: countries.map((c: { NAME: string | null; COUNTRY: number }) => ({
         value: String(c.COUNTRY),
         label: c.NAME || String(c.COUNTRY),
       })),
-      irsData: irsData.map((i) => ({
+      irsData: irsData.map((i: { IRSDATA: string; NAME: string | null }) => ({
         value: i.IRSDATA,
         label: i.NAME || i.IRSDATA,
       })),

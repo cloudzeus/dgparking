@@ -224,8 +224,9 @@ export function IntegrationRecordsClient({
   };
 
   // Build actions array - include delete only if TRDR/MTRL doesn't exist (for CUSTORMER/ITEMS)
-  const getActionsForRecord = (record: any) => {
-    const actions = [
+  type ActionItem = { label: string; onClick: (record: any) => void; variant?: "default" | "destructive"; icon?: React.ReactNode };
+  const getActionsForRecord = (record: any): ActionItem[] => {
+    const actions: ActionItem[] = [
       {
         label: "Edit Record",
         onClick: handleEdit,
