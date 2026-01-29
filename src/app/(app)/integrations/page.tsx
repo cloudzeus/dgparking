@@ -55,7 +55,10 @@ export default async function IntegrationsPage() {
       />
 
       <IntegrationsClient
-        initialIntegrations={integrations}
+        initialIntegrations={integrations.map((int) => ({
+          ...int,
+          configJson: (int.configJson ?? {}) as Record<string, any>,
+        }))}
         connections={connections}
         userId={session.user.id}
       />

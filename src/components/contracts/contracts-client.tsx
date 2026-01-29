@@ -120,6 +120,7 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
   const [syncingPlates, setSyncingPlates] = useState(false);
+  const [syncingInstId, setSyncingInstId] = useState<number | null>(null);
   const [syncPlatesModalOpen, setSyncPlatesModalOpen] = useState(false);
   const [syncPlatesProgress, setSyncPlatesProgress] = useState(0);
   const [syncPlatesMessage, setSyncPlatesMessage] = useState("");
@@ -659,7 +660,14 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                           className="text-sm font-medium cursor-pointer"
                           onClick={() => setExpandedInstId(isExpanded ? null : installation.INST)}
                         >
-                          {installation.NAME || installation.CODE || `INST-${installation.INST}`}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span>{installation.NAME || installation.CODE || `INST-${installation.INST}`}</span>
+                            {installation.lines && installation.lines.length > 0 && (
+                              <Badge variant="secondary" className="text-[0.5rem] px-1.5 py-0.5 font-medium">
+                                With plates ({installation.lines.length})
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-sm">
                           {installation.WDATEFROM
@@ -697,7 +705,7 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                                 <MoreVertical className="h-3 w-3" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuContent align="end" className="w-48">
                               <DropdownMenuItem onClick={() => handleEditContractClick(installation)}>
                                 <Edit className="h-3 w-3 mr-2" />
                                 Edit Contract
@@ -710,6 +718,44 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                                 <List className="h-3 w-3 mr-2" />
                                 View INSTLINES (modal)
                               </DropdownMenuItem>
+                              {instLinesIntegrationId && (
+                                <DropdownMenuItem
+                                  disabled={syncingInstId === installation.INST}
+                                  onClick={async () => {
+                                    setSyncingInstId(installation.INST);
+                                    try {
+                                      const res = await fetch("/api/cron/sync-integration", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                          integrationId: instLinesIntegrationId,
+                                          instIds: [installation.INST],
+                                        }),
+                                      });
+                                      const data = await res.json();
+                                      if (data.success) {
+                                        const created = data.stats?.erpToApp?.created ?? data.stats?.created ?? 0;
+                                        const updated = data.stats?.erpToApp?.updated ?? data.stats?.updated ?? 0;
+                                        toast.success(`Plates synced: ${created} created, ${updated} updated`);
+                                        router.refresh();
+                                      } else {
+                                        toast.error(data.error || "Sync failed");
+                                      }
+                                    } catch (e) {
+                                      toast.error("Failed to sync plates");
+                                    } finally {
+                                      setSyncingInstId(null);
+                                    }
+                                  }}
+                                >
+                                  {syncingInstId === installation.INST ? (
+                                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="h-3 w-3 mr-2" />
+                                  )}
+                                  Sync plates (this contract)
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

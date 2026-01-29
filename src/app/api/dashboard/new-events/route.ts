@@ -171,10 +171,16 @@ export async function GET(request: Request) {
       }));
     }
 
+    const events = eventsWithDurations ?? validEvents.map((event) => ({
+      ...event,
+      images: imagesByEventId.get(event.id) || [],
+      durationMinutes: null,
+    }));
+
     return NextResponse.json({
       success: true,
-      events: eventsWithDurations,
-      count: eventsWithDurations.length,
+      events,
+      count: events.length,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

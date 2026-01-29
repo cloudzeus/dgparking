@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { ContractsClient } from "@/components/contracts/contracts-client";
 import type { Role } from "@prisma/client";
 
+/** Shape of an INSTLINE used in filter/map callbacks (avoids implicit any) */
+type InstLineRow = { MTRL?: string | null; INSTLINES?: unknown; INST?: unknown; LINENUM?: unknown; MTRL_NAME?: string | null };
+
 // Disable caching for this page to ensure fresh data
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -119,10 +122,10 @@ export default async function ContractsPage() {
           CODE: inst.CODE,
           linesCount: inst.lines?.length || 0,
           hasLines: !!inst.lines,
-          linesWithMtrl: inst.lines?.filter(l => l.MTRL && String(l.MTRL).trim() !== '').length || 0,
+          linesWithMtrl: inst.lines?.filter((l: InstLineRow) => l.MTRL && String(l.MTRL).trim() !== '').length || 0,
         });
         if (inst.lines && inst.lines.length > 0) {
-          console.log(`[CONTRACTS] First 3 lines for INST ${inst.INST}:`, inst.lines.slice(0, 3).map(l => ({
+          console.log(`[CONTRACTS] First 3 lines for INST ${inst.INST}:`, inst.lines.slice(0, 3).map((l: InstLineRow) => ({
             INSTLINES: l.INSTLINES,
             INST: l.INST,
             MTRL: l.MTRL,
@@ -192,12 +195,12 @@ export default async function ContractsPage() {
           INST: inst.INST,
           CODE: inst.CODE,
           linesCount: inst.lines?.length || 0,
-          linesWithMtrl: inst.lines?.filter(l => l.MTRL && String(l.MTRL).trim() !== '').length || 0,
+          linesWithMtrl: inst.lines?.filter((l: InstLineRow) => l.MTRL && String(l.MTRL).trim() !== '').length || 0,
           firstLineMtrl: inst.lines?.[0]?.MTRL,
           firstLineMtrlName: inst.lines?.[0]?.MTRL_NAME,
         });
         if (inst.lines && inst.lines.length > 0) {
-          console.log(`[CONTRACTS] First 3 lines for INST ${inst.INST} (fallback):`, inst.lines.slice(0, 3).map(l => ({
+          console.log(`[CONTRACTS] First 3 lines for INST ${inst.INST} (fallback):`, inst.lines.slice(0, 3).map((l: InstLineRow) => ({
             INSTLINES: l.INSTLINES,
             INST: l.INST,
             MTRL: l.MTRL,

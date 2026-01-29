@@ -39,7 +39,7 @@ async function findInstlinesIntegrationId(): Promise<string> {
 }
 
 async function main() {
-  let integrationId = process.env.INTEGRATION_ID ?? process.argv[2];
+  let integrationId: string | undefined = process.env.INTEGRATION_ID ?? process.argv[2];
   if (integrationId === "your-integration-id" || integrationId === "your-id") {
     integrationId = undefined;
   }

@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Car, ArrowUpRight, ArrowDownRight, Clock, TrendingUp, TrendingDown, FileText, User, X, Search } from "lucide-react";
+import { Car, ArrowUpRight, ArrowDownRight, Clock, TrendingUp, TrendingDown, FileText, FileCheck, User, X, Search } from "lucide-react";
 import Image from "next/image";
 import { format } from "date-fns";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
@@ -21,6 +21,8 @@ interface DashboardStats {
   contractsIn: number;
   walkIns: number;
   carsInsideNow?: number;
+  /** INST (contracts) that have at least one INSTLINES (plate line) — contract-based */
+  contractsWithPlates?: number;
 }
 
 type RecognitionEventWithRelations = LprRecognitionEvent & {
@@ -579,6 +581,24 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
         </Card>
 
         <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 opacity-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+            <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
+              CONTRACTS (WITH PLATES)
+            </CardTitle>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10">
+              <FileCheck className="h-4 w-4 text-emerald-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="relative space-y-2">
+            <div className="text-3xl font-bold">{stats.contractsWithPlates ?? 0}</div>
+            <p className="text-xs text-muted-foreground">
+              Contract-based (have plate lines)
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 opacity-0">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
@@ -883,7 +903,10 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
 function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => setMounted(true), []);
 
   // Live-updating time for "time in parking" badge (cars still inside)
   useEffect(() => {
@@ -1160,9 +1183,10 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                 <Badge
                   variant="secondary"
                   className="text-[0.5rem] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 inline-flex items-center gap-1"
+                  suppressHydrationWarning
                 >
                   <Clock className="h-2.5 w-2.5" />
-                  {formatTimeInParking(event.recognitionTime, now)} in parking
+                  {mounted ? formatTimeInParking(event.recognitionTime, now) : "—"} in parking
                 </Badge>
               )}
               {event.camera?.name && (

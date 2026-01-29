@@ -513,7 +513,10 @@ export default async function IntegrationRecordsPage({
 
   return (
     <IntegrationRecordsClient
-      integration={integration}
+      integration={{
+        ...integration,
+        configJson: (integration.configJson ?? {}) as Record<string, any>,
+      }}
       records={records}
       modelName={modelName}
       modelFields={modelFields}

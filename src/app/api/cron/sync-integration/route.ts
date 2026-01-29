@@ -43,7 +43,13 @@ export async function POST(request: Request) {
   let logId: string | undefined;
   let integrationId: string | undefined;
   let integration: any = null;
-  
+  let responsePayload: Record<string, unknown> = {
+    success: true,
+    message: "Sync completed",
+    stats: { erpToApp: { created: 0, updated: 0, errors: 0, synced: 0, total: 0 }, appToErp: null },
+    syncDirection: "one-way",
+  };
+
   try {
     // Verify authentication - either via cron secret (for automated jobs) or session (for manual triggers)
     const cronSecret = request.headers.get("X-Cron-Secret");
@@ -193,13 +199,13 @@ export async function POST(request: Request) {
     const objectName = integration.objectName;
     const tableName = integration.tableDbname || integration.tableName;
 
-    // INSTLINES: optionally fetch only rows for INST (contracts) in date range or given instIds (faster than loading all 32k)
+    // INSTLINES: optionally fetch only rows for INST (contracts) in date range or given instIds — one INST at a time for reliability
     let instlinesFilteredByInst = false;
+    let instIdsForFilter: number[] | null = null;
     if (modelName.toUpperCase() === "INSTLINES") {
       const bodyInstIds = (body as any).instIds;
       const filterByDateRange = (body as any).filterByDateRange === true;
       const isCronInstlines = isCronRequest && !(body as any).fullSync;
-      let instIdsForFilter: number[] | null = null;
       if (Array.isArray(bodyInstIds) && bodyInstIds.length > 0) {
         instIdsForFilter = bodyInstIds.map((id: any) => Number(id)).filter((n: number) => !isNaN(n));
       } else if (filterByDateRange || isCronInstlines) {
@@ -212,11 +218,8 @@ export async function POST(request: Request) {
         instIdsForFilter = instInRange.map((r) => (typeof r.INST === "number" ? r.INST : Number(String(r.INST).replace(/^0+/, "") || 0)));
       }
       if (instIdsForFilter && instIdsForFilter.length > 0) {
-        // One INST (contract) has many INSTLINES (plates). Use OR format (many ERPs don't support IN (...)).
-        filter = instIdsForFilter.map((id) => `INST=${id}`).join(" OR ");
-        if (instIdsForFilter.length > 1) filter = `(${filter})`;
         instlinesFilteredByInst = true;
-        console.log(`[INSTLINES] Filtering by INST (${instIdsForFilter.length} contracts). Filter length: ${filter.length} chars`);
+        console.log(`[INSTLINES] Will fetch one INST at a time for ${instIdsForFilter.length} contracts`);
       }
     }
 
@@ -503,6 +506,35 @@ export async function POST(request: Request) {
         erpDataResult = null; // Will be set in the else block below
       }
     }
+
+    // INSTLINES filtered by INST: fetch one contract at a time (reliable, no filter length limits)
+    if (instlinesFilteredByInst && instIdsForFilter && instIdsForFilter.length > 0) {
+      const combinedData: any[] = [];
+      let keysFromFirst: string[] = [];
+      for (let i = 0; i < instIdsForFilter.length; i++) {
+        const instId = instIdsForFilter[i];
+        const res = await getSoftOneTableData(
+          tableName,
+          fieldsWithDates,
+          authResult.clientID,
+          String(integration.connection.appId),
+          `INST=${instId}`,
+          "1"
+        );
+        if (!res.success) {
+          console.warn(`[INSTLINES] GetTable INST=${instId} failed:`, res.error);
+          continue;
+        }
+        const raw = res.data || [];
+        if (raw.length && keysFromFirst.length === 0) keysFromFirst = (res.keys as string[]) || [];
+        combinedData.push(...raw);
+        if ((i + 1) % 50 === 0) {
+          console.log(`[INSTLINES] Fetched ${i + 1}/${instIdsForFilter.length} contracts, ${combinedData.length} rows so far`);
+        }
+      }
+      erpDataResult = { success: true, data: combinedData, keys: keysFromFirst, count: combinedData.length };
+      console.log(`[INSTLINES] One-by-one fetch done: ${combinedData.length} total INSTLINES from ${instIdsForFilter.length} contracts`);
+    }
     
     // Use GetTable service (for first sync, tables not using SqlData, or if SqlData failed)
     if (!shouldUseSqlData || !erpDataResult) {
@@ -517,10 +549,11 @@ export async function POST(request: Request) {
       } else if (SYNC_VERBOSE_LOGGING && (tableName.toUpperCase() === "INSTLINES" || modelName.toUpperCase() === "INSTLINES")) {
         syncLog(`[INSTLINES GetTable] TABLE=${tableName}, FIELDS=${fieldsWithDates}, FILTER=${filter}`);
       }
-      if (tableName.toUpperCase() === "INSTLINES" || modelName.toUpperCase() === "INSTLINES") {
+      if ((tableName.toUpperCase() === "INSTLINES" || modelName.toUpperCase() === "INSTLINES") && !erpDataResult) {
         console.log("[INSTLINES] Fetching from ERP (may take a few minutes for 34k records)...");
       }
-      erpDataResult = await getSoftOneTableData(
+      if (!erpDataResult) {
+        erpDataResult = await getSoftOneTableData(
         tableName,
         fieldsWithDates,
         authResult.clientID,
@@ -1941,9 +1974,9 @@ export async function POST(request: Request) {
             console.warn(`[INSTLINES] ⚠️ Contracts must have customers. Fix INST records to include TRDR, then sync INSTLINES again.`);
           }
         }
-      console.log(`[INSTLINES]   Queued for upsert: ${recordsToUpsert.length} records`);
-      console.log(`[INSTLINES]   Created: ${created}, Updated: ${updated}, Errors: ${errors}`);
-      console.log(`[INSTLINES] ========================================`);
+        console.log(`[INSTLINES]   Queued for upsert: ${recordsToUpsert.length} records`);
+        console.log(`[INSTLINES]   Created: ${created}, Updated: ${updated}, Errors: ${errors}`);
+        console.log(`[INSTLINES] ========================================`);
     } else if (skippedCount > 0) {
       console.log(`[SYNC] Summary: Fetched ${totalRecords}, Processed ${processedCount}, Skipped ${skippedCount}`, skippedReasons);
     }
@@ -2030,7 +2063,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const responsePayload: Record<string, unknown> = {
+    responsePayload = {
       success: true,
       stats: finalStats,
       syncDirection: "one-way",
@@ -2050,6 +2083,9 @@ export async function POST(request: Request) {
         responsePayload.instlinesSkipped = { count: skippedCount, reasons: skippedReasons };
       }
     }
+    return NextResponse.json(responsePayload);
+    }
+    // Ensure handler always returns a response (some code paths skip the block above)
     return NextResponse.json(responsePayload);
   } catch (error) {
     const endTime = Date.now();
@@ -2100,5 +2136,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
-

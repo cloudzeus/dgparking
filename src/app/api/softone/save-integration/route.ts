@@ -35,7 +35,11 @@ export async function POST(request: Request) {
       tableDbname,
       tableCaption,
       config,
+      isActive, // SoftOne sends 1 (true) or 0 (false)
     } = body;
+
+    // Normalize isActive from SoftOne: 1/0 or boolean → boolean
+    const isActiveBool = isActive === undefined ? true : (isActive === 1 || isActive === true);
 
     // Validate required fields
     if (!name || !objectName || !tableName || !tableDbname) {
@@ -193,7 +197,7 @@ export async function POST(request: Request) {
           tableDbname,
           tableCaption: tableCaption || null,
           configJson: config || {},
-          // isActive has a default value of true in the schema, so we don't need to set it
+          isActive: isActiveBool,
         },
       });
 

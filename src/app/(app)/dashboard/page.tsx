@@ -363,7 +363,18 @@ export default async function DashboardPage() {
     console.error(`[DASHBOARD] ❌ Error fetching contract car info:`, error);
   }
 
-  const statsWithCarsInside = { ...stats, carsInsideNow };
+  // Contracts (INST) that have at least one INSTLINES (plate line) — for "contract-based" stat
+  let contractsWithPlates = 0;
+  try {
+    contractsWithPlates = await prisma.iNST.count({
+      where: { lines: { some: {} } },
+    });
+    console.log(`[DASHBOARD] Contracts with plates (INST with INSTLINES): ${contractsWithPlates}`);
+  } catch (error) {
+    console.error(`[DASHBOARD] ❌ Error fetching contracts with plates:`, error);
+  }
+
+  const statsWithCarsInside = { ...stats, carsInsideNow, contractsWithPlates };
 
   console.log(`[DASHBOARD] Final: ${recentRecognitionEvents.length} events, cars inside now: ${carsInsideNow}`);
 

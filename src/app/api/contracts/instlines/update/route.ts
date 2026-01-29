@@ -81,8 +81,8 @@ export async function POST(request: Request) {
             const erpData: any = {};
             const reverseMappings: Record<string, string> = {};
             
-            Object.entries(fieldMappings).forEach(([erpFieldName, modelFieldName]) => {
-              if (modelFieldName && modelFieldName !== "none") {
+            Object.entries(fieldMappings as Record<string, string>).forEach(([erpFieldName, modelFieldName]) => {
+              if (typeof modelFieldName === "string" && modelFieldName !== "none") {
                 reverseMappings[modelFieldName] = erpFieldName;
               }
             });

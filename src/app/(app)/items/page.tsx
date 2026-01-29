@@ -2,7 +2,11 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ItemsClient } from "@/components/items/items-client";
-import type { Role } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+
+type ItemRow = Prisma.iTEMSGetPayload<{
+  select: { ITEMS: true; MTRL: true; CODE: true; NAME: true; ISACTIVE: true; createdAt: true };
+}>;
 
 export default async function ItemsPage() {
   const session = await auth();
@@ -20,7 +24,7 @@ export default async function ItemsPage() {
   // The client-side pagination handles the rest, but we limit initial load
   const MAX_ITEMS_INITIAL = 2000; // Limit initial fetch
   
-  let items = [];
+  let items: ItemRow[] = [];
   try {
     items = await prisma.iTEMS.findMany({
       select: {

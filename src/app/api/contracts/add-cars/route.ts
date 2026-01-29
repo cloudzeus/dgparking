@@ -111,9 +111,9 @@ export async function POST(request: Request) {
         );
       }
 
-      // Build reverse mappings
-      Object.entries(fieldMappings).forEach(([erpFieldName, modelFieldName]) => {
-        if (modelFieldName && modelFieldName !== "none") {
+      // Build reverse mappings (model field name → ERP field name)
+      Object.entries(fieldMappings as Record<string, string>).forEach(([erpFieldName, modelFieldName]) => {
+        if (typeof modelFieldName === "string" && modelFieldName !== "none") {
           reverseMappings[modelFieldName] = erpFieldName;
         }
       });
@@ -189,6 +189,7 @@ export async function POST(request: Request) {
         }
 
         // Create in SoftOne first (only if syncToErp is true)
+        let softOneId: number | undefined;
         if (syncToErp) {
           const softOneData: any = {};
           softOneData[objectName] = [erpData];
@@ -207,12 +208,13 @@ export async function POST(request: Request) {
             errors.push(`Failed to create ${mtrl} in ERP: ${setDataResult.error}`);
             continue;
           }
+          softOneId = setDataResult.id != null
+            ? Number(String(setDataResult.id).replace(/^0+/, '') || 0)
+            : undefined;
         }
 
-        // Use the ID returned from SoftOne if available
-        const instLinesId = setDataResult.id 
-          ? Number(String(setDataResult.id).replace(/^0+/, '') || '0')
-          : nextInstLinesId;
+        // Use the ID returned from SoftOne if available, otherwise use local next id
+        const instLinesId = softOneId ?? nextInstLinesId;
 
         // Create in our database
         const newInstLine = await prisma.iNSTLINES.create({
