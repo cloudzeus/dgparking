@@ -24,6 +24,7 @@ export async function GET() {
         id: true,
         name: true,
         userId: true,
+        isActive: true,
         configJson: true,
       },
     });

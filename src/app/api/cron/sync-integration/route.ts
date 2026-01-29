@@ -763,12 +763,12 @@ export async function POST(request: Request) {
             
             // Normalize based on model and field type
             // MTRL (ITEMS) and TRDR (CUSTORMER) are String fields - keep as string
-            // INST, INSTLINES, PAYMENT use numeric IDs - convert to number
+            // INST, INSTLINES, PAYMENT, COUNTRY, VAT, SOCURRENCY, TRDCATEGORY use Int primary keys - convert to number
             if (modelName.toUpperCase() === "ITEMS" || modelName.toUpperCase() === "CUSTORMER") {
               // Keep as string for MTRL and TRDR fields
               value = String(value);
-            } else if (["INST", "INSTLINES", "PAYMENT"].includes(modelName.toUpperCase())) {
-              // Convert to number for numeric ID fields
+            } else if (["INST", "INSTLINES", "PAYMENT", "COUNTRY", "VAT", "SOCURRENCY", "TRDCATEGORY"].includes(modelName.toUpperCase())) {
+              // Convert to number for numeric ID fields (Prisma Int)
               if (typeof value === 'string' && !isNaN(Number(value)) && value.trim() !== '') {
                 value = Number(value);
               } else if (value === '' || value === null) {
@@ -863,14 +863,21 @@ export async function POST(request: Request) {
           const uniqueValuesSet = [...new Set(erpUniqueValues)]; // Remove duplicates
           syncLog(`[SYNC] Checking ${uniqueValuesSet.length} unique identifiers...`);
           
+          // Models whose primary key is Int (Prisma) - chunk must be numbers for findMany
+          const intPkModels = ["INST", "INSTLINES", "PAYMENT", "COUNTRY", "VAT", "SOCURRENCY", "TRDCATEGORY"];
+          const chunkNeedsNumbers = intPkModels.includes(modelName.toUpperCase());
+
           for (let i = 0; i < uniqueValuesSet.length; i += CHUNK_SIZE) {
-            const chunk = uniqueValuesSet.slice(i, i + CHUNK_SIZE);
-            
+            let chunk = uniqueValuesSet.slice(i, i + CHUNK_SIZE);
+            if (chunkNeedsNumbers) {
+              chunk = chunk.map((v: unknown) => (typeof v === "number" && !isNaN(v)) ? v : Number(String(v).replace(/^0+/, "") || 0)).filter((n: number) => !isNaN(n));
+            }
+
             // CRITICAL: For INST/INSTLINES, use primary key field for lookup
             const primaryKeyFieldForLookup = modelName.toUpperCase() === "INSTLINES" ? "INSTLINES" :
                                            modelName.toUpperCase() === "INST" ? "INST" :
                                            modelField;
-            
+
             // CRITICAL: Only query database for records that exist - don't include ERP records
             const existingRecords = await model.findMany({
               where: {
