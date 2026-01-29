@@ -80,7 +80,7 @@ export function OutWithoutInClient({
   }, []);
 
   const handleDateChange = () => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("startDate", format(startDate, "yyyy-MM-dd"));
     params.set("endDate", format(endDate, "yyyy-MM-dd"));
     router.push(`/reports/out-without-in?${params.toString()}`);

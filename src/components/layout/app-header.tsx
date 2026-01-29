@@ -29,7 +29,7 @@ export function AppHeader({ user, isSoftOneConnected = false }: AppHeaderProps) 
   const pathname = usePathname();
   
   const getPageTitle = () => {
-    const segments = pathname.split("/").filter(Boolean);
+    const segments = (pathname ?? "").split("/").filter(Boolean);
     if (segments.length === 0) return "DASHBOARD";
     return segments[segments.length - 1].toUpperCase().replace(/-/g, " ");
   };
