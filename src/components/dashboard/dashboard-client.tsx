@@ -114,6 +114,8 @@ function formatDurationMinutes(totalMinutes: number): string {
 interface ContractInfo {
   num01: number;
   carsIn: number;
+  /** "contract" = within NUM01 limit; "visitor" = over limit, pays regular fee */
+  slotType?: "contract" | "visitor";
 }
 
 interface DashboardClientProps {
@@ -832,7 +834,9 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
               const contractInfo = contractInfoByPlate[normalizedPlate];
               const contractNum01 = contractInfo?.num01 ?? 0;
               const contractCarsIn = contractInfo?.carsIn ?? 0;
+              const slotType = contractInfo?.slotType;
               const isExceeded = isInContract && isStillInside && contractNum01 > 0 && contractCarsIn > contractNum01;
+              const isVisitorOverLimit = slotType === "visitor";
               const isInItems = normalizedPlate.length > 0 && platesInItems.has(normalizedPlate);
               const isOutOnly = !platesWithIn.has(normalizedPlate);
 
@@ -860,6 +864,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
                   contractNum01={contractNum01}
                   contractCarsIn={contractCarsIn}
                   isExceeded={isExceeded}
+                  isVisitorOverLimit={isVisitorOverLimit}
                 />
               );
             });
@@ -901,7 +906,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   );
 }
 
-function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean }) {
+function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false, isVisitorOverLimit = false }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean; /** true when car is inside but over contract limit → pays regular visitor fee */ isVisitorOverLimit?: boolean }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -959,16 +964,36 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
     }
   }, [isNew]);
 
-  // Full card background: exceeded (red) > contract (blue) > still inside (amber) > past date (sky) > default
-  const cardBgClass = isExceeded
-    ? "bg-gradient-to-br from-red-50 via-rose-50 to-red-100"
-    : isInContract
-      ? "bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100"
-      : isStillInside
-        ? "bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50"
-        : isFromPastDate
-          ? "bg-gradient-to-br from-sky-50 via-white to-blue-50"
-          : "bg-card/50";
+  // Card state: solid colors (no gradients) for clear distinction
+  // 1) Visitor over limit  2) On contract (within)  3) Past date still in  4) Inside parking  5) Car left (OUT)  6) Past date (left)
+  const cardBgClass = isVisitorOverLimit
+    ? "bg-amber-100 dark:bg-amber-900/40 border border-amber-400 dark:border-amber-600"
+    : isInContract && !isVisitorOverLimit
+      ? "bg-blue-100 dark:bg-blue-900/40 border border-blue-400 dark:border-blue-600"
+      : isFromPastDate && isStillInside
+        ? "bg-sky-100 dark:bg-sky-900/40 border border-sky-400 dark:border-sky-600"
+        : isStillInside
+          ? "bg-violet-100 dark:bg-violet-900/40 border border-violet-400 dark:border-violet-600"
+          : !isStillInside && (event.direction === "OUT" || isOutOnly)
+            ? "bg-slate-200 dark:bg-slate-700/50 border border-slate-400 dark:border-slate-600"
+            : isFromPastDate
+              ? "bg-slate-100 dark:bg-slate-800/40 border border-slate-300 dark:border-slate-600"
+              : "bg-card border border-border";
+
+  // State description (palette-style: keywords + "Often used" + explanation)
+  const stateLabel = isVisitorOverLimit
+    ? { keywords: "Over limit · Visitor fee · Attention", usedFor: "Contract slots full — this car pays regular visitor rate." }
+    : isInContract && !isVisitorOverLimit
+      ? { keywords: "Contract · Within limit · Authorized", usedFor: "Counts toward contract allowance (included)." }
+      : isFromPastDate && isStillInside
+        ? { keywords: "Past date · Still inside · Older entry", usedFor: "Entered on a previous day, still in parking." }
+        : isStillInside
+          ? { keywords: "Inside · Active · Present", usedFor: "Vehicle currently in parking." }
+          : !isStillInside && (event.direction === "OUT" || isOutOnly)
+            ? { keywords: "Departed · Left · Completed", usedFor: "Vehicle has left the parking." }
+            : isFromPastDate
+              ? { keywords: "Past · Archived", usedFor: "Event from a previous day." }
+              : { keywords: "—", usedFor: "—" };
 
   return (
     <Card
@@ -977,9 +1002,9 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
       className={`group relative overflow-hidden border-0 card-shadow-xl backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 bg-transparent ${isNew ? "ring-2 ring-green-500/50" : ""}`}
       style={{ minWidth: '300px' }}
     >
-      {/* Full card background gradient layer */}
+      {/* Full card background (solid color by state) */}
       <div className={`absolute inset-0 rounded-xl ${cardBgClass}`} />
-      <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-500/5 to-cyan-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none" />
+      <div className="absolute inset-0 rounded-xl bg-white/10 dark:bg-white/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none" />
       
       <CardContent className="relative p-4 z-10">
         <div className="flex flex-col gap-3">
@@ -1061,18 +1086,26 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
               <h3 className="text-xs font-bold uppercase text-foreground truncate">
                 {event.licensePlate || "UNKNOWN"}
               </h3>
-              {isInContract && contractNum01 > 0 && (
+              {isInContract && contractNum01 > 0 && !isVisitorOverLimit && (
                 <Badge 
                   variant="secondary" 
-                  className={`text-[0.5rem] px-1.5 py-0.5 ${isExceeded ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800"}`}
+                  className={`text-xs font-bold px-2 py-1 ${isExceeded ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800"}`}
                 >
                   {contractCarsIn}/{contractNum01}
                 </Badge>
               )}
-              {isInContract && contractNum01 === 0 && (
+              {isInContract && isVisitorOverLimit && (
                 <Badge 
                   variant="secondary" 
-                  className="text-[0.5rem] px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                  className="text-xs font-bold px-2 py-1 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                >
+                  Visitor (regular fee)
+                </Badge>
+              )}
+              {isInContract && contractNum01 === 0 && !isVisitorOverLimit && (
+                <Badge 
+                  variant="secondary" 
+                  className="text-xs font-bold px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800"
                 >
                   CONTRACT
                 </Badge>
@@ -1080,15 +1113,15 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
               {isInItems && (
                 <Badge 
                   variant="secondary" 
-                  className="text-[0.5rem] px-1.5 py-0.5 bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300 border-slate-200 dark:border-slate-800"
+                  className="text-xs font-bold px-2 py-1 bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300 border-slate-200 dark:border-slate-800"
                 >
-                  MTRL
+                  ERP
                 </Badge>
               )}
               {isStillInside && !isExceeded && (
                 <Badge 
                   variant="secondary" 
-                  className="text-[0.5rem] px-1.5 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                  className="text-xs font-bold px-2 py-1 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800"
                 >
                   INSIDE
                 </Badge>
@@ -1096,7 +1129,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
               {isExceeded && (
                 <Badge 
                   variant="secondary" 
-                  className="text-[0.5rem] px-1.5 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800"
+                  className="text-xs font-bold px-2 py-1 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800"
                 >
                   EXCEEDED
                 </Badge>
@@ -1104,7 +1137,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
               {isOutOnly && (
                 <Badge 
                   variant="secondary" 
-                  className="text-[0.5rem] px-1.5 py-0.5 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800"
+                  className="text-xs font-bold px-2 py-1 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800"
                   title="Abnormal: no IN capture — we keep track of these"
                 >
                   NO IN CAPTURED
@@ -1121,6 +1154,21 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                 <DirectionIcon className="h-4 w-4" />
               </div>
             )}
+          </div>
+
+          {/* State description (palette-style) */}
+          <div className="rounded-lg bg-black/5 dark:bg-white/5 px-2.5 py-2 space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground/90">
+              {stateLabel.keywords}
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center rounded-md bg-foreground/10 dark:bg-foreground/20 px-2 py-1 text-xs font-bold text-foreground">
+                Often used
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {stateLabel.usedFor}
+              </span>
+            </div>
           </div>
 
           {/* Details */}
@@ -1175,7 +1223,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
               {entryTime && event.direction === "OUT" && (
                 <Badge
                   variant="secondary"
-                  className="text-[0.5rem] px-1.5 py-0.5 bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 border-sky-200 dark:border-sky-800 inline-flex items-center gap-1"
+                  className="text-xs font-bold px-2 py-1 bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 border-sky-200 dark:border-sky-800 inline-flex items-center gap-1"
                 >
                   Came in at: {format(entryTime, "dd/MM HH:mm")}
                 </Badge>
@@ -1183,10 +1231,10 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
               {isStillInside && (
                 <Badge
                   variant="secondary"
-                  className="text-[0.5rem] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 inline-flex items-center gap-1"
+                  className="text-xs font-bold px-2 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 inline-flex items-center gap-1.5"
                   suppressHydrationWarning
                 >
-                  <Clock className="h-2.5 w-2.5" />
+                  <Clock className="h-3.5 w-3.5" />
                   {mounted ? formatTimeInParking(event.recognitionTime, now) : "—"} in parking
                 </Badge>
               )}
@@ -1204,26 +1252,20 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
               {event.durationMinutes !== null && event.durationMinutes !== undefined && !isStillInside && event.direction === "OUT" && (
                 <Badge
                   variant="secondary"
-                  className="text-[0.5rem] px-1.5 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-800 inline-flex items-center gap-1"
+                  className="text-xs font-bold px-2 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-800 inline-flex items-center gap-1"
                 >
-                  <Clock className="h-2.5 w-2.5" />
+                  <Clock className="h-3 w-3" />
                   Time in parking: {formatDurationMinutes(event.durationMinutes)}
                 </Badge>
               )}
             </div>
 
-            {/* Additional Info */}
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              {event.confidence !== null && event.confidence !== undefined ? (
-                <span>Confidence: {typeof event.confidence === "number" ? `${Math.round(event.confidence)}%` : event.confidence}</span>
-              ) : null}
-              {event.speed !== null && event.speed !== undefined ? (
+            {/* Additional Info — speed only (confidence and region removed) */}
+            {(event.speed !== null && event.speed !== undefined) ? (
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span>Speed: {typeof event.speed === "number" ? `${event.speed} km/h` : event.speed}</span>
-              ) : null}
-              {event.region && (
-                <span>Region: {event.region}</span>
-              )}
-            </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </CardContent>

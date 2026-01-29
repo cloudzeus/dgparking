@@ -11,7 +11,18 @@ const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
  * For a set of license plates, determine which are "still inside" (latest event IN, no OUT after).
  */
 async function getPlatesStillInside(plates: Set<string>): Promise<Set<string>> {
-  if (plates.size === 0) return new Set();
+  const withTime = await getPlatesStillInsideWithEntryTime(plates);
+  return new Set(withTime.keys());
+}
+
+/**
+ * Plates still inside with their entry time (latest IN with no OUT after).
+ * Used to order cars by entry time: first NUM01 = contract slots, rest = visitor (regular fee).
+ */
+async function getPlatesStillInsideWithEntryTime(
+  plates: Set<string>
+): Promise<Map<string, Date>> {
+  if (plates.size === 0) return new Map();
   const twoDaysAgo = new Date(Date.now() - TWO_DAYS_MS);
   const events = await prisma.lprRecognitionEvent.findMany({
     where: {
@@ -31,7 +42,7 @@ async function getPlatesStillInside(plates: Set<string>): Promise<Set<string>> {
       time: e.recognitionTime,
     });
   }
-  const stillInside = new Set<string>();
+  const stillInsideWithTime = new Map<string, Date>();
   for (const [plate, evs] of byPlate.entries()) {
     const sorted = [...evs].sort((a, b) => a.time.getTime() - b.time.getTime());
     const latest = sorted[sorted.length - 1];
@@ -40,9 +51,9 @@ async function getPlatesStillInside(plates: Set<string>): Promise<Set<string>> {
       (e) =>
         e.direction === "OUT" && e.time.getTime() > latest.time.getTime()
     );
-    if (!hasOutAfter) stillInside.add(plate);
+    if (!hasOutAfter) stillInsideWithTime.set(plate, latest.time);
   }
-  return stillInside;
+  return stillInsideWithTime;
 }
 
 /**
@@ -107,12 +118,15 @@ export async function refreshContractCars(): Promise<void> {
   }
 }
 
+export type ContractSlotType = "contract" | "visitor";
+
 /**
- * Returns contract info per license plate for dashboard: { num01, carsIn }.
+ * Returns contract info per license plate for dashboard: { num01, carsIn, inst, slotType }.
+ * slotType: "contract" = car counts toward contract (within NUM01); "visitor" = over limit, pays regular fee.
  * Plate must belong to an active contract (INST with future WDATETO, has lines).
  */
 export async function getContractInfoByPlate(): Promise<
-  Map<string, { num01: number; carsIn: number; inst: number }>
+  Map<string, { num01: number; carsIn: number; inst: number; slotType?: ContractSlotType }>
 > {
   await refreshContractCars();
   const now = new Date();
@@ -152,7 +166,14 @@ export async function getContractInfoByPlate(): Promise<
     if (item.MTRL) mtrlToPlate.set(item.MTRL.trim(), plate);
   }
 
-  const result = new Map<string, { num01: number; carsIn: number; inst: number }>();
+  const allPlatesEntryTime = await getPlatesStillInsideWithEntryTime(
+    new Set(mtrlToPlate.values())
+  );
+
+  const result = new Map<
+    string,
+    { num01: number; carsIn: number; inst: number; slotType?: ContractSlotType }
+  >();
   for (const inst of activeInst) {
     const num01FromTable = num01ByInst.get(inst.INST);
     const num01 =
@@ -162,12 +183,37 @@ export async function getContractInfoByPlate(): Promise<
           ? Math.floor(Number(inst.NUM01))
           : 0;
     const carsIn = carsInByInst.get(inst.INST) ?? 0;
+
+    const contractPlates = new Set<string>();
+    for (const line of inst.lines) {
+      if (!line.MTRL || String(line.MTRL).trim() === "") continue;
+      const normalized = String(line.MTRL).replace(/^0+/, "") || line.MTRL.trim();
+      const plate = mtrlToPlate.get(normalized) ?? mtrlToPlate.get(line.MTRL.trim());
+      if (plate) contractPlates.add(plate);
+    }
+    const platesInsideWithTime = Array.from(contractPlates)
+      .filter((p) => allPlatesEntryTime.has(p))
+      .map((p) => ({ plate: p, entryTime: allPlatesEntryTime.get(p)! }))
+      .sort((a, b) => a.entryTime.getTime() - b.entryTime.getTime());
+    const num01Int = Math.max(0, num01);
+    const contractSlots = new Set(
+      platesInsideWithTime.slice(0, num01Int).map((x) => x.plate)
+    );
+    const visitorSlots = new Set(
+      platesInsideWithTime.slice(num01Int).map((x) => x.plate)
+    );
+
     for (const line of inst.lines) {
       if (!line.MTRL || String(line.MTRL).trim() === "") continue;
       const normalized = String(line.MTRL).replace(/^0+/, "") || line.MTRL.trim();
       const plate = mtrlToPlate.get(normalized) ?? mtrlToPlate.get(line.MTRL.trim());
       if (plate) {
-        result.set(plate, { num01, carsIn, inst: inst.INST });
+        const slotType = visitorSlots.has(plate)
+          ? ("visitor" as const)
+          : contractSlots.has(plate)
+            ? ("contract" as const)
+            : undefined;
+        result.set(plate, { num01, carsIn, inst: inst.INST, slotType });
       }
     }
   }

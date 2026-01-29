@@ -352,12 +352,19 @@ export default async function DashboardPage() {
     console.error(`[DASHBOARD] ❌ Error fetching contract license plates:`, error);
   }
 
-  // Contract car counts (num01, carsIn) per plate for (carsIn/num01) and exceeded styling
-  let contractInfoByPlate: Record<string, { num01: number; carsIn: number }> = {};
+  // Contract car counts (num01, carsIn) and slotType (contract vs visitor/regular fee) per plate
+  let contractInfoByPlate: Record<
+    string,
+    { num01: number; carsIn: number; slotType?: "contract" | "visitor" }
+  > = {};
   try {
     const contractInfoMap = await getContractInfoByPlate();
     for (const [plate, info] of contractInfoMap.entries()) {
-      contractInfoByPlate[plate] = { num01: info.num01, carsIn: info.carsIn };
+      contractInfoByPlate[plate] = {
+        num01: info.num01,
+        carsIn: info.carsIn,
+        slotType: info.slotType,
+      };
     }
   } catch (error) {
     console.error(`[DASHBOARD] ❌ Error fetching contract car info:`, error);

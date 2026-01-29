@@ -620,7 +620,8 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
               <TableHeader>
                 <TableRow className="border-muted-foreground/20">
                   <TableHead className="text-sm font-bold uppercase w-8"></TableHead>
-                  <TableHead className="text-sm font-bold uppercase">Name</TableHead>
+                  <TableHead className="text-sm font-bold uppercase">Title</TableHead>
+                  <TableHead className="text-sm font-bold uppercase max-w-[200px]">Remarks</TableHead>
                   <TableHead className="text-sm font-bold uppercase">Start Date</TableHead>
                   <TableHead className="text-sm font-bold uppercase">Date To</TableHead>
                   <TableHead className="text-sm font-bold uppercase">Active From</TableHead>
@@ -668,6 +669,9 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                               </Badge>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[200px]" title={installation.REMARKS ?? undefined}>
+                          <span className="line-clamp-2 text-muted-foreground">{installation.REMARKS ?? "—"}</span>
                         </TableCell>
                         <TableCell className="text-sm">
                           {installation.WDATEFROM
