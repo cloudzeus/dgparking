@@ -3,6 +3,8 @@ import { HeroSection } from "@/components/sections/hero-section";
 import { FeaturesSection } from "@/components/sections/features-section";
 import { AboutSection } from "@/components/sections/about-section";
 
+export const dynamic = "force-dynamic";
+
 export default function Home() {
   return (
     <>
