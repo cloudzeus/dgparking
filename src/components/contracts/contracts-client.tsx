@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { syncPlatesAction } from "@/app/(app)/contracts/actions";
 
 interface INSTLINES {
   INSTLINES: number;
@@ -495,15 +496,7 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                   }, 1000);
                   try {
                     const instIds = installations.map((i) => i.INST);
-                    const res = await fetch("/api/cron/sync-integration", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        integrationId: instLinesIntegrationId,
-                        instIds,
-                      }),
-                    });
-                    const data = await res.json();
+                    const data = await syncPlatesAction(instLinesIntegrationId, instIds);
                     if (syncPlatesIntervalRef.current) {
                       clearInterval(syncPlatesIntervalRef.current);
                       syncPlatesIntervalRef.current = null;
@@ -633,6 +626,11 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
               <TableBody>
                 {paginatedInstallations.map((installation) => {
                   const allInstLines = getAllInstLines(installation.lines || []);
+                  const instLinesWithPlate = allInstLines.filter(
+                    (line) =>
+                      (line.MTRL && String(line.MTRL).trim() !== "") ||
+                      (line.MTRL_NAME && String(line.MTRL_NAME).trim() !== "")
+                  );
                   const isExpanded = expandedInstId === installation.INST;
                   const customer = installation.customerDetails;
                   const today = new Date();
@@ -744,15 +742,7 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                                   onClick={async () => {
                                     setSyncingInstId(installation.INST);
                                     try {
-                                      const res = await fetch("/api/cron/sync-integration", {
-                                        method: "POST",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({
-                                          integrationId: instLinesIntegrationId,
-                                          instIds: [installation.INST],
-                                        }),
-                                      });
-                                      const data = await res.json();
+                                      const data = await syncPlatesAction(instLinesIntegrationId, [installation.INST]);
                                       if (data.success) {
                                         const created = data.stats?.erpToApp?.created ?? data.stats?.created ?? 0;
                                         const updated = data.stats?.erpToApp?.updated ?? data.stats?.updated ?? 0;
@@ -781,14 +771,14 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                         </TableCell>
                       </TableRow>
                       {isExpanded && (
-                        <TableRow key={`${installation.INST}-expanded`} className="bg-muted/30 border-muted-foreground/20">
-                          <TableCell colSpan={8} className="p-4 align-top">
-                            <div className="grid gap-4 md:grid-cols-2 text-sm">
-                              {/* Customer details (TRDR) */}
-                              <div className="space-y-2">
-                                <div className="font-bold uppercase text-muted-foreground border-b pb-1 text-sm">Customer (TRDR)</div>
+                        <TableRow key={`${installation.INST}-expanded`} className="border-muted-foreground/20">
+                          <TableCell colSpan={8} className="p-0 align-top">
+                            <div className="p-4 space-y-3">
+                              {/* 1. Customer (TRDR) — blue card style */}
+                              <div className="rounded-lg border bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 p-3 space-y-2">
+                                <div className="text-[10px] font-bold uppercase text-muted-foreground">Customer (TRDR)</div>
                                 {customer ? (
-                                  <div className="space-y-1">
+                                  <div className="grid gap-x-4 gap-y-0.5 text-sm sm:grid-cols-2">
                                     {customer.TRDR && <div><span className="text-muted-foreground">TRDR:</span> {customer.TRDR}</div>}
                                     {customer.NAME && <div><span className="text-muted-foreground">Name:</span> {customer.NAME}</div>}
                                     {customer.CODE && <div><span className="text-muted-foreground">Code:</span> {customer.CODE}</div>}
@@ -799,57 +789,46 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                                     {customer.COUNTRY && <div><span className="text-muted-foreground">Country:</span> {customer.COUNTRY}</div>}
                                     {customer.PHONE01 && <div><span className="text-muted-foreground">Phone:</span> {customer.PHONE01}</div>}
                                     {customer.PHONE02 && <div><span className="text-muted-foreground">Phone 2:</span> {customer.PHONE02}</div>}
-                                    {customer.EMAIL && <div><span className="text-muted-foreground">Email:</span> {customer.EMAIL}</div>}
-                                    {customer.WEBPAGE && <div><span className="text-muted-foreground">Web:</span> {customer.WEBPAGE}</div>}
                                     {customer.JOBTYPE && <div><span className="text-muted-foreground">Job type:</span> {customer.JOBTYPE}</div>}
                                   </div>
                                 ) : (
-                                  <div className="text-muted-foreground">No customer (TRDR) found for this contract.</div>
+                                  <div className="text-sm text-muted-foreground">No customer (TRDR) found for this contract.</div>
                                 )}
                               </div>
-                              {/* INSTLINES table */}
-                              <div className="space-y-2">
-                                <div className="font-bold uppercase text-muted-foreground border-b pb-1 text-sm">INSTLINES ({allInstLines.length})</div>
-                                {allInstLines.length === 0 ? (
-                                  <div className="text-muted-foreground text-sm">No INSTLINES.</div>
-                                ) : (
-                                  <div className="overflow-x-auto max-h-[240px] overflow-y-auto">
-                                    <Table>
-                                      <TableHeader>
-                                        <TableRow className="border-muted-foreground/20">
-                                          <TableHead className="text-sm font-bold">#</TableHead>
-                                          <TableHead className="text-sm font-bold">LINENUM</TableHead>
-                                          <TableHead className="text-sm font-bold">MTRL</TableHead>
-                                          <TableHead className="text-sm font-bold">Name</TableHead>
-                                          <TableHead className="text-sm font-bold">QTY</TableHead>
-                                          <TableHead className="text-sm font-bold"></TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {allInstLines.map((line, idx) => (
-                                          <TableRow key={line.INSTLINES} className="border-muted-foreground/10">
-                                            <TableCell className="text-sm">{idx + 1}</TableCell>
-                                            <TableCell className="text-sm">{line.LINENUM ?? "—"}</TableCell>
-                                            <TableCell className="text-sm font-medium">{line.MTRL ?? "—"}</TableCell>
-                                            <TableCell className="text-sm text-muted-foreground">{line.MTRL_NAME ?? "—"}</TableCell>
-                                            <TableCell className="text-sm">{line.QTY ?? "—"}</TableCell>
-                                            <TableCell className="text-sm p-1">
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-5 w-5 p-0"
-                                                onClick={() => handleEditInstLineClick(line, installation)}
-                                              >
-                                                <Edit className="h-2.5 w-2.5" />
-                                              </Button>
-                                            </TableCell>
-                                          </TableRow>
-                                        ))}
-                                      </TableBody>
-                                    </Table>
+
+                              {/* 2. Remarks — slate card style */}
+                              <div className="rounded-lg border bg-slate-200 dark:bg-slate-700/50 border-slate-400 dark:border-slate-600 p-3 space-y-1">
+                                <div className="text-[10px] font-bold uppercase text-muted-foreground">Remarks</div>
+                                <div className="text-sm text-foreground">{installation.REMARKS?.trim() ? installation.REMARKS : "—"}</div>
+                              </div>
+
+                              {/* 3. License plates (Name only) — violet card style, smaller text; hide when no lines with plate data */}
+                              {instLinesWithPlate.length > 0 && (
+                                <div className="rounded-lg border bg-violet-100 dark:bg-violet-900/40 border-violet-400 dark:border-violet-600 p-3 space-y-2">
+                                  <div className="text-[10px] font-bold uppercase text-muted-foreground">License plates ({instLinesWithPlate.length})</div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {instLinesWithPlate.map((line) => {
+                                      const plateName = (line.MTRL_NAME && String(line.MTRL_NAME).trim() !== "" ? line.MTRL_NAME : line.MTRL) ?? "—";
+                                      return (
+                                        <span key={line.INSTLINES} className="inline-flex items-center gap-1">
+                                          <span className="text-[9px] font-bold text-foreground bg-white/50 dark:bg-black/20 px-2 py-1 rounded border border-violet-300 dark:border-violet-600">
+                                            {plateName}
+                                          </span>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-5 w-5 p-0 min-w-0 text-[9px]"
+                                            onClick={() => handleEditInstLineClick(line, installation)}
+                                            aria-label={`Edit ${plateName}`}
+                                          >
+                                            <Edit className="h-2.5 w-2.5" />
+                                          </Button>
+                                        </span>
+                                      );
+                                    })}
                                   </div>
-                                )}
-                              </div>
+                                </div>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>

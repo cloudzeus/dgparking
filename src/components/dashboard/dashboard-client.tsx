@@ -122,6 +122,19 @@ function formatDurationMinutes(totalMinutes: number): string {
   return `${hours}h ${minutes}m`;
 }
 
+/** Get license plate from event (camelCase or snake_case from API). */
+function getPlate(event: { licensePlate?: string | null } & { license_plate?: string }): string {
+  const a = event.licensePlate != null ? String(event.licensePlate).trim() : "";
+  const b = event.license_plate != null ? String(event.license_plate).trim() : "";
+  return a || b;
+}
+
+/** Get display license plate from event (camelCase or snake_case from API). */
+function getDisplayPlate(event: { licensePlate?: string | null } & { license_plate?: string }): string {
+  const plate = getPlate(event);
+  return plate || "—";
+}
+
 interface ContractInfo {
   num01: number;
   carsIn: number;
@@ -240,8 +253,19 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
         return;
       }
       const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+      const plateUpper = licensePlate.trim().toUpperCase();
       setEvents((prev) => {
-        const combined = [data.event as RecognitionEventWithRelations, ...prev].filter(
+        const newEvent = data.event as RecognitionEventWithRelations;
+        const prevIn = prev.find(
+          (e) => (e.licensePlate || "").trim().toUpperCase() === plateUpper && e.direction === "IN"
+        );
+        const outTime = new Date(newEvent.recognitionTime).getTime();
+        const durationMinutes =
+          prevIn != null
+            ? Math.round((outTime - new Date(prevIn.recognitionTime).getTime()) / (60 * 1000))
+            : null;
+        const eventWithDuration = { ...newEvent, durationMinutes };
+        const combined = [eventWithDuration, ...prev].filter(
           (e) => new Date(e.recognitionTime) >= twoDaysAgo
         );
         const byPlate = new Map<string, RecognitionEventWithRelations>();
@@ -260,6 +284,43 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
       toast.success("Vehicle marked as left");
     } catch (e) {
       toast.error("Failed to record");
+    }
+  };
+
+  /** Reevaluate: update an event's license plate (read message again, correct plate). */
+  const handleReevaluate = async (eventId: string, newLicensePlate: string) => {
+    const plate = newLicensePlate.trim();
+    if (plate.length < 2) {
+      toast.error("License plate must be at least 2 characters");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/dashboard/recognition-event/${eventId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ licensePlate: plate }),
+      });
+      const data = await res.json();
+      if (!data.success || !data.event) {
+        toast.error(data.error || "Failed to update plate");
+        return;
+      }
+      const updated = data.event as RecognitionEventWithRelations;
+      setEvents((prev) => {
+        const idx = prev.findIndex((e) => e.id === eventId);
+        if (idx < 0) return prev;
+        const existing = prev[idx];
+        const merged: RecognitionEventWithRelations = {
+          ...updated,
+          images: Array.isArray(updated.images) && updated.images.length > 0 ? updated.images : (existing.images ?? []),
+        };
+        const next = [...prev];
+        next[idx] = merged;
+        return next;
+      });
+      toast.success("License plate updated");
+    } catch (e) {
+      toast.error("Failed to update plate");
     }
   };
 
@@ -709,7 +770,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
               {(() => {
                 const filteredCount = events && Array.isArray(events) ? events.filter((event) => {
                   const query = searchQuery.trim().toUpperCase();
-                  const plate = (event.licensePlate || "").toUpperCase();
+                  const plate = getPlate(event).toUpperCase();
                   const direction = (event.direction || "").toUpperCase();
                   const vehicleType = (event.vehicleType || "").toUpperCase();
                   const vehicleBrand = (event.vehicleBrand || "").toUpperCase();
@@ -745,7 +806,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
             if (!searchQuery.trim()) return true;
             
             const query = searchQuery.trim().toUpperCase();
-            const plate = (event.licensePlate || "").toUpperCase();
+            const plate = getPlate(event).toUpperCase();
             const direction = (event.direction || "").toUpperCase();
             const vehicleType = (event.vehicleType || "").toUpperCase();
             const vehicleBrand = (event.vehicleBrand || "").toUpperCase();
@@ -762,14 +823,14 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
             );
           });
 
-          // Only consider valid license plates (>= 2 chars; no empty or single-digit/junk)
-          const validPlateEvents = searchFiltered.filter((e) => ((e.licensePlate || "").trim().toUpperCase().length >= 2));
+          // Only consider valid license plates (>= 2 chars; use both camelCase and snake_case)
+          const validPlateEvents = searchFiltered.filter((e) => getPlate(e).toUpperCase().length >= 2);
           // Deduplicate by license plate: keep only the most recent event per plate
           const plateToLatest = new Map<string, RecognitionEventWithRelations>();
           // Also track all events per plate to check if car is still inside
           const plateToAllEvents = new Map<string, RecognitionEventWithRelations[]>();
           for (const event of validPlateEvents) {
-            const plate = (event.licensePlate || "").trim().toUpperCase();
+            const plate = getPlate(event).toUpperCase();
             const existing = plateToLatest.get(plate);
             const eventTime = new Date(event.recognitionTime).getTime();
             if (!existing || new Date(existing.recognitionTime).getTime() < eventTime) {
@@ -804,7 +865,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           endOfToday.setHours(23, 59, 59, 999);
           const latestValues = Array.from(plateToLatest.values());
           const sameDateOrStillInside = latestValues.filter((event) => {
-            const plate = (event.licensePlate || "").trim().toUpperCase();
+            const plate = getPlate(event).toUpperCase();
             const isStillInside = plateToStillInside.get(plate) || false;
             if (isStillInside) return true;
             const t = new Date(event.recognitionTime).getTime();
@@ -813,8 +874,8 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           
           // Sort: still inside first, then plates with IN (by time), then OUT-only at bottom (by time)
           const filteredEvents = sameDateOrStillInside.sort((a, b) => {
-            const plateA = (a.licensePlate || "").trim().toUpperCase();
-            const plateB = (b.licensePlate || "").trim().toUpperCase();
+            const plateA = getPlate(a).toUpperCase();
+            const plateB = getPlate(b).toUpperCase();
             const stillInsideA = plateToStillInside.get(plateA) || false;
             const stillInsideB = plateToStillInside.get(plateB) || false;
             const outOnlyA = !platesWithInSet.has(plateA);
@@ -843,8 +904,8 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
             {(() => {
               return filteredEvents.map((event) => {
               if (!event || !event.id) return null;
-              // Check if license plate exists in materials (normalize for comparison)
-              const normalizedPlate = event.licensePlate?.trim().toUpperCase() || "";
+              // Check if license plate exists in materials (use both camelCase and snake_case)
+              const normalizedPlate = getPlate(event).toUpperCase();
               const isInContract = normalizedPlate.length > 0 && materialLicensePlates.has(normalizedPlate);
               const eventDate = new Date(event.recognitionTime);
               const startOfToday = new Date();
@@ -886,7 +947,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
 
               return (
                 <RecognitionEventCard 
-                  key={`plate-${normalizedPlate}`}
+                  key={normalizedPlate ? `plate-${normalizedPlate}` : `event-${event.id}`}
                   event={event} 
                   isNew={!initialEventIds.has(event.id)}
                   isInContract={isInContract}
@@ -900,6 +961,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
                   isExceeded={isExceeded}
                   isVisitorOverLimit={isVisitorOverLimit}
                   onMarkAsLeft={handleMarkAsLeft}
+                  onReevaluate={handleReevaluate}
                 />
               );
             });
@@ -941,10 +1003,14 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   );
 }
 
-function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false, isVisitorOverLimit = false, onMarkAsLeft }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean; /** true when car is inside but over contract limit → pays regular visitor fee */ isVisitorOverLimit?: boolean; onMarkAsLeft?: (licensePlate: string, leftAt: Date) => Promise<void> }) {
+function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false, isVisitorOverLimit = false, onMarkAsLeft, onReevaluate }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean; /** true when car is inside but over contract limit → pays regular visitor fee */ isVisitorOverLimit?: boolean; onMarkAsLeft?: (licensePlate: string, leftAt: Date) => Promise<void>; onReevaluate?: (eventId: string, newLicensePlate: string) => Promise<void> }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [isLeftModalOpen, setIsLeftModalOpen] = useState(false);
+  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+  const [isReevaluateModalOpen, setIsReevaluateModalOpen] = useState(false);
+  const [reevaluatePlate, setReevaluatePlate] = useState("");
+  const [savingReevaluate, setSavingReevaluate] = useState(false);
   const [leftAt, setLeftAt] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -1066,7 +1132,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                     >
                       <Image
                         src={imageUrl}
-                        alt={event.licensePlate || "Vehicle"}
+                        alt={getDisplayPlate(event) || "Vehicle"}
                         fill
                         className="object-cover"
                         sizes="100px"
@@ -1078,7 +1144,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                         showCloseButton={false}
                       >
                         <DialogTitle className="sr-only">
-                          {`${fullImage?.imageType === "FULL_IMAGE" ? "Full image" : "Snapshot"} - ${event.licensePlate || "Vehicle"}`}
+                          {`${fullImage?.imageType === "FULL_IMAGE" ? "Full image" : "Snapshot"} - ${getDisplayPlate(event) || "Vehicle"}`}
                         </DialogTitle>
                         <div className="relative w-full bg-background/95 backdrop-blur-sm rounded-lg overflow-hidden border-2 border-border shadow-2xl">
                           {/* Close Button */}
@@ -1093,7 +1159,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                           <div className="relative w-full max-h-[90vh] overflow-auto">
                             <Image
                               src={fullImageUrl}
-                              alt={`${fullImage?.imageType === "FULL_IMAGE" ? "Full image" : "Snapshot"} - ${event.licensePlate || "Vehicle"}`}
+                              alt={`${fullImage?.imageType === "FULL_IMAGE" ? "Full image" : "Snapshot"} - ${getDisplayPlate(event) || "Vehicle"}`}
                               width={1280}
                               height={960}
                               className="w-full max-w-[1280px] h-auto object-contain"
@@ -1108,7 +1174,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                   <div className="relative h-[35px] w-[100px] rounded-md overflow-hidden border border-border">
                     <Image
                       src={imageUrl}
-                      alt={event.licensePlate || "Vehicle"}
+                      alt={getDisplayPlate(event) || "Vehicle"}
                       fill
                       className="object-cover"
                       sizes="100px"
@@ -1121,6 +1187,66 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                 </div>
               )}
             </div>
+
+            {/* Modal: View message — event payload without images (for checks) */}
+            <Dialog open={isMessageModalOpen} onOpenChange={setIsMessageModalOpen}>
+              <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+                <DialogTitle className="text-sm font-bold uppercase text-muted-foreground">
+                  View message
+                </DialogTitle>
+                <p className="text-[9px] text-muted-foreground">
+                  Received event data (without image parts) for checks
+                </p>
+                <div className="flex-1 overflow-auto rounded-md border bg-muted/30 p-3">
+                  <pre className="text-[9px] whitespace-pre-wrap break-words font-mono">
+                    {(() => {
+                      try {
+                        const { images: _img, ...rest } = event as RecognitionEventWithRelations & { images?: unknown };
+                        const rec = event.recognitionTime ? new Date(event.recognitionTime) : null;
+                        const safeFormat = (d: Date | null) => (d && !isNaN(d.getTime()) ? format(d, "yyyy-MM-dd HH:mm:ss") : null);
+                        const createdAtVal = (rest as { createdAt?: unknown }).createdAt;
+                        const createdAtStr = createdAtVal != null ? safeFormat(new Date(createdAtVal as string | Date)) : null;
+                        return JSON.stringify(
+                          {
+                            id: rest.id,
+                            licensePlate: rest.licensePlate,
+                            direction: rest.direction,
+                            recognitionTime: rec && !isNaN(rec.getTime()) ? rec.toISOString() : String(event.recognitionTime ?? ""),
+                            recognitionTimeLocal: safeFormat(rec),
+                            vehicleType: rest.vehicleType ?? null,
+                            vehicleBrand: rest.vehicleBrand ?? null,
+                            vehicleColor: rest.vehicleColor ?? null,
+                            plateColor: rest.plateColor ?? null,
+                            plateType: rest.plateType ?? null,
+                            confidence: rest.confidence ?? null,
+                            speed: rest.speed ?? null,
+                            region: rest.region ?? null,
+                            camera: rest.camera?.name ?? null,
+                            durationMinutes: rest.durationMinutes ?? null,
+                            coordinateX1: rest.coordinateX1 ?? null,
+                            coordinateY1: rest.coordinateY1 ?? null,
+                            coordinateX2: rest.coordinateX2 ?? null,
+                            coordinateY2: rest.coordinateY2 ?? null,
+                            resolutionWidth: rest.resolutionWidth ?? null,
+                            resolutionHeight: rest.resolutionHeight ?? null,
+                            distance: rest.distance ?? null,
+                            azimuth: rest.azimuth ?? null,
+                            vehicleCount: rest.vehicleCount ?? null,
+                            plateLength: rest.plateLength ?? null,
+                            roiId: rest.roiId ?? null,
+                            createdAt: createdAtStr,
+                          },
+                          null,
+                          2
+                        );
+                      } catch (e) {
+                        return `Error displaying message: ${e instanceof Error ? e.message : String(e)}`;
+                      }
+                    })()}
+                  </pre>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Modal: Set time vehicle left (outside image block to avoid nesting) */}
             {onMarkAsLeft && (
@@ -1157,10 +1283,11 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                         size="sm"
                         disabled={savingLeft}
                         onClick={async () => {
-                          if (!event.licensePlate?.trim()) return;
-                          setSavingLeft(true);
-                          try {
-                            await onMarkAsLeft(event.licensePlate.trim(), new Date(leftAt));
+                          const plate = getPlate(event);
+                              if (!plate) return;
+                              setSavingLeft(true);
+                              try {
+                                await onMarkAsLeft(plate, new Date(leftAt));
                             setIsLeftModalOpen(false);
                           } finally {
                             setSavingLeft(false);
@@ -1177,10 +1304,113 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
               </Dialog>
             )}
 
+            {/* Modal: Reevaluate — read message again and set/correct license plate */}
+            {onReevaluate && (
+              <Dialog open={isReevaluateModalOpen} onOpenChange={setIsReevaluateModalOpen}>
+                <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+                  <DialogTitle className="text-sm font-bold uppercase text-muted-foreground">
+                    Reevaluate
+                  </DialogTitle>
+                  <p className="text-[9px] text-muted-foreground">
+                    Read the event message again and add or correct the license plate.
+                  </p>
+                  <div className="flex-1 overflow-auto rounded-md border bg-muted/30 p-3 min-h-[120px]">
+                    <pre className="text-[9px] whitespace-pre-wrap break-words font-mono">
+                      {(() => {
+                        try {
+                          const { images: _img, ...rest } = event as RecognitionEventWithRelations & { images?: unknown };
+                          const rec = event.recognitionTime ? new Date(event.recognitionTime) : null;
+                          const safeFormat = (d: Date | null) => (d && !isNaN(d.getTime()) ? format(d, "yyyy-MM-dd HH:mm:ss") : null);
+                          const createdAtVal = (rest as { createdAt?: unknown }).createdAt;
+                          const createdAtStr = createdAtVal != null ? safeFormat(new Date(createdAtVal as string | Date)) : null;
+                          return JSON.stringify(
+                            {
+                              id: rest.id,
+                              licensePlate: rest.licensePlate,
+                              direction: rest.direction,
+                              recognitionTime: rec && !isNaN(rec.getTime()) ? rec.toISOString() : String(event.recognitionTime ?? ""),
+                              recognitionTimeLocal: safeFormat(rec),
+                              vehicleType: rest.vehicleType ?? null,
+                              vehicleBrand: rest.vehicleBrand ?? null,
+                              vehicleColor: rest.vehicleColor ?? null,
+                              plateColor: rest.plateColor ?? null,
+                              plateType: rest.plateType ?? null,
+                              confidence: rest.confidence ?? null,
+                              speed: rest.speed ?? null,
+                              region: rest.region ?? null,
+                              camera: rest.camera?.name ?? null,
+                              durationMinutes: rest.durationMinutes ?? null,
+                              coordinateX1: rest.coordinateX1 ?? null,
+                              coordinateY1: rest.coordinateY1 ?? null,
+                              coordinateX2: rest.coordinateX2 ?? null,
+                              coordinateY2: rest.coordinateY2 ?? null,
+                              resolutionWidth: rest.resolutionWidth ?? null,
+                              resolutionHeight: rest.resolutionHeight ?? null,
+                              distance: rest.distance ?? null,
+                              azimuth: rest.azimuth ?? null,
+                              vehicleCount: rest.vehicleCount ?? null,
+                              plateLength: rest.plateLength ?? null,
+                              roiId: rest.roiId ?? null,
+                              createdAt: createdAtStr,
+                            },
+                            null,
+                            2
+                          );
+                        } catch (e) {
+                          return `Error displaying message: ${e instanceof Error ? e.message : String(e)}`;
+                        }
+                      })()}
+                    </pre>
+                  </div>
+                  <div className={formFieldStyles.fieldSpacing}>
+                    <Label htmlFor={`reevaluate-plate-${event.id}`} className={formFieldStyles.label}>
+                      LICENSE PLATE
+                    </Label>
+                    <Input
+                      id={`reevaluate-plate-${event.id}`}
+                      value={reevaluatePlate}
+                      onChange={(e) => setReevaluatePlate(e.target.value)}
+                      placeholder="e.g. ABC-1234"
+                      className={formFieldStyles.input}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2 border-t">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsReevaluateModalOpen(false)}
+                      className={formFieldStyles.button}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={savingReevaluate || reevaluatePlate.trim().length < 2}
+                      onClick={async () => {
+                        setSavingReevaluate(true);
+                        try {
+                          await onReevaluate(event.id, reevaluatePlate.trim());
+                          setIsReevaluateModalOpen(false);
+                        } finally {
+                          setSavingReevaluate(false);
+                        }
+                      }}
+                      className={formFieldStyles.button}
+                    >
+                      {savingReevaluate ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className={formFieldStyles.buttonIcon} />}
+                      {savingReevaluate ? "Saving…" : "Save plate"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+
             {/* License Plate and Badge */}
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <h3 className="text-xs font-bold uppercase text-foreground truncate">
-                {event.licensePlate || "UNKNOWN"}
+              <h3 className="text-xs font-bold uppercase text-foreground truncate" title={getDisplayPlate(event)}>
+                {getDisplayPlate(event)}
               </h3>
               {isInContract && contractNum01 > 0 && !isVisitorOverLimit && (
                 <Badge 
@@ -1240,42 +1470,12 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                     NO IN CAPTURED
                   </Badge>
                   <Link
-                    href={`/reports/out-without-in?plate=${encodeURIComponent((event.licensePlate || "").trim().toUpperCase())}`}
+                    href={`/reports/out-without-in?plate=${encodeURIComponent(getPlate(event).toUpperCase())}`}
                     className="text-[9px] font-medium text-primary hover:underline"
                   >
                     View in OUT without IN report
                   </Link>
                 </span>
-              )}
-              {/* Actions dropdown — Left (mark as out) when car is still inside */}
-              {onMarkAsLeft && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 shrink-0 ml-auto rounded-md"
-                      aria-label="Actions"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {isStillInside && (
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          setIsLeftModalOpen(true);
-                          const d = new Date();
-                          setLeftAt(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
-                        }}
-                      >
-                        <LogOut className="h-3.5 w-3.5 mr-2" />
-                        Left
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
               )}
             </div>
 
@@ -1288,6 +1488,56 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                 <DirectionIcon className="h-4 w-4" />
               </div>
             )}
+
+            {/* Actions dropdown — right corner, to the right of the arrow */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 rounded-md"
+                  aria-label="Actions"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setIsMessageModalOpen(true);
+                  }}
+                >
+                  <FileText className="h-3.5 w-3.5 mr-2" />
+                  View message
+                </DropdownMenuItem>
+                {onReevaluate && (
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setReevaluatePlate(getPlate(event));
+                      setIsReevaluateModalOpen(true);
+                    }}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                    Reevaluate
+                  </DropdownMenuItem>
+                )}
+                {onMarkAsLeft && isStillInside && (
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setIsLeftModalOpen(true);
+                      const d = new Date();
+                      setLeftAt(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+                    }}
+                  >
+                    <LogOut className="h-3.5 w-3.5 mr-2" />
+                    Left
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* State description (palette-style) */}
@@ -1383,15 +1633,23 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                   {event.direction}
                 </span>
               )}
-              {event.durationMinutes !== null && event.durationMinutes !== undefined && !isStillInside && event.direction === "OUT" && (
-                <Badge
-                  variant="secondary"
-                  className="text-xs font-bold px-2 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-800 inline-flex items-center gap-1"
-                >
-                  <Clock className="h-3 w-3" />
-                  Time in parking: {formatDurationMinutes(event.durationMinutes)}
-                </Badge>
-              )}
+              {!isStillInside && event.direction === "OUT" && (() => {
+                const totalMinutes =
+                  event.durationMinutes != null
+                    ? event.durationMinutes
+                    : entryTime
+                      ? Math.round((new Date(event.recognitionTime).getTime() - new Date(entryTime).getTime()) / (60 * 1000))
+                      : null;
+                return totalMinutes != null && totalMinutes >= 0 ? (
+                  <Badge
+                    variant="secondary"
+                    className="text-xs font-bold px-2 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-800 inline-flex items-center gap-1"
+                  >
+                    <Clock className="h-3 w-3" />
+                    Time in parking: {formatDurationMinutes(totalMinutes)}
+                  </Badge>
+                ) : null;
+              })()}
             </div>
 
             {/* Additional Info — speed only (confidence and region removed) */}

@@ -25,25 +25,32 @@ export default async function SettingsPage() {
     redirect("/dashboard");
   }
 
-  let rows = await prisma.parkingWorkingHours.findMany({
-    orderBy: { dayOfWeek: "asc" },
-  });
+  let rows: { dayOfWeek: number; openTime: string | null; closeTime: string | null; isClosed: boolean }[] = [];
 
-  if (rows.length < 7) {
-    const existingDays = new Set(rows.map((r) => r.dayOfWeek));
-    for (const { dayOfWeek } of DAYS) {
-      if (!existingDays.has(dayOfWeek)) {
-        const created = await prisma.parkingWorkingHours.create({
-          data: {
-            dayOfWeek,
-            openTime: "08:00",
-            closeTime: "22:00",
-            isClosed: dayOfWeek === 0,
-          },
-        });
-        rows = [...rows, created].sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+  try {
+    rows = await prisma.parkingWorkingHours.findMany({
+      orderBy: { dayOfWeek: "asc" },
+    });
+
+    if (rows.length < 7) {
+      const existingDays = new Set(rows.map((r) => r.dayOfWeek));
+      for (const { dayOfWeek } of DAYS) {
+        if (!existingDays.has(dayOfWeek)) {
+          const created = await prisma.parkingWorkingHours.create({
+            data: {
+              dayOfWeek,
+              openTime: "08:00",
+              closeTime: "22:00",
+              isClosed: dayOfWeek === 0,
+            },
+          });
+          rows = [...rows, created].sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+        }
       }
     }
+  } catch (error) {
+    console.error("[SETTINGS] Error loading working hours (table may not exist — run `npx prisma db push`):", error);
+    rows = [];
   }
 
   const workingHours: WorkingHoursRow[] = DAYS.map((d) => {

@@ -199,7 +199,7 @@ export async function POST(request: Request) {
     const objectName = integration.objectName;
     const tableName = integration.tableDbname || integration.tableName;
 
-    // INSTLINES: optionally fetch only rows for INST (contracts) in date range or given instIds — one INST at a time for reliability
+    // INSTLINES: optionally filter results by INST (contracts) in date range or given instIds — fetch all from SoftOne (1=1) then filter in-app
     let instlinesFilteredByInst = false;
     let instIdsForFilter: number[] | null = null;
     if (modelName.toUpperCase() === "INSTLINES") {
@@ -219,7 +219,8 @@ export async function POST(request: Request) {
       }
       if (instIdsForFilter && instIdsForFilter.length > 0) {
         instlinesFilteredByInst = true;
-        console.log(`[INSTLINES] Will fetch one INST at a time for ${instIdsForFilter.length} contracts`);
+        filter = "1=1"; // Get all INSTLINES from SoftOne in one request; we filter by INST in-app
+        console.log(`[INSTLINES] Will fetch all INSTLINES from ERP (filter 1=1), then filter by ${instIdsForFilter.length} INSTs (date range / contracts)`);
       }
     }
 
@@ -421,7 +422,7 @@ export async function POST(request: Request) {
       // Cron job for tables without SqlData script - use GetTable
       shouldUseSqlData = false;
     }
-    // INSTLINES filtered by INST (instIds or date range): must use GetTable with INST IN (...) filter
+    // INSTLINES filtered by INST (instIds or date range): use GetTable with 1=1, then filter in-app
     if (instlinesFilteredByInst) {
       shouldUseSqlData = false;
     }
@@ -507,35 +508,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // INSTLINES filtered by INST: fetch one contract at a time (reliable, no filter length limits)
-    if (instlinesFilteredByInst && instIdsForFilter && instIdsForFilter.length > 0) {
-      const combinedData: any[] = [];
-      let keysFromFirst: string[] = [];
-      for (let i = 0; i < instIdsForFilter.length; i++) {
-        const instId = instIdsForFilter[i];
-        const res = await getSoftOneTableData(
-          tableName,
-          fieldsWithDates,
-          authResult.clientID,
-          String(integration.connection.appId),
-          `INST=${instId}`,
-          "1"
-        );
-        if (!res.success) {
-          console.warn(`[INSTLINES] GetTable INST=${instId} failed:`, res.error);
-          continue;
-        }
-        const raw = res.data || [];
-        if (raw.length && keysFromFirst.length === 0) keysFromFirst = (res.keys as string[]) || [];
-        combinedData.push(...raw);
-        if ((i + 1) % 50 === 0) {
-          console.log(`[INSTLINES] Fetched ${i + 1}/${instIdsForFilter.length} contracts, ${combinedData.length} rows so far`);
-        }
-      }
-      erpDataResult = { success: true, data: combinedData, keys: keysFromFirst, count: combinedData.length };
-      console.log(`[INSTLINES] One-by-one fetch done: ${combinedData.length} total INSTLINES from ${instIdsForFilter.length} contracts`);
-    }
-    
     // Use GetTable service (for first sync, tables not using SqlData, or if SqlData failed)
     if (!shouldUseSqlData || !erpDataResult) {
       if (modelName.toUpperCase() === "ITEMS" || tableNameUpper === "MTRL") {
@@ -598,9 +570,9 @@ export async function POST(request: Request) {
     console.log(`[SYNC] Fetched ${rawRecordCount} records from ${tableName}`);
     if (modelName.toUpperCase() === "INSTLINES" && instlinesFilteredByInst) {
       if (rawRecordCount === 0) {
-        console.warn("[INSTLINES] ERP returned 0 records with INST filter. Check filter format or that those contracts have plates in ERP.");
+        console.warn("[INSTLINES] ERP returned 0 INSTLINES. Will filter by INST in-app; check that contracts have plates in ERP.");
       } else {
-        console.log(`[INSTLINES] ERP returned ${rawRecordCount} INSTLINES for filtered INST (will upsert to DB)`);
+        console.log(`[INSTLINES] ERP returned ${rawRecordCount} INSTLINES total (will filter by ${instIdsForFilter?.length ?? 0} INSTs in-app)`);
       }
     }
     if (modelName.toUpperCase() === "ITEMS" || tableNameUpper === "MTRL") {
@@ -640,6 +612,19 @@ export async function POST(request: Request) {
       } else {
         syncWarn(`[SYNC] Unknown data format`);
       }
+    }
+
+    // INSTLINES: filter by INST (date range / contracts) in-app — we fetched all from SoftOne with 1=1
+    if (modelName.toUpperCase() === "INSTLINES" && instIdsForFilter && instIdsForFilter.length > 0 && erpRecords.length > 0) {
+      const instSet = new Set(instIdsForFilter);
+      const before = erpRecords.length;
+      erpRecords = erpRecords.filter((r: any) => {
+        const instVal = r.INST ?? r.inst;
+        if (instVal == null) return false;
+        const num = typeof instVal === "number" ? instVal : Number(String(instVal).replace(/^0+/, "") || 0);
+        return !isNaN(num) && instSet.has(num);
+      });
+      console.log(`[INSTLINES] Filtered to ${erpRecords.length} rows (from ${before}) for ${instIdsForFilter.length} INSTs (date range / contracts)`);
     }
 
     // INSTLINES: resume from saved progress (survives app restart), 500 per batch — or fullSync / filtered sync process all in one request
