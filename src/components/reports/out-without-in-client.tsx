@@ -49,6 +49,8 @@ interface OutWithoutInClientProps {
     firstName: string | null;
     lastName: string | null;
   };
+  /** When set, page was opened for this license plate (e.g. from dashboard "NO IN" link). */
+  plateFilter?: string | null;
 }
 
 export function OutWithoutInClient({
@@ -56,6 +58,7 @@ export function OutWithoutInClient({
   startDate: initialStartDate,
   endDate: initialEndDate,
   user,
+  plateFilter: initialPlateFilter = null,
 }: OutWithoutInClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -83,6 +86,7 @@ export function OutWithoutInClient({
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("startDate", format(startDate, "yyyy-MM-dd"));
     params.set("endDate", format(endDate, "yyyy-MM-dd"));
+    if (initialPlateFilter) params.set("plate", initialPlateFilter);
     router.push(`/reports/out-without-in?${params.toString()}`);
   };
 
@@ -128,7 +132,11 @@ export function OutWithoutInClient({
     <div ref={containerRef} className="space-y-6">
       <PageHeader
         title="OUT WITHOUT IN REPORT"
-        subtitle="Vehicles that exited without a recorded entry (camera missed IN event)"
+        subtitle={
+          initialPlateFilter
+            ? `Vehicles that exited without a recorded entry — viewing plate: ${initialPlateFilter}`
+            : "Vehicles that exited without a recorded entry (camera missed IN event)"
+        }
       />
 
       {/* Date Filter Controls */}

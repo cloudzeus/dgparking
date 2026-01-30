@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import type { Role, LprRecognitionEvent, LprImage, LprCamera } from "@prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,11 +8,22 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Car, ArrowUpRight, ArrowDownRight, Clock, TrendingUp, TrendingDown, FileText, FileCheck, User, X, Search } from "lucide-react";
+import { Car, ArrowUpRight, ArrowDownRight, Clock, TrendingUp, TrendingDown, FileText, FileCheck, User, X, Search, RefreshCw, Loader2, MoreVertical, LogOut } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { format } from "date-fns";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import { formFieldStyles } from "@/lib/form-styles";
 import { BarChart, Bar, LabelList, XAxis } from "recharts";
+import { toast } from "sonner";
 
 interface DashboardStats {
   totalVehicles: number;
@@ -131,9 +142,11 @@ interface DashboardClientProps {
   materialLicensePlates: Set<string>;
   platesInItems?: Set<string>;
   contractInfoByPlate?: Record<string, ContractInfo>;
+  /** Plates that have at least one IN event (from full history). Used so "NO IN CAPTURED" is only shown when plate truly never had IN. */
+  platesWithIn?: string[];
 }
 
-export function DashboardClient({ user, stats, recentEvents, materialLicensePlates, platesInItems = new Set(), contractInfoByPlate = {} }: DashboardClientProps) {
+export function DashboardClient({ user, stats, recentEvents, materialLicensePlates, platesInItems = new Set(), contractInfoByPlate = {}, platesWithIn: platesWithInProp = [] }: DashboardClientProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Debug: Log material license plates on mount
@@ -198,7 +211,124 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
       return new Set<string>();
     }
   });
+  const [platesWithInSet, setPlatesWithInSet] = useState<Set<string>>(() => new Set(platesWithInProp));
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setPlatesWithInSet((prev) => {
+      const next = new Set(prev);
+      for (const plate of platesWithInProp) if (plate?.trim()) next.add(plate.trim().toUpperCase());
+      return next;
+    });
+  }, [platesWithInProp.join(",")]);
+  const [refreshingStatus, setRefreshingStatus] = useState(false);
+
+  /** Mark vehicle as left at a given time (manual OUT). */
+  const handleMarkAsLeft = async (licensePlate: string, leftAt: Date) => {
+    try {
+      const res = await fetch("/api/dashboard/manual-out", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          licensePlate: licensePlate.trim(),
+          recognitionTime: leftAt.toISOString(),
+        }),
+      });
+      const data = await res.json();
+      if (!data.success || !data.event) {
+        toast.error(data.error || "Failed to record");
+        return;
+      }
+      const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+      setEvents((prev) => {
+        const combined = [data.event as RecognitionEventWithRelations, ...prev].filter(
+          (e) => new Date(e.recognitionTime) >= twoDaysAgo
+        );
+        const byPlate = new Map<string, RecognitionEventWithRelations>();
+        for (const e of combined) {
+          const plate = (e.licensePlate || "").trim().toUpperCase();
+          if (plate.length < 2) continue;
+          const existing = byPlate.get(plate);
+          if (!existing || new Date(e.recognitionTime).getTime() > new Date(existing.recognitionTime).getTime()) {
+            byPlate.set(plate, e);
+          }
+        }
+        return Array.from(byPlate.values()).sort(
+          (a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime()
+        );
+      });
+      toast.success("Vehicle marked as left");
+    } catch (e) {
+      toast.error("Failed to record");
+    }
+  };
+
+  /** Manual refresh: fetch all recent events and update status so we know which cars are inside. */
+  const refreshStatus = async () => {
+    setRefreshingStatus(true);
+    try {
+      const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+      const response = await fetch(
+        `/api/dashboard/new-events?since=${encodeURIComponent(twoDaysAgo.toISOString())}&limit=100`
+      );
+      if (!response.ok) return;
+      const data = await response.json().catch(() => null);
+      if (!data?.success || !Array.isArray(data.events)) return;
+
+      setEvents((prev) => {
+        const combined = [
+          ...(data.events as RecognitionEventWithRelations[]).filter((e) => new Date(e.recognitionTime) >= twoDaysAgo),
+          ...prev.filter((e) => new Date(e.recognitionTime) >= twoDaysAgo),
+        ];
+        const byPlate = new Map<string, RecognitionEventWithRelations>();
+        for (const e of combined) {
+          const plate = (e.licensePlate || "").trim().toUpperCase();
+          if (plate.length < 2) continue;
+          const existing = byPlate.get(plate);
+          if (!existing || new Date(e.recognitionTime).getTime() > new Date(existing.recognitionTime).getTime()) {
+            byPlate.set(plate, e);
+          }
+        }
+        return Array.from(byPlate.values()).sort(
+          (a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime()
+        );
+      });
+      const newest = (data.events as RecognitionEventWithRelations[]).sort(
+        (a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime()
+      )[0];
+      if (newest?.recognitionTime) {
+        const t = new Date(newest.recognitionTime);
+        if (!isNaN(t.getTime())) setLastUpdateTime(t);
+      }
+    } catch (error) {
+      console.warn("[DASHBOARD] Refresh status failed:", error);
+    } finally {
+      setRefreshingStatus(false);
+    }
+  };
+
+  /** Live count of cars currently inside (from current events state). */
+  const liveCarsInsideCount = useMemo(() => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    const recent = (events || []).filter((e) => new Date(e.recognitionTime) >= twoDaysAgo);
+    const plateToAllEvents = new Map<string, RecognitionEventWithRelations[]>();
+    for (const e of recent) {
+      const plate = (e.licensePlate || "").trim().toUpperCase();
+      if (plate.length < 2) continue;
+      if (!plateToAllEvents.has(plate)) plateToAllEvents.set(plate, []);
+      plateToAllEvents.get(plate)!.push(e);
+    }
+    let count = 0;
+    for (const [, allEvs] of plateToAllEvents) {
+      const sorted = [...allEvs].sort((a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime());
+      const latest = sorted[0];
+      const isStillInside = latest?.direction === "IN" && !sorted.some(
+        (e) => e.direction === "OUT" && new Date(e.recognitionTime).getTime() > new Date(latest.recognitionTime).getTime()
+      );
+      if (isStillInside) count++;
+    }
+    return count;
+  }, [events]);
 
   // Fetch hourly statistics
   useEffect(() => {
@@ -238,11 +368,13 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
         const response = await fetch(`/api/dashboard/new-events?since=${encodeURIComponent(since)}&limit=10`);
         
         if (!response.ok) {
-          console.error("[DASHBOARD] Failed to fetch new events:", response.statusText);
+          const msg = await response.text().catch(() => response.statusText);
+          console.warn("[DASHBOARD] Poll new-events non-OK:", response.status, msg || response.statusText);
           return;
         }
 
-        const data = await response.json();
+        const data = await response.json().catch(() => null);
+        if (!data) return;
         
         if (data.success && data.events && Array.isArray(data.events) && data.events.length > 0) {
           console.log(`[DASHBOARD] Found ${data.events.length} new event(s)`);
@@ -257,6 +389,16 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
             
             if (newEvents.length > 0) {
               console.log(`[DASHBOARD] Adding ${newEvents.length} new event(s) to dashboard`);
+              setPlatesWithInSet((prev) => {
+                const next = new Set(prev);
+                for (const e of newEvents) {
+                  if (e.direction === "IN") {
+                    const plate = (e.licensePlate || "").trim().toUpperCase();
+                    if (plate.length >= 2) next.add(plate);
+                  }
+                }
+                return next;
+              });
               const mostRecent = newEvents[0];
               if (mostRecent && mostRecent.recognitionTime) {
                 try {
@@ -269,11 +411,11 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
                 }
               }
               const combined = [...newEvents, ...prev].filter((e) => new Date(e.recognitionTime) >= twoDaysAgo);
-              // Deduplicate by plate (keep latest per plate) so state doesn't grow with duplicates
+              // One card per license plate: if plate was IN and same plate goes OUT, update that card to OUT (don't add a new card)
               const byPlate = new Map<string, RecognitionEventWithRelations>();
               for (const e of combined) {
                 const plate = (e.licensePlate || "").trim().toUpperCase();
-                if (plate.length === 0) continue;
+                if (plate.length < 2) continue; // same validity as server/display
                 const existing = byPlate.get(plate);
                 if (!existing || new Date(e.recognitionTime).getTime() > new Date(existing.recognitionTime).getTime()) {
                   byPlate.set(plate, e);
@@ -287,8 +429,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           });
         }
       } catch (error) {
-        console.error("[DASHBOARD] Error polling for new events:", error);
-        // Don't throw - just log the error to prevent breaking the component
+        console.warn("[DASHBOARD] Poll new-events failed:", error);
       }
     };
 
@@ -365,21 +506,21 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
             {hourlyStats.length > 0 && (
               <ChartContainer
                 config={{
-                  total: { label: "Total vehicles", color: "hsl(262 83% 58%)" },
+                  in: { label: "IN (per 30 min)", color: "hsl(262 83% 58%)" },
                 } satisfies ChartConfig}
                 className="h-[140px] w-full -mx-1"
               >
                 <BarChart data={hourlyStats} margin={{ top: 4, right: 4, left: 4, bottom: 24 }}>
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <XAxis dataKey="hour" tick={{ fontSize: 6 }} angle={-45} textAnchor="end" height={28} interval={2} />
-                  <Bar dataKey="total" fill="hsl(262 83% 58%)" radius={4}>
+                  <Bar dataKey="in" fill="hsl(262 83% 58%)" radius={4}>
                     <LabelList position="top" offset={6} className="fill-foreground" fontSize={8} formatter={(value: number) => value > 0 ? value : ""} />
                   </Bar>
                 </BarChart>
               </ChartContainer>
             )}
             <p className="text-[10px] text-muted-foreground mt-0.5">
-              {hourlyStats.length > 0 ? "Today 07:00–21:00" : "All vehicles detected"}
+              {hourlyStats.length > 0 ? "IN per 30 min (e.g. 07:00 = 07:00–07:30)" : "All vehicles detected"}
             </p>
           </CardContent>
         </Card>
@@ -524,17 +665,33 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
         </Card>
       </div>
 
-      {/* Search Field */}
+      {/* Live status — most important: clear view of who's inside */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-bold uppercase text-muted-foreground">Recent License Plate Recognitions</h2>
-            <p className="text-[9px] text-muted-foreground mt-0.5">Normal: every OUT has a previous IN. We keep track of vehicles that left without an IN capture (abnormal) — see Reports → OUT Without IN.</p>
+            <h2 className="text-sm font-bold uppercase text-muted-foreground flex items-center gap-2">
+              <span className="inline-flex h-2 w-2 rounded-full bg-green-500 animate-pulse" title="Live updates active" aria-hidden />
+              Live status — who&apos;s inside
+            </h2>
+            <p className="text-[9px] text-muted-foreground mt-0.5">
+              Last updated {format(lastUpdateTime, "HH:mm:ss")} · <strong>{liveCarsInsideCount}</strong> cars inside now. One card per plate; status updates when a car goes OUT.
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" title="Live updates active" />
-            <span className="text-[9px] text-muted-foreground">Live</span>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={refreshStatus}
+            disabled={refreshingStatus}
+            className="h-8 gap-1.5 text-xs shrink-0"
+          >
+            {refreshingStatus ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+            )}
+            {refreshingStatus ? "Checking…" : "Check status"}
+          </Button>
         </div>
         <div className="space-y-2">
           <div className="relative">
@@ -623,12 +780,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
             }
             plateToAllEvents.get(plate)!.push(event);
           }
-          // OUT-only plates (no IN ever) — show on dashboard with "NO IN" badge, sort to bottom
-          const platesWithIn = new Set(
-            [...plateToAllEvents.entries()]
-              .filter(([, evs]) => evs.some((e) => e.direction === "IN"))
-              .map(([plate]) => plate)
-          );
+          // Use server-derived + poll-updated set: plates that have at least one IN (so "NO IN" only when truly no IN)
           
           // Calculate which cars are still inside before sorting
           const plateToStillInside = new Map<string, boolean>();
@@ -644,15 +796,29 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
               );
             plateToStillInside.set(plate, isStillInside || false);
           }
+
+          // Exclude cars that left (OUT) on a past date — show only OUT from same date (today)
+          const startOfToday = new Date();
+          startOfToday.setHours(0, 0, 0, 0);
+          const endOfToday = new Date();
+          endOfToday.setHours(23, 59, 59, 999);
+          const latestValues = Array.from(plateToLatest.values());
+          const sameDateOrStillInside = latestValues.filter((event) => {
+            const plate = (event.licensePlate || "").trim().toUpperCase();
+            const isStillInside = plateToStillInside.get(plate) || false;
+            if (isStillInside) return true;
+            const t = new Date(event.recognitionTime).getTime();
+            return t >= startOfToday.getTime() && t <= endOfToday.getTime();
+          });
           
           // Sort: still inside first, then plates with IN (by time), then OUT-only at bottom (by time)
-          const filteredEvents = Array.from(plateToLatest.values()).sort((a, b) => {
+          const filteredEvents = sameDateOrStillInside.sort((a, b) => {
             const plateA = (a.licensePlate || "").trim().toUpperCase();
             const plateB = (b.licensePlate || "").trim().toUpperCase();
             const stillInsideA = plateToStillInside.get(plateA) || false;
             const stillInsideB = plateToStillInside.get(plateB) || false;
-            const outOnlyA = !platesWithIn.has(plateA);
-            const outOnlyB = !platesWithIn.has(plateB);
+            const outOnlyA = !platesWithInSet.has(plateA);
+            const outOnlyB = !platesWithInSet.has(plateB);
             
             // First priority: still inside cars come first
             if (stillInsideA && !stillInsideB) return -1;
@@ -706,7 +872,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
               const isExceeded = isInContract && isStillInside && contractNum01 > 0 && contractCarsIn > contractNum01;
               const isVisitorOverLimit = slotType === "visitor";
               const isInItems = normalizedPlate.length > 0 && platesInItems.has(normalizedPlate);
-              const isOutOnly = !platesWithIn.has(normalizedPlate);
+              const isOutOnly = !platesWithInSet.has(normalizedPlate);
 
               // When vehicle has left (OUT), find the time they came in (matching IN before this OUT)
               let entryTime: Date | null = null;
@@ -720,7 +886,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
 
               return (
                 <RecognitionEventCard 
-                  key={event.id} 
+                  key={`plate-${normalizedPlate}`}
                   event={event} 
                   isNew={!initialEventIds.has(event.id)}
                   isInContract={isInContract}
@@ -733,6 +899,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
                   contractCarsIn={contractCarsIn}
                   isExceeded={isExceeded}
                   isVisitorOverLimit={isVisitorOverLimit}
+                  onMarkAsLeft={handleMarkAsLeft}
                 />
               );
             });
@@ -774,9 +941,15 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   );
 }
 
-function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false, isVisitorOverLimit = false }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean; /** true when car is inside but over contract limit → pays regular visitor fee */ isVisitorOverLimit?: boolean }) {
+function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false, isVisitorOverLimit = false, onMarkAsLeft }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean; /** true when car is inside but over contract limit → pays regular visitor fee */ isVisitorOverLimit?: boolean; onMarkAsLeft?: (licensePlate: string, leftAt: Date) => Promise<void> }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [isLeftModalOpen, setIsLeftModalOpen] = useState(false);
+  const [leftAt, setLeftAt] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  });
+  const [savingLeft, setSavingLeft] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
@@ -928,8 +1101,8 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                             />
                           </div>
                         </div>
-                      </DialogContent>
-                    </Dialog>
+                    </DialogContent>
+                  </Dialog>
                   </>
                 ) : (
                   <div className="relative h-[35px] w-[100px] rounded-md overflow-hidden border border-border">
@@ -938,7 +1111,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                       alt={event.licensePlate || "Vehicle"}
                       fill
                       className="object-cover"
-                          sizes="100px"
+                      sizes="100px"
                     />
                   </div>
                 )
@@ -948,6 +1121,61 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                 </div>
               )}
             </div>
+
+            {/* Modal: Set time vehicle left (outside image block to avoid nesting) */}
+            {onMarkAsLeft && (
+              <Dialog open={isLeftModalOpen} onOpenChange={setIsLeftModalOpen}>
+                <DialogContent className="sm:max-w-sm">
+                  <DialogTitle className="text-sm font-bold uppercase text-muted-foreground">
+                    Set time vehicle left
+                  </DialogTitle>
+                  <div className={formFieldStyles.formSpacing}>
+                    <div className={formFieldStyles.fieldSpacing}>
+                      <Label htmlFor={`left-at-${event.id}`} className={formFieldStyles.label}>
+                        DATE & TIME
+                      </Label>
+                      <Input
+                        id={`left-at-${event.id}`}
+                        type="datetime-local"
+                        value={leftAt}
+                        onChange={(e) => setLeftAt(e.target.value)}
+                        className={formFieldStyles.input}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2 border-t">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsLeftModalOpen(false)}
+                        className={formFieldStyles.button}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={savingLeft}
+                        onClick={async () => {
+                          if (!event.licensePlate?.trim()) return;
+                          setSavingLeft(true);
+                          try {
+                            await onMarkAsLeft(event.licensePlate.trim(), new Date(leftAt));
+                            setIsLeftModalOpen(false);
+                          } finally {
+                            setSavingLeft(false);
+                          }
+                        }}
+                        className={formFieldStyles.button}
+                      >
+                        {savingLeft ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogOut className={formFieldStyles.buttonIcon} />}
+                        {savingLeft ? "Saving…" : "Mark as left"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
 
             {/* License Plate and Badge */}
             <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1003,13 +1231,51 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                 </Badge>
               )}
               {isOutOnly && (
-                <Badge 
-                  variant="secondary" 
-                  className="text-xs font-bold px-2 py-1 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800"
-                  title="Abnormal: no IN capture — we keep track of these"
-                >
-                  NO IN CAPTURED
-                </Badge>
+                <span className="flex items-center gap-1.5 flex-wrap">
+                  <Badge 
+                    variant="secondary" 
+                    className="text-xs font-bold px-2 py-1 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800"
+                    title="Abnormal: no IN capture — we keep track of these"
+                  >
+                    NO IN CAPTURED
+                  </Badge>
+                  <Link
+                    href={`/reports/out-without-in?plate=${encodeURIComponent((event.licensePlate || "").trim().toUpperCase())}`}
+                    className="text-[9px] font-medium text-primary hover:underline"
+                  >
+                    View in OUT without IN report
+                  </Link>
+                </span>
+              )}
+              {/* Actions dropdown — Left (mark as out) when car is still inside */}
+              {onMarkAsLeft && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 ml-auto rounded-md"
+                      aria-label="Actions"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {isStillInside && (
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          setIsLeftModalOpen(true);
+                          const d = new Date();
+                          setLeftAt(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+                        }}
+                      >
+                        <LogOut className="h-3.5 w-3.5 mr-2" />
+                        Left
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
 

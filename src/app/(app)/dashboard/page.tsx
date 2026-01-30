@@ -277,6 +277,13 @@ export default async function DashboardPage() {
       carsInsideNow++;
     }
   }
+  // Plates that have at least one IN event (in full history per plate) — used for "NO IN CAPTURED" badge
+  const platesWithIn = new Set<string>(
+    [...plateToEvents.entries()]
+      .filter(([, evs]) => evs.some((e) => e.direction === "IN"))
+      .map(([plate]) => plate)
+  );
+
   // Deduplicate by license plate: keep only the most recent event per plate (valid plate >= 2 chars)
   const plateToLatest = new Map<string, (typeof lastTwoDays)[0]>();
   for (const event of lastTwoDays) {
@@ -288,10 +295,28 @@ export default async function DashboardPage() {
       plateToLatest.set(plate, event);
     }
   }
-  // Show all plates (include OUT-only so user sees every event; OUT-only get "NO IN" badge and sort to bottom)
-  const recentRecognitionEvents = Array.from(plateToLatest.values()).sort(
-    (a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime()
-  );
+  // One event per plate (latest); then exclude cars that left (OUT) on a past date — show only OUT from same date (today)
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+  const allLatest = Array.from(plateToLatest.values());
+  const recentRecognitionEvents = allLatest
+    .filter((event) => {
+      const plate = (event.licensePlate || "").trim().toUpperCase();
+      if (plate.length < 2) return false;
+      const evs = plateToEvents.get(plate) ?? [];
+      const sorted = [...evs].sort((a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime());
+      const latest = sorted[0];
+      const isStillInside =
+        latest?.direction === "IN" &&
+        !sorted.some((e) => e.direction === "OUT" && new Date(e.recognitionTime).getTime() > new Date(latest.recognitionTime).getTime());
+      if (isStillInside) return true;
+      // Left (OUT): only show if the OUT event is from today
+      const t = new Date(event.recognitionTime).getTime();
+      return t >= startOfToday.getTime() && t <= endOfToday.getTime();
+    })
+    .sort((a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime());
 
   // Plates registered in ITEMS (CODE = license plate) — badge "ITEMS/MTRL"
   let platesInItems = new Set<string>();
@@ -393,6 +418,7 @@ export default async function DashboardPage() {
       materialLicensePlates={erpLicensePlates}
       platesInItems={platesInItems}
       contractInfoByPlate={contractInfoByPlate}
+      platesWithIn={Array.from(platesWithIn)}
     />
   );
 }
@@ -438,12 +464,21 @@ async function getDashboardStats(role: string) {
     },
   });
 
-  // Walk Ins (plateType = VISITOR, direction = IN)
+  // Walk Ins (plateType = VISITOR, direction = IN) — only 06:00 to 23:00 of current date
+  const now = new Date();
+  const walkInWindowStart = new Date(now);
+  walkInWindowStart.setHours(6, 0, 0, 0);
+  const walkInWindowEnd = new Date(now);
+  walkInWindowEnd.setHours(23, 0, 0, 0);
   const walkIns = await prisma.lprRecognitionEvent.count({
     where: {
       ...whereValidPlate,
       direction: "IN",
       plateType: "VISITOR",
+      recognitionTime: {
+        gte: walkInWindowStart,
+        lte: walkInWindowEnd,
+      },
     },
   });
 

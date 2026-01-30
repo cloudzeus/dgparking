@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const sinceParam = searchParams.get("since");
-    const limit = parseInt(searchParams.get("limit") || "10", 10);
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "10", 10) || 10));
 
     // Parse the "since" timestamp
     let sinceDate: Date | null = null;
@@ -185,11 +185,9 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("[DASHBOARD-NEW-EVENTS] Error fetching new events:", error);
+    const message = error instanceof Error ? error.message : "Failed to fetch new events";
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to fetch new events",
-      },
+      { success: false, error: message, events: [], count: 0 },
       { status: 500 }
     );
   }

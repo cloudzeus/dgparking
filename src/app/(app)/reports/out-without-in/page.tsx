@@ -7,7 +7,7 @@ import { format, startOfDay, endOfDay, parseISO } from "date-fns";
 export default async function OutWithoutInReportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ startDate?: string; endDate?: string }>;
+  searchParams: Promise<{ startDate?: string; endDate?: string; plate?: string }>;
 }) {
   const session = await auth();
 
@@ -21,6 +21,7 @@ export default async function OutWithoutInReportPage({
   }
 
   const params = await searchParams;
+  const plateFilter = (params.plate ?? "").trim().toUpperCase() || null;
 
   // Parse date range from search params (default to last 7 days)
   const today = new Date();
@@ -82,6 +83,7 @@ export default async function OutWithoutInReportPage({
         startDate={startDate}
         endDate={endDate}
         user={session.user}
+        plateFilter={plateFilter}
       />
     );
   }
@@ -122,7 +124,7 @@ export default async function OutWithoutInReportPage({
   }
 
   // Find OUT events without matching IN (IN must be before OUT)
-  const outWithoutIn = validOutEvents.filter((outEvent) => {
+  let outWithoutIn = validOutEvents.filter((outEvent) => {
     const plate = (outEvent.licensePlate || "").trim().toUpperCase();
     const inTimes = plateToInTimes.get(plate) || [];
     const outTime = new Date(outEvent.recognitionTime);
@@ -130,6 +132,12 @@ export default async function OutWithoutInReportPage({
     // Check if there's any IN event before this OUT event
     return !inTimes.some((inTime) => inTime < outTime);
   });
+
+  if (plateFilter && plateFilter.length >= 2) {
+    outWithoutIn = outWithoutIn.filter(
+      (e) => (e.licensePlate || "").trim().toUpperCase() === plateFilter
+    );
+  }
 
   // LprImage has no relation on LprRecognitionEvent — fetch images by eventId/eventType
   const eventIds = outWithoutIn.map((e) => e.id);
@@ -160,6 +168,7 @@ export default async function OutWithoutInReportPage({
       startDate={startDate}
       endDate={endDate}
       user={session.user}
+      plateFilter={plateFilter}
     />
   );
 }

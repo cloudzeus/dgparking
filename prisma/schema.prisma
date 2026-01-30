@@ -678,3 +678,16 @@ model LprImage {
   @@index([createdAt])
   @@map("lpr_images")
 }
+
+// Parking working hours per weekday (0 = Sunday, 6 = Saturday). Used for managing cars and pricing.
+model ParkingWorkingHours {
+  id        String   @id @default(cuid()) @map("id")
+  dayOfWeek Int      @unique @map("day_of_week") // 0 Sun, 1 Mon, 2 Tue, 3 Wed, 4 Thu, 5 Fri, 6 Sat
+  openTime  String?  @map("open_time") @db.VarChar(5)  // "08:00"
+  closeTime String?  @map("close_time") @db.VarChar(5)  // "22:00"
+  isClosed  Boolean  @default(false) @map("is_closed")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("parking_working_hours")
+}
