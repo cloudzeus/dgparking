@@ -163,8 +163,8 @@ model ContractCar {
 }
 
 model iNSTLINES {
-  INSTLINES  Int       @id @map("instlines")
-  INST       Int?      @map("inst")
+  INSTLINES  Int       @map("instlines")
+  INST       Int       @map("inst")
   LINENUM    Int?      @map("linenum")
   SODTYPE    Int?      @map("sodtype")
   MTRL       String?   @map("mtrl")
@@ -184,8 +184,9 @@ model iNSTLINES {
   UPDDATE    DateTime? @updatedAt @map("upddate")
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
-  inst       iNST?     @relation(fields: [INST], references: [INST], onDelete: Cascade)
+  inst       iNST      @relation(fields: [INST], references: [INST], onDelete: Cascade)
 
+  @@id([INST, INSTLINES])
   @@index([INST], map: "instlines_inst_fkey")
   @@map("instlines")
 }

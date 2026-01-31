@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Car, ArrowUpRight, ArrowDownRight, Clock, TrendingUp, TrendingDown, FileText, FileCheck, User, X, Search, RefreshCw, Loader2, MoreVertical, LogOut } from "lucide-react";
+import { Car, ArrowUpRight, ArrowDownRight, Clock, TrendingUp, TrendingDown, FileText, FileCheck, User, X, Search, RefreshCw, Loader2, MoreVertical, LogOut, LogIn } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formFieldStyles } from "@/lib/form-styles";
 import { BarChart, Bar, LabelList, XAxis } from "recharts";
 import { toast } from "sonner";
@@ -175,6 +176,32 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   const safeRecentEvents = Array.isArray(recentEvents) ? recentEvents : [];
   const [events, setEvents] = useState<RecognitionEventWithRelations[]>(safeRecentEvents);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedPlates, setSelectedPlates] = useState<Set<string>>(new Set());
+  const [markingAllAsLeft, setMarkingAllAsLeft] = useState(false);
+
+  /** Set of plates that are still inside (last 2 days, dedupe by plate, latest event IN and no OUT after). */
+  const platesStillInsideSet = useMemo(() => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    const recent = (events || []).filter((e) => new Date(e.recognitionTime) >= twoDaysAgo);
+    const plateToAllEvents = new Map<string, RecognitionEventWithRelations[]>();
+    for (const e of recent) {
+      const plate = (e.licensePlate || "").trim().toUpperCase();
+      if (plate.length < 2) continue;
+      if (!plateToAllEvents.has(plate)) plateToAllEvents.set(plate, []);
+      plateToAllEvents.get(plate)!.push(e);
+    }
+    const stillInside = new Set<string>();
+    for (const [, allEvs] of plateToAllEvents) {
+      const sorted = [...allEvs].sort((a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime());
+      const latest = sorted[0];
+      const isStillInside = latest?.direction === "IN" && !sorted.some((e) => e.direction === "OUT" && new Date(e.recognitionTime).getTime() > new Date(latest.recognitionTime).getTime());
+      if (isStillInside && latest) {
+        const plate = (latest.licensePlate || "").trim().toUpperCase();
+        if (plate.length >= 2) stillInside.add(plate);
+      }
+    }
+    return stillInside;
+  }, [events]);
   
   // Debug: Log events on mount
   useEffect(() => {
@@ -235,6 +262,36 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
     });
   }, [platesWithInProp.join(",")]);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
+
+  const handleSelectAll = () => {
+    if (selectedPlates.size === platesStillInsideSet.size) {
+      setSelectedPlates(new Set());
+    } else {
+      setSelectedPlates(new Set(platesStillInsideSet));
+    }
+  };
+
+  const handleMarkAllAsLeft = async () => {
+    const toMark = [...selectedPlates].filter((p) => platesStillInsideSet.has(p));
+    if (toMark.length === 0) {
+      toast.info("No selected cards that are still inside.");
+      return;
+    }
+    setMarkingAllAsLeft(true);
+    const now = new Date();
+    let done = 0;
+    for (const plate of toMark) {
+      try {
+        await handleMarkAsLeft(plate, now);
+        done++;
+      } catch {
+        // toast per plate is handled in handleMarkAsLeft
+      }
+    }
+    setSelectedPlates(new Set());
+    setMarkingAllAsLeft(false);
+    if (done > 0) toast.success(`Marked ${done} vehicle${done !== 1 ? "s" : ""} as left`);
+  };
 
   /** Mark vehicle as left at a given time (manual OUT). */
   const handleMarkAsLeft = async (licensePlate: string, leftAt: Date) => {
@@ -548,16 +605,16 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
         subtitle={`${getRoleGreeting()}. Here's your overview.`}
       />
 
-      {/* Row 1: Total Vehicles, Total In, Total Out — with colored bar charts and tooltips */}
+      {/* Row 1: Total Vehicles, Total In, Total Out */}
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-violet-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <div className="absolute inset-0 bg-primary/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 relative px-6 pt-6">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
               TOTAL VEHICLES
             </CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/20">
-              <Car className="h-3.5 w-3.5 text-violet-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20">
+              <Car className="h-3.5 w-3.5 text-primary" />
             </div>
           </CardHeader>
           <CardContent className="relative px-6 pb-4 pt-0 space-y-1">
@@ -587,13 +644,13 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
         </Card>
 
         <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-green-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <div className="absolute inset-0 bg-primary/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 relative px-6 pt-6">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
               TOTAL IN
             </CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/20">
-              <ArrowUpRight className="h-3.5 w-3.5 text-green-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20">
+              <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
             </div>
           </CardHeader>
           <CardContent className="relative px-6 pb-4 pt-0 space-y-1">
@@ -623,13 +680,13 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
         </Card>
 
         <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-red-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <div className="absolute inset-0 bg-destructive/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 relative px-6 pt-6">
             <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
               TOTAL OUT
             </CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/20">
-              <ArrowDownRight className="h-3.5 w-3.5 text-red-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/20">
+              <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
             </div>
           </CardHeader>
           <CardContent className="relative px-6 pb-4 pt-0 space-y-1">
@@ -659,70 +716,70 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
         </Card>
       </div>
 
-      {/* Row 2: Cars Inside Now, Contracts In, Contracts (with plates), Walk Ins — no graphs */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mt-6">
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-amber-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-            <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
+      {/* Row 2: Cars Inside Now, Contracts In, Contracts (with plates), Walk Ins — compact */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-4">
+        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 px-4 py-3">
+          <div className="absolute inset-0 bg-primary/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-[10px] font-medium uppercase text-muted-foreground shrink-0">
               CARS INSIDE NOW
             </CardTitle>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20">
-              <Car className="h-4 w-4 text-amber-600" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/20">
+              <Car className="h-3.5 w-3.5 text-primary" />
             </div>
-          </CardHeader>
-          <CardContent className="relative space-y-2">
-            <div className="text-3xl font-bold">{stats.carsInsideNow ?? 0}</div>
-            <p className="text-xs text-muted-foreground">Currently in parking</p>
-          </CardContent>
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-xl font-bold">{stats.carsInsideNow ?? 0}</span>
+            <span className="text-[10px] text-muted-foreground">in parking</span>
+          </div>
         </Card>
 
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-blue-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-            <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
+        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 px-4 py-3">
+          <div className="absolute inset-0 bg-primary/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-[10px] font-medium uppercase text-muted-foreground shrink-0">
               CONTRACTS IN
             </CardTitle>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20">
-              <FileText className="h-4 w-4 text-blue-600" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/20">
+              <FileText className="h-3.5 w-3.5 text-primary" />
             </div>
-          </CardHeader>
-          <CardContent className="relative space-y-2">
-            <div className="text-3xl font-bold">{stats.contractsIn}</div>
-            <p className="text-xs text-muted-foreground">Contract vehicles in</p>
-          </CardContent>
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-xl font-bold">{stats.contractsIn}</span>
+            <span className="text-[10px] text-muted-foreground">contract vehicles</span>
+          </div>
         </Card>
 
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-emerald-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-            <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
+        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 px-4 py-3">
+          <div className="absolute inset-0 bg-primary/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-[10px] font-medium uppercase text-muted-foreground shrink-0">
               CONTRACTS (WITH PLATES)
             </CardTitle>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/20">
-              <FileCheck className="h-4 w-4 text-emerald-600" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/20">
+              <FileCheck className="h-3.5 w-3.5 text-primary" />
             </div>
-          </CardHeader>
-          <CardContent className="relative space-y-2">
-            <div className="text-3xl font-bold">{stats.contractsWithPlates ?? 0}</div>
-            <p className="text-xs text-muted-foreground">Have plate lines</p>
-          </CardContent>
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-xl font-bold">{stats.contractsWithPlates ?? 0}</span>
+            <span className="text-[10px] text-muted-foreground">have plate lines</span>
+          </div>
         </Card>
 
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-purple-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-            <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
+        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 px-4 py-3">
+          <div className="absolute inset-0 bg-muted opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-[10px] font-medium uppercase text-muted-foreground shrink-0">
               WALK INS
             </CardTitle>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/20">
-              <User className="h-4 w-4 text-purple-600" />
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <User className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
-          </CardHeader>
-          <CardContent className="relative space-y-2">
-            <div className="text-3xl font-bold">{stats.walkIns}</div>
-            <p className="text-xs text-muted-foreground">Visitor vehicles in</p>
-          </CardContent>
+          </div>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="text-xl font-bold">{stats.walkIns}</span>
+            <span className="text-[10px] text-muted-foreground">visitor vehicles</span>
+          </div>
         </Card>
       </div>
 
@@ -755,15 +812,47 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           </Button>
         </div>
         <div className="space-y-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search by license plate, direction (IN/OUT), vehicle type, or camera..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 text-xs h-8"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search by license plate, direction (IN/OUT), vehicle type, or camera..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 text-xs h-8"
+              />
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSelectAll}
+                className="h-8 gap-1.5 text-xs"
+              >
+                <Checkbox
+                  checked={platesStillInsideSet.size > 0 && selectedPlates.size === platesStillInsideSet.size}
+                  className="pointer-events-none"
+                />
+                {selectedPlates.size === platesStillInsideSet.size && platesStillInsideSet.size > 0 ? "Deselect all" : "Select all"}
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={handleMarkAllAsLeft}
+                disabled={markingAllAsLeft || selectedPlates.size === 0 || [...selectedPlates].filter((p) => platesStillInsideSet.has(p)).length === 0}
+                className="h-8 gap-1.5 text-xs"
+              >
+                {markingAllAsLeft ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <LogOut className="h-3.5 w-3.5" aria-hidden />
+                )}
+                Mark all as left ({[...selectedPlates].filter((p) => platesStillInsideSet.has(p)).length})
+              </Button>
+            </div>
           </div>
           {searchQuery.trim() && (
             <p className="text-xs text-muted-foreground">
@@ -890,9 +979,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
             // Third: by recognition time (newest first)
             return new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime();
           });
-          
-          console.log(`[DASHBOARD-CLIENT] Showing ${filteredEvents.length} unique plates (last 2 days, search: "${searchQuery}") from ${lastTwoDaysEvents.length} events`);
-          
+
           return filteredEvents.length > 0 ? (
           <div 
             className="grid gap-4" 
@@ -960,6 +1047,15 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
                   contractCarsIn={contractCarsIn}
                   isExceeded={isExceeded}
                   isVisitorOverLimit={isVisitorOverLimit}
+                  isSelected={selectedPlates.has(normalizedPlate)}
+                  onToggleSelect={() => {
+                    setSelectedPlates((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(normalizedPlate)) next.delete(normalizedPlate);
+                      else next.add(normalizedPlate);
+                      return next;
+                    });
+                  }}
                   onMarkAsLeft={handleMarkAsLeft}
                   onReevaluate={handleReevaluate}
                 />
@@ -1003,7 +1099,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   );
 }
 
-function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false, isVisitorOverLimit = false, onMarkAsLeft, onReevaluate }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean; /** true when car is inside but over contract limit → pays regular visitor fee */ isVisitorOverLimit?: boolean; onMarkAsLeft?: (licensePlate: string, leftAt: Date) => Promise<void>; onReevaluate?: (eventId: string, newLicensePlate: string) => Promise<void> }) {
+function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false, isVisitorOverLimit = false, isSelected = false, onToggleSelect, onMarkAsLeft, onReevaluate }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean; /** true when car is inside but over contract limit → pays regular visitor fee */ isVisitorOverLimit?: boolean; isSelected?: boolean; onToggleSelect?: () => void; onMarkAsLeft?: (licensePlate: string, leftAt: Date) => Promise<void>; onReevaluate?: (eventId: string, newLicensePlate: string) => Promise<void> }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [isLeftModalOpen, setIsLeftModalOpen] = useState(false);
@@ -1040,10 +1136,10 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
   const fullImage = event.images.find(img => img.imageType === "FULL_IMAGE") || event.images.find(img => img.imageType === "SNAPSHOT");
   const fullImageUrl = fullImage?.url;
   
-  // Direction enum values are: IN, OUT, UNKNOWN (not APPROACH/AWAY)
+  // Direction enum values are: IN, OUT, UNKNOWN (not APPROACH/AWAY) — use theme primary/destructive
   const DirectionIcon = event.direction === "IN" ? ArrowUpRight : event.direction === "OUT" ? ArrowDownRight : null;
-  const directionColor = event.direction === "IN" ? "text-green-500" : event.direction === "OUT" ? "text-red-500" : "text-muted-foreground";
-  const directionBgColor = event.direction === "IN" ? "bg-green-500/10 border-green-500/20" : event.direction === "OUT" ? "bg-red-500/10 border-red-500/20" : "";
+  const directionColor = event.direction === "IN" ? "text-primary" : event.direction === "OUT" ? "text-destructive" : "text-muted-foreground";
+  const directionBgColor = event.direction === "IN" ? "bg-primary/10 border-primary/20" : event.direction === "OUT" ? "bg-destructive/10 border-destructive/20" : "";
 
   useEffect(() => {
     if (cardRef.current) {
@@ -1071,20 +1167,20 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
     }
   }, [isNew]);
 
-  // Card state: solid colors (no gradients) for clear distinction
-  // 1) Visitor over limit  2) On contract (within)  3) Past date still in  4) Inside parking  5) Car left (OUT)  6) Past date (left)
+  // Card state: 4 pastel backgrounds (lavender, lemon yellow for contract, pastel yellow/amber, sky blue)
+  // 1) Visitor over limit → pastel yellow (amber)  2) On contract → lemon yellow  3) Past date still in → sky blue  4) Inside → lavender  5) Car left / Past date → sky blue
   const cardBgClass = isVisitorOverLimit
-    ? "bg-amber-100 dark:bg-amber-900/40 border border-amber-400 dark:border-amber-600"
+    ? "bg-amber-50/95 dark:bg-amber-900/25 border border-amber-200/60 dark:border-amber-800/50"
     : isInContract && !isVisitorOverLimit
-      ? "bg-blue-100 dark:bg-blue-900/40 border border-blue-400 dark:border-blue-600"
+      ? "bg-yellow-100/95 dark:bg-yellow-900/25 border border-yellow-300/60 dark:border-yellow-700/50"
       : isFromPastDate && isStillInside
-        ? "bg-sky-100 dark:bg-sky-900/40 border border-sky-400 dark:border-sky-600"
+        ? "bg-sky-100/90 dark:bg-sky-900/25 border border-sky-200/60 dark:border-sky-800/50"
         : isStillInside
-          ? "bg-violet-100 dark:bg-violet-900/40 border border-violet-400 dark:border-violet-600"
+          ? "bg-violet-100/90 dark:bg-violet-900/25 border border-violet-200/60 dark:border-violet-800/50"
           : !isStillInside && (event.direction === "OUT" || isOutOnly)
-            ? "bg-slate-200 dark:bg-slate-700/50 border border-slate-400 dark:border-slate-600"
+            ? "bg-sky-100/90 dark:bg-sky-900/25 border border-sky-200/60 dark:border-sky-800/50"
             : isFromPastDate
-              ? "bg-slate-100 dark:bg-slate-800/40 border border-slate-300 dark:border-slate-600"
+              ? "bg-sky-100/80 dark:bg-sky-900/20 border border-sky-200/50 dark:border-sky-800/40"
               : "bg-card border border-border";
 
   // State description (palette-style: keywords + "Often used" + explanation)
@@ -1106,7 +1202,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
     <Card
       ref={cardRef}
       data-new-event={isNew ? "true" : undefined}
-      className={`group relative overflow-hidden border-0 card-shadow-xl backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 bg-transparent ${isNew ? "ring-2 ring-green-500/50" : ""}`}
+      className={`group relative overflow-hidden border-0 card-shadow-xl backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 bg-transparent ${isNew ? "ring-2 ring-primary/50" : ""}`}
       style={{ minWidth: '300px' }}
     >
       {/* Full card background (solid color by state) */}
@@ -1117,6 +1213,14 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
         <div className="flex flex-col gap-3">
           {/* License Plate Row with Image - 35px height, 90px width */}
           <div className="flex items-center gap-2">
+            {isStillInside && onToggleSelect && (
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={onToggleSelect}
+                className="shrink-0 h-4 w-4"
+                aria-label={isSelected ? "Deselect card" : "Select card"}
+              />
+            )}
             {/* License Plate Image */}
             <div className="relative flex-shrink-0">
               {imageUrl ? (
@@ -1407,98 +1511,22 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
               </Dialog>
             )}
 
-            {/* License Plate and Badge */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <h3 className="text-xs font-bold uppercase text-foreground truncate" title={getDisplayPlate(event)}>
-                {getDisplayPlate(event)}
-              </h3>
-              {isInContract && contractNum01 > 0 && !isVisitorOverLimit && (
-                <Badge 
-                  variant="secondary" 
-                  className={`text-xs font-bold px-2 py-1 ${isExceeded ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800"}`}
-                >
-                  {contractCarsIn}/{contractNum01}
-                </Badge>
-              )}
-              {isInContract && isVisitorOverLimit && (
-                <Badge 
-                  variant="secondary" 
-                  className="text-xs font-bold px-2 py-1 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800"
-                >
-                  Visitor (regular fee)
-                </Badge>
-              )}
-              {isInContract && contractNum01 === 0 && !isVisitorOverLimit && (
-                <Badge 
-                  variant="secondary" 
-                  className="text-xs font-bold px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800"
-                >
-                  CONTRACT
-                </Badge>
-              )}
-              {isInItems && (
-                <Badge 
-                  variant="secondary" 
-                  className="text-xs font-bold px-2 py-1 bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300 border-slate-200 dark:border-slate-800"
-                >
-                  ERP
-                </Badge>
-              )}
-              {isStillInside && !isExceeded && (
-                <Badge 
-                  variant="secondary" 
-                  className="text-xs font-bold px-2 py-1 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800"
-                >
-                  INSIDE
-                </Badge>
-              )}
-              {isExceeded && (
-                <Badge 
-                  variant="secondary" 
-                  className="text-xs font-bold px-2 py-1 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800"
-                >
-                  EXCEEDED
-                </Badge>
-              )}
-              {isOutOnly && (
-                <span className="flex items-center gap-1.5 flex-wrap">
-                  <Badge 
-                    variant="secondary" 
-                    className="text-xs font-bold px-2 py-1 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800"
-                    title="Abnormal: no IN capture — we keep track of these"
-                  >
-                    NO IN CAPTURED
-                  </Badge>
-                  <Link
-                    href={`/reports/out-without-in?plate=${encodeURIComponent(getPlate(event).toUpperCase())}`}
-                    className="text-[9px] font-medium text-primary hover:underline"
-                  >
-                    View in OUT without IN report
-                  </Link>
-                </span>
-              )}
-            </div>
-
-            {/* Direction Icon — from camera: Approach = IN (coming), Away = OUT (leaving) */}
-            {DirectionIcon && (
-              <div
-                className={`flex items-center justify-center h-6 w-6 rounded-md border ${directionBgColor} ${directionColor} flex-shrink-0`}
-                title={event.direction === "IN" ? "Approach (coming in)" : "Away (leaving)"}
-              >
-                <DirectionIcon className="h-4 w-4" />
-              </div>
-            )}
-
-            {/* Actions dropdown — right corner, to the right of the arrow */}
-            <DropdownMenu>
+            {/* Two rows: row1 = plate + dropdown, row2 = badges (ERP, direction, contract, INSIDE, etc.) */}
+            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+              {/* Row 1: license plate text + dropdown */}
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase text-foreground truncate min-w-0" title={getDisplayPlate(event)}>
+                  {getDisplayPlate(event)}
+                </h3>
+                <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 shrink-0 rounded-md"
+                  className="h-6 w-6 shrink-0 rounded-md text-xs"
                   aria-label="Actions"
                 >
-                  <MoreVertical className="h-4 w-4" />
+                  <MoreVertical className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -1538,6 +1566,67 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+              </div>
+
+              {/* Row 2: ERP, direction icon, contract num01, INSIDE, other badges — text-[9px] bold */}
+              <div className="flex flex-wrap items-center gap-1.5 text-[9px]">
+              {isInItems && (
+                <Badge variant="secondary" className="text-[9px] font-bold px-1.5 py-0.5 bg-muted text-muted-foreground border border-border">
+                  ERP
+                </Badge>
+              )}
+              {DirectionIcon && (
+                <div
+                  className={`flex items-center justify-center h-5 w-5 rounded border ${directionBgColor} ${directionColor} flex-shrink-0`}
+                  title={event.direction === "IN" ? "Approach (coming in)" : "Away (leaving)"}
+                >
+                  <DirectionIcon className="h-3 w-3" />
+                </div>
+              )}
+              {isInContract && contractNum01 > 0 && !isVisitorOverLimit && (
+                <Badge
+                  variant="secondary"
+                  className={`text-[9px] font-bold px-1.5 py-0.5 border ${isExceeded ? "bg-destructive/15 text-destructive border-destructive/30" : "bg-primary/15 text-primary border-primary/30"}`}
+                >
+                  {contractCarsIn}/{contractNum01}
+                </Badge>
+              )}
+              {isInContract && isVisitorOverLimit && (
+                <Badge variant="secondary" className="text-[9px] font-bold px-1.5 py-0.5 bg-muted text-muted-foreground border border-border">
+                  Visitor
+                </Badge>
+              )}
+              {isInContract && contractNum01 === 0 && !isVisitorOverLimit && (
+                <Badge variant="secondary" className="text-[9px] font-bold px-1.5 py-0.5 bg-primary/15 text-primary border border-primary/30">
+                  CONTRACT
+                </Badge>
+              )}
+              {isStillInside && !isExceeded && (
+                <Badge variant="secondary" className="text-[9px] font-bold px-1.5 py-0.5 bg-primary/15 text-primary border border-primary/30">
+                  INSIDE
+                </Badge>
+              )}
+              {isExceeded && (
+                <Badge variant="secondary" className="text-[9px] font-bold px-1.5 py-0.5 bg-destructive/15 text-destructive border border-destructive/30">
+                  EXCEEDED
+                </Badge>
+              )}
+              {isOutOnly && (
+                <>
+                  <Badge
+                    variant="secondary"
+                    className="text-[9px] font-bold px-1.5 py-0.5 bg-destructive/15 text-destructive border border-destructive/30"
+                    title="Abnormal: no IN capture"
+                  >
+                    NO IN
+                  </Badge>
+                  <Link href={`/reports/out-without-in?plate=${encodeURIComponent(getPlate(event).toUpperCase())}`} className="text-[9px] font-bold text-primary hover:underline">
+                    Report
+                  </Link>
+                </>
+              )}
+              </div>
+            </div>
           </div>
 
           {/* State description (palette-style) */}
@@ -1607,7 +1696,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
               {entryTime && event.direction === "OUT" && (
                 <Badge
                   variant="secondary"
-                  className="text-xs font-bold px-2 py-1 bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 border-sky-200 dark:border-sky-800 inline-flex items-center gap-1"
+                  className="text-xs font-bold px-2 py-1 bg-muted text-muted-foreground border border-border inline-flex items-center gap-1"
                 >
                   Came in at: {format(entryTime, "dd/MM HH:mm")}
                 </Badge>
@@ -1615,7 +1704,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
               {isStillInside && (
                 <Badge
                   variant="secondary"
-                  className="text-xs font-bold px-2 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 inline-flex items-center gap-1.5"
+                  className="text-xs font-bold px-2 py-1 bg-primary/15 text-primary border border-primary/30 inline-flex items-center gap-1.5"
                   suppressHydrationWarning
                 >
                   <Clock className="h-3.5 w-3.5" />
@@ -1643,7 +1732,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                 return totalMinutes != null && totalMinutes >= 0 ? (
                   <Badge
                     variant="secondary"
-                    className="text-xs font-bold px-2 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-800 inline-flex items-center gap-1"
+                    className="text-xs font-bold px-2 py-1 bg-primary/15 text-primary border border-primary/30 inline-flex items-center gap-1"
                   >
                     <Clock className="h-3 w-3" />
                     Time in parking: {formatDurationMinutes(totalMinutes)}

@@ -199,28 +199,31 @@ export async function POST(request: Request) {
     const objectName = integration.objectName;
     const tableName = integration.tableDbname || integration.tableName;
 
-    // INSTLINES: optionally filter results by INST (contracts) in date range or given instIds — fetch all from SoftOne (1=1) then filter in-app
+    // INSTLINES: first get INST records from the last 2 months; then fetch all INSTLINES from ERP and filter/save per those INSTs (always use last 2 months, not body.instIds)
     let instlinesFilteredByInst = false;
     let instIdsForFilter: number[] | null = null;
+    let syncAllPlatesMode = false;
+    let instlinesSyncAllPlatesMode = false;
     if (modelName.toUpperCase() === "INSTLINES") {
-      const bodyInstIds = (body as any).instIds;
-      const filterByDateRange = (body as any).filterByDateRange === true;
-      const isCronInstlines = isCronRequest && !(body as any).fullSync;
-      if (Array.isArray(bodyInstIds) && bodyInstIds.length > 0) {
-        instIdsForFilter = bodyInstIds.map((id: any) => Number(id)).filter((n: number) => !isNaN(n));
-      } else if (filterByDateRange || isCronInstlines) {
-        const twoMonthsAgo = new Date();
-        twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-        const instInRange = await prisma.iNST.findMany({
-          where: { WDATETO: { gte: twoMonthsAgo } },
-          select: { INST: true },
-        });
-        instIdsForFilter = instInRange.map((r) => (typeof r.INST === "number" ? r.INST : Number(String(r.INST).replace(/^0+/, "") || 0)));
-      }
-      if (instIdsForFilter && instIdsForFilter.length > 0) {
+      syncAllPlatesMode = (body as any).syncAllPlates === true;
+      const twoMonthsAgo = new Date();
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+      // INST from last 2 months: WDATETO >= twoMonthsAgo (or null = no end date) — always use this set so we sync all relevant INSTLINES
+      const instFromLastTwoMonths = await prisma.iNST.findMany({
+        where: {
+          OR: [
+            { WDATETO: { gte: twoMonthsAgo } },
+            { WDATETO: null },
+          ],
+        },
+        select: { INST: true },
+      });
+      instIdsForFilter = instFromLastTwoMonths.map((r) => (typeof r.INST === "number" ? r.INST : Number(String(r.INST).replace(/^0+/, "") || 0)));
+      console.log(`[INSTLINES] Using ${instIdsForFilter.length} INSTs from last 2 months (WDATETO >= ${twoMonthsAgo.toISOString().slice(0, 10)} or null)`);
+      filter = "1=1"; // Always fetch all INSTLINES from ERP; we filter in-app by INST
+      if (instIdsForFilter.length > 0) {
         instlinesFilteredByInst = true;
-        filter = "1=1"; // Get all INSTLINES from SoftOne in one request; we filter by INST in-app
-        console.log(`[INSTLINES] Will fetch all INSTLINES from ERP (filter 1=1), then filter by ${instIdsForFilter.length} INSTs (date range / contracts)`);
+        console.log(`[INSTLINES] Will fetch all INSTLINES from ERP (filter 1=1), then filter and save per ${instIdsForFilter.length} INSTs`);
       }
     }
 
@@ -303,11 +306,10 @@ export async function POST(request: Request) {
 
     // Build FILTER and FILTERS for incremental sync if we have a lastSyncAt and the model supports date fields
     // CRITICAL: Manual "Sync Now" should ALWAYS get all records - skip date filtering for manual syncs
-    // According to SoftOne Web Services docs: https://www.softone.gr/ws/
-    // FILTERS format: "TABLE.FIELD=value&TABLE.FIELD2=value2" (using & as OR separator)
-    // FILTER format: SQL WHERE clause like "INSDATE>'2024-01-01 00:00:00' OR UPDDATE>'2024-01-01 00:00:00'"
-    // We'll use both FILTER (SQL) and FILTERS (if GetTable supports it) to ensure filtering works
-    if (lastSyncAt && !isManualSync && modelsWithDateFields.includes(modelName.toUpperCase()) && formattedDate) {
+    // For INST: cron always fetches ALL contracts (no date filter) so cron actually refreshes the table
+    const tableNameUpperForFilter = tableName.toUpperCase();
+    const skipDateFilterForInst = tableNameUpperForFilter === "INST" && !isManualSync;
+    if (lastSyncAt && !isManualSync && modelsWithDateFields.includes(modelName.toUpperCase()) && formattedDate && !skipDateFilterForInst) {
       
       // Build FILTER (SQL WHERE clause) - this is the primary filter for GetTable service
       // Format: "(INSDATE>'2024-01-01 00:00:00' OR UPDDATE>'2024-01-01 00:00:00')"
@@ -322,12 +324,14 @@ export async function POST(request: Request) {
       // Also build FILTERS string (if GetTable supports it)
       // Format: "TABLE.INSDATE>YYYY-MM-DD HH:MM:SS&TABLE.UPDDATE>YYYY-MM-DD HH:MM:SS"
       // FILTERS uses table prefix (TABLE.FIELD format)
-      const tableNameUpper = tableName.toUpperCase();
-      filters = `${tableNameUpper}.INSDATE>${formattedDate}&${tableNameUpper}.UPDDATE>${formattedDate}`;
+      filters = `${tableNameUpperForFilter}.INSDATE>${formattedDate}&${tableNameUpperForFilter}.UPDDATE>${formattedDate}`;
       
       console.log(`[SYNC] ✅ MODIFIED FILTER to include date filtering: ${filter}`);
       console.log(`[SYNC] Also using FILTERS (if supported): ${filters}`);
       console.log(`[SYNC] SoftOne will return records where INSDATE > ${formattedDate} OR UPDDATE > ${formattedDate}`);
+    } else if (skipDateFilterForInst) {
+      console.log(`[SYNC] INST cron: fetching ALL contracts (no date filter)`);
+      filters = undefined;
     } else if (!lastSyncAt) {
       console.log(`[SYNC] ⚠️ First sync - no lastSyncAt, fetching all records (FILTER remains: ${filter})`);
       filters = undefined; // Explicitly set to undefined for first sync
@@ -381,18 +385,21 @@ export async function POST(request: Request) {
       if (isInstOrInstLines) {
         // For INST and INSTLINES: Use GetTable for manual syncs, SqlData for cron
         // CRITICAL: Manual "Sync Now" should use GetTable to get ALL records (no date filter)
-        // SqlData might not return all records reliably
+        // For INST cron: always use full sync (2022) so we get ALL contracts every run (no incremental = 0 records)
         if (isManualSync) {
           // Manual sync → Use GetTable (no date filter, gets all records)
           shouldUseSqlData = false;
         } else {
           // Cron sync → Use SqlData
           shouldUseSqlData = true;
-          if (isFirstSync) {
+          if (isInst) {
+            // INST cron: always full sync (all contracts) so cron actually refreshes the table
+            sqlDataParamDate = "2022-01-01 00:00:00";
+          } else if (isFirstSync) {
             // First sync from cron → use 2022 date to get all records since 2022
             sqlDataParamDate = "2022-01-01 00:00:00";
           } else {
-            // Incremental sync (cron only) → use lastSyncAt to get only new/updated records
+            // Incremental sync (cron only, non-INST) → use lastSyncAt
             sqlDataParamDate = formattedDate!;
           }
         }
@@ -614,7 +621,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // INSTLINES: filter by INST (date range / contracts) in-app — we fetched all from SoftOne with 1=1
+    // INSTLINES: filter rows by INST only — we fetched all from SoftOne with 1=1
     if (modelName.toUpperCase() === "INSTLINES" && instIdsForFilter && instIdsForFilter.length > 0 && erpRecords.length > 0) {
       const instSet = new Set(instIdsForFilter);
       const before = erpRecords.length;
@@ -624,49 +631,36 @@ export async function POST(request: Request) {
         const num = typeof instVal === "number" ? instVal : Number(String(instVal).replace(/^0+/, "") || 0);
         return !isNaN(num) && instSet.has(num);
       });
-      console.log(`[INSTLINES] Filtered to ${erpRecords.length} rows (from ${before}) for ${instIdsForFilter.length} INSTs (date range / contracts)`);
+      console.log(`[INSTLINES] Filtered to ${erpRecords.length} rows (from ${before}) for ${instIdsForFilter.length} INSTs`);
     }
 
-    // INSTLINES: resume from saved progress (survives app restart), 500 per batch — or fullSync / filtered sync process all in one request
+    // INSTLINES syncAllPlates: instIdsForFilter already set from "INST last 2 months" (or body); filter rows and save per each INST
+    if (modelName.toUpperCase() === "INSTLINES" && syncAllPlatesMode && erpRecords.length > 0 && instIdsForFilter && instIdsForFilter.length > 0) {
+      const beforeAll = erpRecords.length;
+      const instSet = new Set(instIdsForFilter);
+      erpRecords = erpRecords.filter((r: any) => {
+        const instVal = r.INST ?? r.inst;
+        if (instVal == null) return false;
+        const num = typeof instVal === "number" ? instVal : Number(String(instVal).replace(/^0+/, "") || 0);
+        return !isNaN(num) && instSet.has(num);
+      });
+      console.log(`[INSTLINES] syncAllPlates: filtered to ${erpRecords.length} rows (from ${beforeAll}) for ${instIdsForFilter.length} INSTs (last 2 months)`);
+      // Do NOT delete before upsert — upsert only (create/update). Deleting first would wipe data if upsert fails or is interrupted.
+      console.log(`[INSTLINES] syncAllPlates: will upsert ${erpRecords.length} records (create or update, no delete)`);
+      instlinesSyncAllPlatesMode = true;
+    }
+
+    // INSTLINES: always process ALL records in this request (no slice, no limit) so we never save only 10/500
     let originalInstlinesTotal: number | null = null;
     let instlinesOffset = 0;
     let instlinesLimit = 500;
-    const instlinesCompletedIds: number[] = [];
+    const instlinesCompletedIds: (number | string)[] = [];
     const instlinesFullSync = (body as any).fullSync === true;
     if (modelName.toUpperCase() === "INSTLINES") {
       originalInstlinesTotal = erpRecords.length;
-      if (instlinesFullSync) {
-        // One-time full load: process ALL records in this request (no slice)
-        instlinesOffset = 0;
-        instlinesLimit = erpRecords.length;
-        console.log(`[INSTLINES] Full sync: got ${erpRecords.length} records from ERP; will delete all then insert in batches`);
-      } else if (instlinesFilteredByInst) {
-        // Filtered by INST (Sync plates from contracts or cron date range): process ALL fetched records in this request, no resume
-        instlinesOffset = 0;
-        instlinesLimit = erpRecords.length;
-        console.log(`[INSTLINES] Filtered sync: processing all ${erpRecords.length} records in this request (no resume)`);
-      } else {
-        instlinesLimit = Math.min(500, Math.max(1, Number((body as any).limit) || 500));
-        // Prefer saved progress so we resume after restart; override with body.offset if provided
-        const bodyOffset = (body as any).offset;
-        if (bodyOffset !== undefined && bodyOffset !== null && Number(bodyOffset) >= 0) {
-          instlinesOffset = Math.max(0, Number(bodyOffset));
-        } else {
-          try {
-            const progress = await getCronProgress("sync-integration", integrationId, "INSTLINES");
-            if (progress && progress.lastOffset > 0) {
-              instlinesOffset = Math.min(progress.lastOffset, erpRecords.length);
-              console.log(`[INSTLINES] Resuming from saved progress: offset ${instlinesOffset} (total ${originalInstlinesTotal})`);
-            }
-          } catch (e) {
-            console.warn("[INSTLINES] Could not load cron progress:", e);
-          }
-        }
-        erpRecords = erpRecords.slice(instlinesOffset, instlinesOffset + instlinesLimit);
-        if (instlinesOffset > 0 || erpRecords.length < originalInstlinesTotal) {
-          console.log(`[INSTLINES] Processing ${erpRecords.length} records (offset ${instlinesOffset}, limit ${instlinesLimit}) of ${originalInstlinesTotal} total`);
-        }
-      }
+      instlinesOffset = 0;
+      instlinesLimit = erpRecords.length; // always process all
+      console.log(`[INSTLINES] Processing ALL ${erpRecords.length} records (no slice, no limit)`);
     }
 
     // INSTLINES fullSync: require INST (contracts) to exist first; then delete all INSTLINES and re-insert from ERP
@@ -786,11 +780,12 @@ export async function POST(request: Request) {
           let allExistingRecords: any[] = [];
           
           while (true) {
+            // For INSTLINES with composite PK, select both INST and INSTLINES
+            const selectFields = modelName.toUpperCase() === "INSTLINES"
+              ? { INST: true, INSTLINES: true }
+              : { [primaryKeyFieldForLookup]: true, [modelField]: true };
             const existingRecords = await model.findMany({
-              select: {
-                [primaryKeyFieldForLookup]: true,
-                [modelField]: true,
-              },
+              select: selectFields,
               take: CHUNK_SIZE_FETCH,
               skip: offset,
             });
@@ -805,16 +800,24 @@ export async function POST(request: Request) {
           
           syncLog(`[SYNC] Fetched ${allExistingRecords.length} existing ${modelName} records`);
           
-          // Add all records to map
+          // Add all records to map (for INSTLINES use composite key INST_INSTLINES)
           const primaryKeyFieldForMap = modelName.toUpperCase() === "INSTLINES" ? "INSTLINES" :
                                        modelName.toUpperCase() === "INST" ? "INST" :
                                        modelField;
           
           let mapAddCount = 0;
           allExistingRecords.forEach((record: Record<string, unknown>) => {
-            const key = record[primaryKeyFieldForMap] ?? record[modelField];
+            let key: string | number;
+            if (modelName.toUpperCase() === "INSTLINES") {
+              const inst = record.INST ?? record.inst;
+              const lines = record.INSTLINES ?? record.instlines;
+              if (inst == null || lines == null) return;
+              key = `${inst}_${lines}`;
+            } else {
+              key = record[primaryKeyFieldForMap] ?? record[modelField];
+            }
             
-            if (modelName.toUpperCase() === "INST" || modelName.toUpperCase() === "INSTLINES") {
+            if (modelName.toUpperCase() === "INST") {
               const numKey = typeof key === 'number' ? key : Number(String(key).replace(/^0+/, '') || '0');
               if (!isNaN(numKey) && numKey !== 0) {
                 existingRecordsMap.set(numKey, record);
@@ -823,6 +826,9 @@ export async function POST(request: Request) {
               } else {
                 console.warn(`[SYNC] Skipping invalid key: ${key} (normalized to ${numKey})`);
               }
+            } else if (modelName.toUpperCase() === "INSTLINES") {
+              existingRecordsMap.set(key, record);
+              mapAddCount++;
             } else {
               existingRecordsMap.set(key, record);
               if (typeof key === 'number') {
@@ -836,11 +842,12 @@ export async function POST(request: Request) {
           
           syncLog(`[SYNC] Added ${mapAddCount} records to map (size: ${existingRecordsMap.size})`);
           
-          // Verify map integrity (only in verbose mode)
-          if (SYNC_VERBOSE_LOGGING && modelName.toUpperCase() === "INSTLINES") {
-            const testKey1 = existingRecordsMap.has(1) || existingRecordsMap.has('1');
-            if (!testKey1) {
-              syncError(`[SYNC] CRITICAL: Map missing INSTLINES=1!`);
+          // Verify map integrity (only in verbose mode) - INSTLINES uses composite keys now
+          if (SYNC_VERBOSE_LOGGING && modelName.toUpperCase() === "INSTLINES" && allExistingRecords.length > 0) {
+            const first = allExistingRecords[0] as Record<string, unknown>;
+            const sampleKey = `${first?.INST ?? first?.inst}_${first?.INSTLINES ?? first?.instlines}`;
+            if (!existingRecordsMap.has(sampleKey)) {
+              syncError(`[SYNC] INSTLINES map missing sample key ${sampleKey}`);
             }
           }
         } else if (erpUniqueValues.length > 0) {
@@ -986,32 +993,34 @@ export async function POST(request: Request) {
         const erpUpdDate = isInstLines ? null : (erpRecord.UPDDATE || erpRecord.upddate);
 
         // Get existing record from map (O(1) lookup) - try both original and normalized values
-        // CRITICAL: For INST/INSTLINES, normalize to number for lookup
+        // CRITICAL: For INST use number; for INSTLINES use composite key (INST_INSTLINES)
         let existingRecord = null;
         let lookupNum: number | undefined;
         let lookupNum2: number | undefined;
+        let lookupCompositeKey: string | undefined;
         
-        if (modelName.toUpperCase() === "INST" || modelName.toUpperCase() === "INSTLINES") {
-          // For INST/INSTLINES, normalize to number for consistent lookup
+        if (modelName.toUpperCase() === "INST") {
           lookupNum = typeof normalizedUniqueValue === 'number' 
             ? normalizedUniqueValue 
             : Number(String(normalizedUniqueValue).replace(/^0+/, '') || '0');
           lookupNum2 = typeof erpUniqueValue === 'number'
             ? erpUniqueValue
             : Number(String(erpUniqueValue).replace(/^0+/, '') || '0');
-          
-          // Try all lookup strategies
           existingRecord = existingRecordsMap.get(lookupNum);
           if (!existingRecord) existingRecord = existingRecordsMap.get(lookupNum2);
           if (!existingRecord) existingRecord = existingRecordsMap.get(String(lookupNum));
           if (!existingRecord) existingRecord = existingRecordsMap.get(String(lookupNum2));
-          
-          // Debug lookup (only in verbose mode)
+        } else if (modelName.toUpperCase() === "INSTLINES") {
+          const instVal = erpRecord.INST ?? erpRecord.inst;
+          const linesVal = erpRecord.INSTLINES ?? erpRecord.instlines ?? normalizedUniqueValue ?? erpUniqueValue;
+          const instNum = typeof instVal === 'number' ? instVal : Number(String(instVal).replace(/^0+/, '') || '0');
+          const linesNum = typeof linesVal === 'number' ? linesVal : Number(String(linesVal).replace(/^0+/, '') || '0');
+          lookupNum = linesNum;
+          lookupNum2 = typeof erpUniqueValue === 'number' ? erpUniqueValue : Number(String(erpUniqueValue).replace(/^0+/, '') || '0');
+          lookupCompositeKey = `${instNum}_${linesNum}`;
+          existingRecord = existingRecordsMap.get(lookupCompositeKey);
           if (SYNC_VERBOSE_LOGGING && processedCount <= 5) {
-            const hasNum = existingRecordsMap.has(lookupNum);
-            if ((hasNum || existingRecordsMap.has(String(lookupNum))) && !existingRecord) {
-              syncError(`[SYNC] MAP BUG: has()=true but get()=null for INSTLINES=${lookupNum}!`);
-            }
+            syncLog(`[SYNC] INSTLINES lookup composite key: ${lookupCompositeKey}`);
           }
         } else {
           // For other models, try multiple lookup strategies
@@ -1043,17 +1052,11 @@ export async function POST(request: Request) {
             syncLog(`[SYNC] Map empty - treating INSTLINES=${erpUniqueValue} as NEW`);
           } else {
             // Normal case: check if record exists
-            // CRITICAL FIX: Verify lookup result matches map state
-            if (!existingRecord) {
-              const verifyHas = existingRecordsMap.has(lookupNum) || existingRecordsMap.has(String(lookupNum));
+            // CRITICAL FIX: Verify lookup result matches map state (use composite key for INSTLINES)
+            if (!existingRecord && lookupCompositeKey) {
+              const verifyHas = existingRecordsMap.has(lookupCompositeKey);
               if (verifyHas) {
-                // Record IS in map but get() didn't find it - try manual lookup
-                syncError(`[SYNC] LOOKUP BUG: INSTLINES=${lookupNum} exists in map but get() returned null!`);
-                const manualGet = existingRecordsMap.get(lookupNum) || 
-                                existingRecordsMap.get(lookupNum2) ||
-                                existingRecordsMap.get(String(lookupNum)) ||
-                                existingRecordsMap.get(String(lookupNum2));
-                if (manualGet) existingRecord = manualGet;
+                existingRecord = existingRecordsMap.get(lookupCompositeKey);
               }
             }
             
@@ -1275,19 +1278,7 @@ export async function POST(request: Request) {
               const instRecord = instRecordsMap.get(instValueNum);
               
               if (instRecord !== undefined) {
-                // INST exists - validate it has a customer (TRDR)
-                if (!instRecord.TRDR || instRecord.TRDR.trim() === '') {
-                  // INST exists but has no customer - SKIP this INSTLINES
-                  // Contracts (INST) must have customers (TRDR) for parking contracts
-                  skippedCount++;
-                  skippedReasons["INST_missing_TRDR"] = (skippedReasons["INST_missing_TRDR"] || 0) + 1;
-                  if (processedCount <= 10 || processedCount % 1000 === 0) {
-                    console.warn(`[SYNC] ⚠️ Skipping INSTLINES ${erpRecord.INSTLINES} - INST ${instValueNum} exists but has no TRDR (customer). Contracts need customers.`);
-                  }
-                  continue; // Skip this INSTLINES record
-                }
-                
-                // INST exists and has customer - use the actual INST value from database
+                // INST exists - save INSTLINES (we no longer require TRDR; plates show even if contract has no customer)
                 recordData.INST = instRecord.INST;
               } else {
                 // INST doesn't exist - SKIP this INSTLINES record
@@ -1324,6 +1315,19 @@ export async function POST(request: Request) {
             // Strip leading zeros from INSTLINES value too
             const instLinesValueStr = String(erpRecord.INSTLINES).replace(/^0+/, '') || '0';
             recordData.INSTLINES = Number(instLinesValueStr);
+          }
+          // INSTLINES: copy all known SoftOne fields from ERP when not already set (fieldMappings may be sparse/wrong)
+          const instlinesErpFields = [
+            "LINENUM", "SODTYPE", "MTRL", "BUSUNITS", "QTY", "PRICE",
+            "FROMDATE", "FINALDATE", "COMMENTS", "SNCODE", "INSTLINESS", "MTRUNIT",
+            "BAILTYPE", "GPNT", "TRDBRANCH"
+          ];
+          for (const field of instlinesErpFields) {
+            if (recordData[field] !== undefined && recordData[field] !== null) continue;
+            const erpVal = erpRecord[field] ?? erpRecord[(field as string).toLowerCase()] ?? erpRecord[(field as string).toUpperCase()];
+            if (erpVal !== undefined && erpVal !== null) {
+              recordData[field] = convertValueToType(erpVal, field);
+            }
           }
         }
 
@@ -1404,19 +1408,21 @@ export async function POST(request: Request) {
         const isNew = isNewRecord; // Use the flag we already calculated, not !existingRecord
         
         // FINAL VERIFICATION: For INSTLINES, double-check the lookup one more time before adding to queue
-        if (modelName.toUpperCase() === "INSTLINES" && isNew && processedCount <= 5) {
-          // Record is marked as NEW - verify it's actually not in the map
-          const finalCheck = existingRecordsMap.has(lookupNum) || existingRecordsMap.has(String(lookupNum));
+        if (modelName.toUpperCase() === "INSTLINES" && isNew && processedCount <= 5 && lookupCompositeKey) {
+          const finalCheck = existingRecordsMap.has(lookupCompositeKey);
           if (finalCheck) {
-            console.error(`[SYNC] ⚠️⚠️⚠️ CRITICAL BUG: INSTLINES=${lookupNum} is marked as NEW but exists in map!`);
+            console.error(`[SYNC] ⚠️⚠️ CRITICAL BUG: INSTLINES composite ${lookupCompositeKey} is marked as NEW but exists in map!`);
             console.error(`[SYNC]   - existingRecord: ${!!existingRecord}`);
             console.error(`[SYNC]   - isNewRecord: ${isNewRecord}`);
             console.error(`[SYNC]   - Map has: ${finalCheck}`);
             console.error(`[SYNC]   - FIXING: Changing to UPDATE instead of CREATE`);
             // Fix it: change to UPDATE
             const fixedIsNew = false;
+            const fixedWhere = modelName.toUpperCase() === "INSTLINES"
+              ? { INST_INSTLINES: { INST: recordData.INST, INSTLINES: recordData.INSTLINES } }
+              : { [modelField]: whereValue };
             recordsToUpsert.push({
-              where: { [modelField]: whereValue },
+              where: fixedWhere,
               create: recordData,
               update: recordData,
               isNew: fixedIsNew, // FIXED: Should be UPDATE, not CREATE
@@ -1425,11 +1431,12 @@ export async function POST(request: Request) {
           }
         }
         
-        // For ITEMS: use ITEMS (primary key) in where clause, not MTRL
-        // For other models: use modelField (unique identifier)
+        // For ITEMS: use ITEMS (primary key). For INSTLINES: use composite PK (INST_INSTLINES)
         const whereClause = modelName.toUpperCase() === "ITEMS" 
-          ? { ITEMS: whereValue }  // Use ITEMS primary key
-          : { [modelField]: whereValue };  // Use unique identifier field
+          ? { ITEMS: whereValue }
+          : modelName.toUpperCase() === "INSTLINES"
+          ? { INST_INSTLINES: { INST: recordData.INST, INSTLINES: recordData.INSTLINES } }
+          : { [modelField]: whereValue };
         
         recordsToUpsert.push({
           where: whereClause,
@@ -1479,20 +1486,22 @@ export async function POST(request: Request) {
             const firstNewRecord = recordsToUpsert.find(r => r.isNew);
             if (firstNewRecord) {
               syncLog(`[SYNC] 🧪 TEST MODE: Testing first NEW record (verbose only, <100 records)...`);
-              const primaryKeyField = modelName.toUpperCase() === "INSTLINES" ? "INSTLINES" : modelName.toUpperCase() === "INST" ? "INST" : modelField;
-              const findUniqueValue = firstNewRecord.where[primaryKeyField] ?? firstNewRecord.where[modelField] ?? firstNewRecord.create[primaryKeyField];
-              let normalizedFindValue = findUniqueValue;
-              if (["INST", "INSTLINES"].includes(modelName.toUpperCase()) && typeof findUniqueValue === 'string') {
-                normalizedFindValue = Number(String(findUniqueValue).replace(/^0+/, '') || '0');
-              }
+              const testWhere = modelName.toUpperCase() === "INSTLINES"
+                ? firstNewRecord.where
+                : (() => {
+                    const primaryKeyField = modelName.toUpperCase() === "INST" ? "INST" : modelField;
+                    const findUniqueValue = firstNewRecord.where[primaryKeyField] ?? firstNewRecord.where[modelField] ?? firstNewRecord.create[primaryKeyField];
+                    const normalizedFindValue = typeof findUniqueValue === 'string' ? Number(String(findUniqueValue).replace(/^0+/, '') || '0') : findUniqueValue;
+                    return { [primaryKeyField]: normalizedFindValue };
+                  })();
               try {
-                const testExisting = await model.findUnique({ where: { [primaryKeyField]: normalizedFindValue } });
+                const testExisting = await model.findUnique({ where: testWhere as any });
                 if (testExisting) {
-                  syncLog(`[SYNC] Test: Record ${primaryKeyField}=${normalizedFindValue} already exists, skipping test create.`);
+                  syncLog(`[SYNC] Test: Record already exists, skipping test create.`);
                 } else {
                   const testCreated = await model.create({ data: firstNewRecord.create });
-                  syncLog(`[SYNC] Test created ${primaryKeyField}=${testCreated[primaryKeyField]}`);
-                  await model.delete({ where: { [primaryKeyField]: normalizedFindValue } });
+                  syncLog(`[SYNC] Test created record`);
+                  await model.delete({ where: testWhere as any });
                 }
               } catch (testError: any) {
                 syncWarn(`[SYNC] Test record failed (continuing): ${testError?.message || testError}`);
@@ -1520,66 +1529,65 @@ export async function POST(request: Request) {
                 const batchResults: Array<PromiseSettledResult<{ isNew: boolean }>> = [];
                 
                 if (isInstLines) {
-                  if (instlinesFullSync) {
-                    // fullSync: delete-all-then-insert — use createMany per batch (no per-record delay)
-                    const data = batch.map((r) => r.create);
-                    try {
-                      const result = await model.createMany({ data });
-                      for (const r of batch) {
-                        const pk = r.create[primaryKeyField] ?? r.where[primaryKeyField];
-                        const pkNum = typeof pk === "number" ? pk : Number(String(pk).replace(/^0+/, "") || 0);
-                        if (!isNaN(pkNum)) instlinesCompletedIds.push(pkNum);
-                        batchResults.push({ status: "fulfilled", value: { isNew: true } });
-                      }
-                      console.log(`[INSTLINES] Inserted batch ${batchNum}/${totalBatches}: ${result.count} records (#${instlinesCompletedIds.length} total)`);
-                    } catch (createManyErr: any) {
-                      console.error(`[INSTLINES] createMany batch ${batchNum} failed:`, createManyErr?.message || createManyErr);
-                      for (const _ of batch) {
-                        batchResults.push({ status: "rejected", reason: createManyErr });
-                      }
+                  // INSTLINES: composite PK (INST, INSTLINES) - use INST_INSTLINES where
+                  const INSTLINES_DELAY_MS = 50;
+                  const MAX_RETRIES = 5;
+                  const LOCK_BACKOFF_MS = 500;
+                  for (const { where, create, update, isNew } of batch) {
+                    const comp = (where as { INST_INSTLINES?: { INST: number; INSTLINES: number } }).INST_INSTLINES;
+                    const instVal = create.INST ?? comp?.INST ?? (where as any).INST;
+                    const linesVal = create.INSTLINES ?? comp?.INSTLINES ?? (where as any).INSTLINES;
+                    const instPk = typeof instVal === "number" ? instVal : Number(String(instVal).replace(/^0+/, "") || 0);
+                    const linesPk = typeof linesVal === "number" ? linesVal : Number(String(linesVal).replace(/^0+/, "") || 0);
+                    if (isNaN(instPk) || isNaN(linesPk)) {
+                      batchResults.push({ status: "rejected", reason: new Error(`Invalid INSTLINES composite key: INST=${instVal}, INSTLINES=${linesVal}`) });
+                      continue;
                     }
-                  } else {
-                    // INSTLINES: Process one at a time with retry (resume/batched sync only)
-                    const INSTLINES_DELAY_MS = 50;
-                    const MAX_RETRIES = 5;
-                    const LOCK_BACKOFF_MS = 500;
-                    for (const { where, create, update, isNew } of batch) {
-                      const pkValue = create[primaryKeyField] ?? where[primaryKeyField] ?? where[modelField];
-                      const wherePk = typeof pkValue === "number" ? pkValue : Number(String(pkValue).replace(/^0+/, "") || 0);
-                      if (isNaN(wherePk)) {
-                        batchResults.push({ status: "rejected", reason: new Error(`Invalid ${primaryKeyField} value: ${pkValue}`) });
-                        continue;
-                      }
-                      const upsertWhere = { [primaryKeyField]: wherePk };
-                      let retries = MAX_RETRIES;
-                      let lastError: any;
-                      let success = false;
-                      while (retries > 0 && !success) {
-                        try {
-                          await model.upsert({ where: upsertWhere, create, update });
-                          batchResults.push({ status: "fulfilled", value: { isNew } });
-                          instlinesCompletedIds.push(wherePk);
-                          success = true;
-                        } catch (error: any) {
-                          lastError = error;
-                          const msg = String(error?.message ?? error);
-                          const isLockTimeout = msg.includes("Lock wait timeout") || error?.code === 1205;
-                          const isConnectionError = msg.includes("Can't reach database") || msg.includes("ECONNREFUSED") || msg.includes("ETIMEDOUT") || msg.includes("ENOTFOUND");
-                          if (isLockTimeout || isConnectionError) {
-                            retries--;
-                            if (retries > 0) {
-                              const backoff = isLockTimeout ? LOCK_BACKOFF_MS * Math.pow(2, MAX_RETRIES - retries - 1) : 1000 * Math.pow(2, MAX_RETRIES - retries - 1);
-                              await new Promise((r) => setTimeout(r, backoff));
-                              continue;
-                            }
+                    const upsertWhere = { INST_INSTLINES: { INST: instPk, INSTLINES: linesPk } };
+                    let retries = MAX_RETRIES;
+                    let lastError: any;
+                    let success = false;
+                    while (retries > 0 && !success) {
+                      try {
+                        await model.upsert({ where: upsertWhere, create, update });
+                        batchResults.push({ status: "fulfilled", value: { isNew } });
+                        instlinesCompletedIds.push(`${instPk}_${linesPk}`);
+                        success = true;
+                      } catch (error: any) {
+                        lastError = error;
+                        const msg = String(error?.message ?? error);
+                        const isUniqueConstraint = error?.code === "P2002" || msg.includes("Unique constraint failed");
+                        if (isUniqueConstraint) {
+                          try {
+                            await model.update({ where: upsertWhere, data: update });
+                            batchResults.push({ status: "fulfilled", value: { isNew: false } });
+                            instlinesCompletedIds.push(`${instPk}_${linesPk}`);
+                            success = true;
+                          } catch (updateErr: any) {
+                            batchResults.push({ status: "rejected", reason: updateErr });
+                            success = true;
                           }
-                          batchResults.push({ status: "rejected", reason: error });
-                          success = true;
+                          continue;
                         }
+                        const isLockTimeout = msg.includes("Lock wait timeout") || error?.code === 1205;
+                        const isConnectionError = msg.includes("Can't reach database") || msg.includes("ECONNREFUSED") || msg.includes("ETIMEDOUT") || msg.includes("ENOTFOUND");
+                        if (isLockTimeout || isConnectionError) {
+                          retries--;
+                          if (retries > 0) {
+                            const backoff = isLockTimeout ? LOCK_BACKOFF_MS * Math.pow(2, MAX_RETRIES - retries - 1) : 1000 * Math.pow(2, MAX_RETRIES - retries - 1);
+                            await new Promise((r) => setTimeout(r, backoff));
+                            continue;
+                          }
+                        }
+                        batchResults.push({ status: "rejected", reason: error });
+                        success = true;
                       }
-                      if (!success) batchResults.push({ status: "rejected", reason: lastError });
-                      await new Promise((r) => setTimeout(r, INSTLINES_DELAY_MS));
                     }
+                    if (!success) batchResults.push({ status: "rejected", reason: lastError });
+                    await new Promise((r) => setTimeout(r, INSTLINES_DELAY_MS));
+                  }
+                  if (recordsToUpsert.length > 500 && batchNum % 5 === 0) {
+                    console.log(`[INSTLINES] Batch ${batchNum}/${totalBatches}: ${batch.length} upserts (total so far: ${Math.min(i + DB_BATCH_SIZE, recordsToUpsert.length)}/${recordsToUpsert.length})`);
                   }
                 } else {
                   // INST: Use parallel processing (smaller batches)
@@ -1691,27 +1699,21 @@ export async function POST(request: Request) {
             for (const { where, create, update, isNew } of batch) {
               try {
                 if (modelName.toUpperCase() === "INST" || modelName.toUpperCase() === "INSTLINES") {
-                  const primaryKeyField = modelName.toUpperCase() === "INSTLINES" ? "INSTLINES" : "INST";
-                  const pkValue = create[primaryKeyField] ?? where[primaryKeyField] ?? where[modelField];
-                  const wherePk = typeof pkValue === "number" ? pkValue : Number(String(pkValue).replace(/^0+/, "") || "0");
-                  if (!isNaN(wherePk)) {
-                    await model.upsert({
-                      where: { [primaryKeyField]: wherePk },
-                      create,
-                      update,
-                    });
-                    if (isNew) {
-                      individualCreated++;
-                      created++;
-                    } else {
-                      individualUpdated++;
-                      updated++;
-                    }
-                    synced++;
-                    individualSuccessCount++;
+                  // For INSTLINES, where is already { INST_INSTLINES: { INST, INSTLINES } }; for INST, { INST: number }
+                  await model.upsert({
+                    where,
+                    create,
+                    update,
+                  });
+                  if (isNew) {
+                    individualCreated++;
+                    created++;
                   } else {
-                    errors++;
+                    individualUpdated++;
+                    updated++;
                   }
+                  synced++;
+                  individualSuccessCount++;
                 } else {
                   // For other models, use upsert
                   await model.upsert({
@@ -1925,13 +1927,19 @@ export async function POST(request: Request) {
       }
     }
 
-    // Update lastSyncAt timestamp to mark successful sync
+    // Update lastSyncAt only when we actually saved data (so "last synced" reflects persisted data)
     const syncTimestamp = new Date();
-    const updatedIntegration = await prisma.softOneIntegration.update({
-      where: { id: integrationId },
-      data: { lastSyncAt: syncTimestamp },
-    });
-    console.log(`[SYNC] ✅ Updated lastSyncAt timestamp: ${syncTimestamp.toISOString()}`);
+    const totalSyncedForUpdate = created + updated;
+    let updatedIntegration: { lastSyncAt: Date } | null = null;
+    if (totalSyncedForUpdate > 0) {
+      updatedIntegration = await prisma.softOneIntegration.update({
+        where: { id: integrationId },
+        data: { lastSyncAt: syncTimestamp },
+      });
+      console.log(`[SYNC] ✅ Updated lastSyncAt timestamp (${totalSyncedForUpdate} records saved): ${syncTimestamp.toISOString()}`);
+    } else {
+      console.log(`[SYNC] ⚠️ No records saved — lastSyncAt not updated`);
+    }
 
     const endTime = Date.now();
     const duration = endTime - startTime;
@@ -1995,6 +2003,12 @@ export async function POST(request: Request) {
       ? (totalSynced > 0 ? "partial" : "error")
       : "success"; // Success even if 0 records synced (no new updates needed)
 
+    // INSTLINES: when sync saved 0 records but ERP had data, set a clear message for UI and logs
+    const isInstLinesSync = modelName.toUpperCase() === "INSTLINES";
+    const noRecordsSavedButHadErpData = isInstLinesSync && totalSynced === 0 && totalErrors === 0 && erpToAppStats.total > 0;
+    const instlinesNoSaveMessage =
+      "No license plates were saved. Sync INST (contracts) first and ensure they have customers (TRDR), then run Sync plates again.";
+
     // ALWAYS log cron job executions (even with 0 results)
     // For manual syncs, also log if userId is available
     const shouldLog = isCronRequest || userId;
@@ -2019,9 +2033,11 @@ export async function POST(request: Request) {
               syncDirection: syncDirection,
               lastSyncAt: updatedIntegration?.lastSyncAt || syncTimestamp,
               triggeredBy: isCronRequest ? "cron" : "manual",
-              message: totalSynced === 0 && totalErrors === 0 
-                ? "No new records or updates found - database is up to date"
-                : undefined,
+              message: noRecordsSavedButHadErpData
+                ? instlinesNoSaveMessage
+                : totalSynced === 0 && totalErrors === 0 
+                  ? "No new records or updates found - database is up to date"
+                  : undefined,
             },
           },
         });
@@ -2061,6 +2077,9 @@ export async function POST(request: Request) {
       syncDirection: "one-way",
       message: `Sync completed: ${created} created, ${updated} updated, ${errors} errors`,
     };
+    if (noRecordsSavedButHadErpData) {
+      responsePayload.warning = instlinesNoSaveMessage;
+    }
     if (modelName.toUpperCase() === "INSTLINES" && originalInstlinesTotal != null) {
       const syncedThisRun = created + updated;
       responsePayload.instlinesProgress = {

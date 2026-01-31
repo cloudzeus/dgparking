@@ -104,6 +104,8 @@ interface ContractsClientProps {
   currentUserRole: Role;
   /** INSTLINES integration ID for "Sync plates" (sync plates for contracts in date range) */
   instLinesIntegrationId: string | null;
+  /** COUNTRY id (as string) -> country name from COUNTRY table (for expand row) */
+  countryNameByCode?: Record<string, string>;
 }
 
 interface ITEM {
@@ -113,7 +115,7 @@ interface ITEM {
   NAME: string | null;
 }
 
-export function ContractsClient({ installations, currentUserRole, instLinesIntegrationId }: ContractsClientProps) {
+export function ContractsClient({ installations, currentUserRole, instLinesIntegrationId, countryNameByCode = {} }: ContractsClientProps) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const [search, setSearch] = useState("");
@@ -400,7 +402,7 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
   };
 
   const handleSaveInstLine = async () => {
-    if (!editingInstLine) return;
+    if (!editingInstLine || !selectedInst) return;
 
     setIsSaving(true);
     try {
@@ -408,6 +410,7 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          instId: selectedInst.INST,
           instLineId: editingInstLine.INSTLINES,
           data: instLineFormData,
           syncToErp: syncToErp,
@@ -487,16 +490,16 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                   setSyncingPlates(true);
                   setSyncPlatesModalOpen(true);
                   setSyncPlatesProgress(0);
-                  setSyncPlatesMessage("Syncing plates from ERP…");
+                  setSyncPlatesMessage("Syncing plates for all contracts…");
                   setSyncPlatesElapsed(0);
-                  // Simulated progress 0 → 90% over ~90s while server runs
                   syncPlatesIntervalRef.current = setInterval(() => {
                     setSyncPlatesElapsed((e) => e + 1);
                     setSyncPlatesProgress((p) => Math.min(90, p + 1));
                   }, 1000);
                   try {
+                    // Same as per-contract: pass all visible contract INST ids so API fetches INSTLINES and filters by these INSTs (no date range)
                     const instIds = installations.map((i) => i.INST);
-                    const data = await syncPlatesAction(instLinesIntegrationId, instIds);
+                    const data = await syncPlatesAction(instLinesIntegrationId, instIds, false);
                     if (syncPlatesIntervalRef.current) {
                       clearInterval(syncPlatesIntervalRef.current);
                       syncPlatesIntervalRef.current = null;
@@ -509,8 +512,12 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                       setTimeout(() => {
                         setSyncPlatesModalOpen(false);
                         setSyncingPlates(false);
-                        toast.success(`Plates synced: ${created} created, ${updated} updated`);
-                        router.refresh();
+                        if (data.warning) {
+                          toast.warning(data.warning, { duration: 8000 });
+                        } else {
+                          toast.success(`Plates synced: ${created} created, ${updated} updated`);
+                        }
+                        router.push("/contracts");
                       }, 500);
                     } else {
                       setTimeout(() => {
@@ -612,25 +619,22 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
             <Table>
               <TableHeader>
                 <TableRow className="border-muted-foreground/20">
-                  <TableHead className="text-sm font-bold uppercase w-8"></TableHead>
-                  <TableHead className="text-sm font-bold uppercase">Title</TableHead>
-                  <TableHead className="text-sm font-bold uppercase max-w-[200px]">Remarks</TableHead>
-                  <TableHead className="text-sm font-bold uppercase">Start Date</TableHead>
-                  <TableHead className="text-sm font-bold uppercase">Date To</TableHead>
-                  <TableHead className="text-sm font-bold uppercase">Active From</TableHead>
-                  <TableHead className="text-sm font-bold uppercase">Car.No</TableHead>
-                  <TableHead className="text-sm font-bold uppercase">Status</TableHead>
-                  <TableHead className="text-sm font-bold uppercase w-[80px]">Actions</TableHead>
+                  <TableHead className="text-xs font-bold uppercase w-8"></TableHead>
+                  <TableHead className="text-xs font-bold uppercase">Title</TableHead>
+                  <TableHead className="text-xs font-bold uppercase max-w-[200px]">Remarks</TableHead>
+                  <TableHead className="text-xs font-bold uppercase">Start Date</TableHead>
+                  <TableHead className="text-xs font-bold uppercase">Date To</TableHead>
+                  <TableHead className="text-xs font-bold uppercase">Active From</TableHead>
+                  <TableHead className="text-xs font-bold uppercase">Car.No</TableHead>
+                  <TableHead className="text-xs font-bold uppercase">Status</TableHead>
+                  <TableHead className="text-xs font-bold uppercase w-[80px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedInstallations.map((installation) => {
                   const allInstLines = getAllInstLines(installation.lines || []);
-                  const instLinesWithPlate = allInstLines.filter(
-                    (line) =>
-                      (line.MTRL && String(line.MTRL).trim() !== "") ||
-                      (line.MTRL_NAME && String(line.MTRL_NAME).trim() !== "")
-                  );
+                  // Show all lines; display name from MTRL_NAME or MTRL or "—"
+                  const instLinesWithPlate = allInstLines;
                   const isExpanded = expandedInstId === installation.INST;
                   const customer = installation.customerDetails;
                   const today = new Date();
@@ -646,7 +650,7 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                         className="border-muted-foreground/20 hover:bg-muted/50"
                       >
                         <TableCell
-                          className="text-sm w-8 p-1 cursor-pointer align-middle"
+                          className="text-xs w-8 p-1 cursor-pointer align-middle"
                           onClick={() => setExpandedInstId(isExpanded ? null : installation.INST)}
                         >
                           {isExpanded ? (
@@ -656,7 +660,7 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                           )}
                         </TableCell>
                         <TableCell
-                          className="text-sm font-medium cursor-pointer"
+                          className="text-xs font-medium cursor-pointer"
                           onClick={() => setExpandedInstId(isExpanded ? null : installation.INST)}
                         >
                           <div className="flex items-center gap-2 flex-wrap">
@@ -668,25 +672,25 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm max-w-[200px]" title={installation.REMARKS ?? undefined}>
+                        <TableCell className="text-xs max-w-[200px]" title={installation.REMARKS ?? undefined}>
                           <span className="line-clamp-2 text-muted-foreground">{installation.REMARKS ?? "—"}</span>
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-xs">
                           {installation.WDATEFROM
                             ? format(new Date(installation.WDATEFROM), "dd/MM/yyyy")
                             : "—"}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-xs">
                           {installation.WDATETO
                             ? format(new Date(installation.WDATETO), "dd/MM/yyyy")
                             : "—"}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-xs">
                           {installation.FROMDATE
                             ? format(new Date(installation.FROMDATE), "dd/MM/yyyy")
                             : "—"}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-xs">
                           {(() => {
                             const platesCount = installation.lines?.length ?? 0;
                             const num01 = installation.NUM01 != null ? Math.floor(Number(installation.NUM01)) : null;
@@ -707,16 +711,16 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                             );
                           })()}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-xs">
                           {isActiveToday ? (
-                            <Badge className="bg-green-600 hover:bg-green-600 text-white text-sm font-medium">
+                            <Badge className="bg-green-600 hover:bg-green-600 text-white text-xs font-medium">
                               Active
                             </Badge>
                           ) : (
-                            <span className="text-sm text-muted-foreground">—</span>
+                            <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm w-[80px]" onClick={(e) => e.stopPropagation()}>
+                        <TableCell className="text-xs w-[80px]" onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -746,8 +750,12 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                                       if (data.success) {
                                         const created = data.stats?.erpToApp?.created ?? data.stats?.created ?? 0;
                                         const updated = data.stats?.erpToApp?.updated ?? data.stats?.updated ?? 0;
-                                        toast.success(`Plates synced: ${created} created, ${updated} updated`);
-                                        router.refresh();
+                                        if (data.warning) {
+                                          toast.warning(data.warning, { duration: 8000 });
+                                        } else {
+                                          toast.success(`Plates synced: ${created} created, ${updated} updated`);
+                                        }
+                                        router.push("/contracts");
                                       } else {
                                         toast.error(data.error || "Sync failed");
                                       }
@@ -778,7 +786,7 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                               <div className="rounded-lg border bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600 p-3 space-y-2">
                                 <div className="text-[10px] font-bold uppercase text-muted-foreground">Customer (TRDR)</div>
                                 {customer ? (
-                                  <div className="grid gap-x-4 gap-y-0.5 text-sm sm:grid-cols-2">
+                                  <div className="grid gap-x-4 gap-y-0.5 text-xs sm:grid-cols-2">
                                     {customer.TRDR && <div><span className="text-muted-foreground">TRDR:</span> {customer.TRDR}</div>}
                                     {customer.NAME && <div><span className="text-muted-foreground">Name:</span> {customer.NAME}</div>}
                                     {customer.CODE && <div><span className="text-muted-foreground">Code:</span> {customer.CODE}</div>}
@@ -786,26 +794,31 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                                     {customer.ADDRESS && <div><span className="text-muted-foreground">Address:</span> {customer.ADDRESS}</div>}
                                     {customer.CITY && <div><span className="text-muted-foreground">City:</span> {customer.CITY}</div>}
                                     {customer.ZIP && <div><span className="text-muted-foreground">ZIP:</span> {customer.ZIP}</div>}
-                                    {customer.COUNTRY && <div><span className="text-muted-foreground">Country:</span> {customer.COUNTRY}</div>}
+                                    {customer.COUNTRY != null && customer.COUNTRY !== "" && (
+                                      <div>
+                                        <span className="text-muted-foreground">Country:</span>{" "}
+                                        {countryNameByCode[String(customer.COUNTRY)] ?? customer.COUNTRY}
+                                      </div>
+                                    )}
                                     {customer.PHONE01 && <div><span className="text-muted-foreground">Phone:</span> {customer.PHONE01}</div>}
                                     {customer.PHONE02 && <div><span className="text-muted-foreground">Phone 2:</span> {customer.PHONE02}</div>}
                                     {customer.JOBTYPE && <div><span className="text-muted-foreground">Job type:</span> {customer.JOBTYPE}</div>}
                                   </div>
                                 ) : (
-                                  <div className="text-sm text-muted-foreground">No customer (TRDR) found for this contract.</div>
+                                  <div className="text-xs text-muted-foreground">No customer (TRDR) found for this contract.</div>
                                 )}
                               </div>
 
                               {/* 2. Remarks — slate card style */}
                               <div className="rounded-lg border bg-slate-200 dark:bg-slate-700/50 border-slate-400 dark:border-slate-600 p-3 space-y-1">
                                 <div className="text-[10px] font-bold uppercase text-muted-foreground">Remarks</div>
-                                <div className="text-sm text-foreground">{installation.REMARKS?.trim() ? installation.REMARKS : "—"}</div>
+                                <div className="text-xs text-foreground">{installation.REMARKS?.trim() ? installation.REMARKS : "—"}</div>
                               </div>
 
-                              {/* 3. License plates (Name only) — violet card style, smaller text; hide when no lines with plate data */}
-                              {instLinesWithPlate.length > 0 && (
-                                <div className="rounded-lg border bg-violet-100 dark:bg-violet-900/40 border-violet-400 dark:border-violet-600 p-3 space-y-2">
-                                  <div className="text-[10px] font-bold uppercase text-muted-foreground">License plates ({instLinesWithPlate.length})</div>
+                              {/* 3. License plates (Name only) — violet card style; always show section */}
+                              <div className="rounded-lg border bg-violet-100 dark:bg-violet-900/40 border-violet-400 dark:border-violet-600 p-3 space-y-2">
+                                <div className="text-[10px] font-bold uppercase text-muted-foreground">License plates ({instLinesWithPlate.length})</div>
+                                {instLinesWithPlate.length > 0 ? (
                                   <div className="flex flex-wrap gap-2">
                                     {instLinesWithPlate.map((line) => {
                                       const plateName = (line.MTRL_NAME && String(line.MTRL_NAME).trim() !== "" ? line.MTRL_NAME : line.MTRL) ?? "—";
@@ -827,8 +840,10 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                                       );
                                     })}
                                   </div>
-                                </div>
-                              )}
+                                ) : (
+                                  <p className="text-xs text-muted-foreground">No plates. Run &quot;Sync plates&quot; above to load from ERP.</p>
+                                )}
+                              </div>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -907,13 +922,13 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                   <Table>
                     <TableHeader>
                       <TableRow className="border-muted-foreground/20">
-                        <TableHead className="text-sm font-bold uppercase">#</TableHead>
-                        <TableHead className="text-sm font-bold uppercase">LINENUM</TableHead>
-                        <TableHead className="text-sm font-bold uppercase">MTRL</TableHead>
-                        <TableHead className="text-sm font-bold uppercase">Name</TableHead>
-                        <TableHead className="text-sm font-bold uppercase">QTY</TableHead>
-                        <TableHead className="text-sm font-bold uppercase">FROMDATE</TableHead>
-                        <TableHead className="text-sm font-bold uppercase w-[60px]"></TableHead>
+                        <TableHead className="text-xs font-bold uppercase">#</TableHead>
+                        <TableHead className="text-xs font-bold uppercase">LINENUM</TableHead>
+                        <TableHead className="text-xs font-bold uppercase">MTRL</TableHead>
+                        <TableHead className="text-xs font-bold uppercase">Name</TableHead>
+                        <TableHead className="text-xs font-bold uppercase">QTY</TableHead>
+                        <TableHead className="text-xs font-bold uppercase">FROMDATE</TableHead>
+                        <TableHead className="text-xs font-bold uppercase w-[60px]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -922,15 +937,15 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                           key={line.INSTLINES}
                           className="border-muted-foreground/20 hover:bg-muted/50"
                         >
-                          <TableCell className="text-sm">{idx + 1}</TableCell>
-                          <TableCell className="text-sm">{line.LINENUM ?? "—"}</TableCell>
-                          <TableCell className="text-sm font-medium">{line.MTRL ?? "—"}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{line.MTRL_NAME ?? "—"}</TableCell>
-                          <TableCell className="text-sm">{line.QTY ?? "—"}</TableCell>
-                          <TableCell className="text-sm">
+                          <TableCell className="text-xs">{idx + 1}</TableCell>
+                          <TableCell className="text-xs">{line.LINENUM ?? "—"}</TableCell>
+                          <TableCell className="text-xs font-medium">{line.MTRL ?? "—"}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{line.MTRL_NAME ?? "—"}</TableCell>
+                          <TableCell className="text-xs">{line.QTY ?? "—"}</TableCell>
+                          <TableCell className="text-xs">
                             {line.FROMDATE ? format(new Date(line.FROMDATE), "dd/MM/yyyy") : "—"}
                           </TableCell>
-                          <TableCell className="text-sm w-[60px]">
+                          <TableCell className="text-xs w-[60px]">
                             <Button
                               variant="ghost"
                               size="sm"

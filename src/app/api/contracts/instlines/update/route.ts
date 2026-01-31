@@ -20,18 +20,20 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { instLineId, data, syncToErp } = body;
+    const { instId, instLineId, data, syncToErp } = body;
 
-    if (!instLineId) {
+    if (instId == null || instLineId == null) {
       return NextResponse.json(
-        { success: false, error: "instLineId is required" },
+        { success: false, error: "instId and instLineId are required (composite key)" },
         { status: 400 }
       );
     }
 
+    const whereComposite = { INST_INSTLINES: { INST: Number(instId), INSTLINES: Number(instLineId) } };
+
     // Verify INSTLINES exists
     const instLine = await prisma.iNSTLINES.findUnique({
-      where: { INSTLINES: instLineId },
+      where: whereComposite,
     });
 
     if (!instLine) {
@@ -128,9 +130,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // Update in our database
+    // Update in our database (composite PK: INST, INSTLINES)
     const updated = await prisma.iNSTLINES.update({
-      where: { INSTLINES: instLineId },
+      where: whereComposite,
       data: {
         ...data,
         UPDDATE: new Date(),

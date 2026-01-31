@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { unstable_noStore } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ContractsClient } from "@/components/contracts/contracts-client";
@@ -8,10 +9,11 @@ import type { Role } from "@prisma/client";
 type InstLineRow = { MTRL?: string | null; INSTLINES?: unknown; INST?: unknown; LINENUM?: unknown; MTRL_NAME?: string | null };
 
 // Disable caching for this page to ensure fresh data
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function ContractsPage() {
+  unstable_noStore();
   const session = await auth();
 
   if (!session?.user) {
@@ -53,6 +55,16 @@ export default async function ContractsPage() {
     },
   });
 
+  // Fetch COUNTRY table for id -> name (CUSTORMER.COUNTRY stores ERP country ID)
+  const allCountries = await prisma.cOUNTRY.findMany({
+    select: { COUNTRY: true, NAME: true },
+  });
+  const countryNameByCode: Record<string, string> = {};
+  allCountries.forEach((c) => {
+    const key = String(c.COUNTRY);
+    countryNameByCode[key] = c.NAME ?? key;
+  });
+
   // Create a map of MTRL -> NAME for quick lookup
   const mtrlToNameMap = new Map<string, string>();
   allItems.forEach(item => {
@@ -82,60 +94,44 @@ export default async function ContractsPage() {
     });
   };
   
-  // Contracts where WDATETO is at most 2 months old (WDATETO >= now - 2 months) — show all such INST (no filter on lines or ISACTIVE)
-  const now = new Date();
-  const twoMonthsAgo = new Date(now);
-  twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+  // Contracts where WDATETO is on or after 30 Nov 2025, or WDATETO is null (no end date)
+  const contractsStartDate = new Date("2025-11-30T00:00:00.000Z");
   const contractsWhere = {
-    WDATETO: { gte: twoMonthsAgo },
+    OR: [
+      { WDATETO: { gte: contractsStartDate } },
+      { WDATETO: null },
+    ],
   };
 
   try {
-    // Try to fetch with relation first
-    installations = await prisma.iNST.findMany({
+    // Fetch INST (contracts) then ALL INSTLINES and attach by INST (match by normalized INST so we never miss rows)
+    const instRecords = await prisma.iNST.findMany({
       where: contractsWhere,
-      include: {
-        lines: {
-          orderBy: { LINENUM: "asc" },
-        },
-      },
       orderBy: { INST: "desc" },
     });
-    
-    // Add MTRL_NAME to each INSTLINE and full customer details to each INST
-    installations = installations.map(inst => {
+    const instIdSet = new Set(instRecords.map((i) => Number(i.INST)));
+    const allInstLines = await prisma.iNSTLINES.findMany({
+      orderBy: [{ INST: "asc" }, { LINENUM: "asc" }],
+    });
+    const linesByInst = new Map<number, (typeof allInstLines)[number][]>();
+    for (const line of allInstLines) {
+      const instId = line.INST != null ? Number(line.INST) : null;
+      if (instId == null || isNaN(instId) || !instIdSet.has(instId)) continue;
+      if (!linesByInst.has(instId)) linesByInst.set(instId, []);
+      linesByInst.get(instId)!.push(line);
+    }
+    installations = instRecords.map((inst) => {
       const customer = inst.TRDR ? trdrToCustomerMap.get(inst.TRDR) || null : null;
+      const lines = linesByInst.get(Number(inst.INST)) || [];
       return {
         ...inst,
-        lines: addMtrlNamesToLines(inst.lines || []),
+        lines: addMtrlNamesToLines(lines),
         CUSTOMER_NAME: customer?.NAME ?? null,
         customerDetails: customer ?? null,
       };
     });
-    
-    // Debug: Log the data structure
-    console.log(`[CONTRACTS] Fetched ${installations.length} installations with relation`);
-    if (installations.length > 0) {
-      installations.slice(0, 5).forEach((inst, idx) => {
-        console.log(`[CONTRACTS] Installation ${idx + 1}:`, {
-          INST: inst.INST,
-          CODE: inst.CODE,
-          linesCount: inst.lines?.length || 0,
-          hasLines: !!inst.lines,
-          linesWithMtrl: inst.lines?.filter((l: InstLineRow) => l.MTRL && String(l.MTRL).trim() !== '').length || 0,
-        });
-        if (inst.lines && inst.lines.length > 0) {
-          console.log(`[CONTRACTS] First 3 lines for INST ${inst.INST}:`, inst.lines.slice(0, 3).map((l: InstLineRow) => ({
-            INSTLINES: l.INSTLINES,
-            INST: l.INST,
-            MTRL: l.MTRL,
-            LINENUM: l.LINENUM,
-          })));
-        } else {
-          console.warn(`[CONTRACTS] ⚠️ INST ${inst.INST} has NO INSTLINES!`);
-        }
-      });
-    }
+    const totalLines = installations.reduce((s, i) => s + (i.lines?.length ?? 0), 0);
+    console.log(`[CONTRACTS] Fetched ${installations.length} installations, ${allInstLines.length} INSTLINES in DB, ${totalLines} attached`);
   } catch (error: any) {
     console.error("[CONTRACTS] Error fetching installations with relation:", error);
     // If relation doesn't exist, fetch INST and INSTLINES separately
@@ -222,7 +218,7 @@ export default async function ContractsPage() {
   }));
 
   const totalInstLines = installations.reduce((sum, inst) => sum + (inst.lines?.length || 0), 0);
-  console.log(`[CONTRACTS] Summary: ${installations.length} installations (WDATETO max 2 months old), ${totalInstLines} total INSTLINES`);
+  console.log(`[CONTRACTS] Summary: ${installations.length} installations (WDATETO 30 Nov 2025 – today), ${totalInstLines} total INSTLINES`);
 
   // INSTLINES integration ID for "Sync plates" (sync only INSTLINES for these contracts)
   const instLinesIntegration = await prisma.softOneIntegration.findFirst({
@@ -233,11 +229,17 @@ export default async function ContractsPage() {
   });
   const instLinesIntegrationId = instLinesIntegration?.id ?? null;
 
+  // Serialize so client receives plain objects with lines (avoids Prisma/serialization dropping relation)
+  const serializedInstallations = JSON.parse(
+    JSON.stringify(installations, (_, v) => (v === undefined ? null : v))
+  ) as typeof installations;
+
   return (
     <ContractsClient
-      installations={installations}
+      installations={serializedInstallations}
       currentUserRole={session.user.role}
       instLinesIntegrationId={instLinesIntegrationId}
+      countryNameByCode={countryNameByCode}
     />
   );
 }

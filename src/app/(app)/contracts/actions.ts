@@ -1,13 +1,15 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+import { Agent, fetch as undiciFetch } from "undici";
 
 /**
- * Server Action: Sync INSTLINES (plates) from ERP for the given contracts.
- * Runs the sync API server-side with the user's session so auth works.
- * The API uses parallel GetTable calls (25 at a time) for much faster sync.
+ * Server Action: Sync INSTLINES (plates) from ERP.
+ * - syncAllPlates: true → fetch ALL INSTLINES from ERP, then filter by INST in date range (WDATEFROM 2m past, WDATETO 1m future), delete those in DB and bulk insert (massive update).
+ * - syncAllPlates: false → sync only INSTLINES for the given instIds (e.g. current page contracts or single contract).
  */
-export async function syncPlatesAction(integrationId: string, instIds: number[]) {
+export async function syncPlatesAction(integrationId: string, instIds: number[], syncAllPlates = false) {
   const cookieStore = await cookies();
   const cookieHeader = cookieStore.toString();
   const base =
@@ -15,15 +17,41 @@ export async function syncPlatesAction(integrationId: string, instIds: number[])
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
     "http://localhost:3000";
 
-  const res = await fetch(`${base}/api/cron/sync-integration`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-    },
-    body: JSON.stringify({ integrationId, instIds }),
+  const body = syncAllPlates
+    ? { integrationId, syncAllPlates: true }
+    : { integrationId, instIds };
+
+  // Sync can take 30+ min (maxDuration 1800). Global fetch uses undici's default ~300s headers timeout.
+  // Use undici fetch with a custom Agent so we don't get HeadersTimeoutError before the server responds.
+  const SYNC_TIMEOUT_MS = 32 * 60 * 1000;
+  const agent = new Agent({
+    connectTimeout: 60_000,
+    headersTimeout: SYNC_TIMEOUT_MS,
+    bodyTimeout: SYNC_TIMEOUT_MS,
   });
 
-  const data = await res.json();
-  return data;
+  try {
+    const res = await undiciFetch(`${base}/api/cron/sync-integration`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+      },
+      body: JSON.stringify(body),
+      dispatcher: agent,
+    });
+    const data = (await res.json()) as { success?: boolean; error?: string; stats?: unknown };
+    if (data.success) {
+      revalidatePath("/contracts");
+    }
+    return data;
+  } catch (err) {
+    if (err instanceof Error && (err.name === "AbortError" || err.cause?.code === "UND_ERR_HEADERS_TIMEOUT")) {
+      return {
+        success: false,
+        error: "Sync timed out. The sync may still be running on the server. Refresh the page in a few minutes to see updated plates.",
+      };
+    }
+    throw err;
+  }
 }
