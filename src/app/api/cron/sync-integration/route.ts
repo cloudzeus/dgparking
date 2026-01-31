@@ -814,7 +814,8 @@ export async function POST(request: Request) {
               if (inst == null || lines == null) return;
               key = `${inst}_${lines}`;
             } else {
-              key = record[primaryKeyFieldForMap] ?? record[modelField];
+              const raw = record[primaryKeyFieldForMap] ?? record[modelField];
+              key = typeof raw === "string" || typeof raw === "number" ? raw : raw != null ? String(raw) : "";
             }
             
             if (modelName.toUpperCase() === "INST") {
@@ -1930,7 +1931,7 @@ export async function POST(request: Request) {
     // Update lastSyncAt only when we actually saved data (so "last synced" reflects persisted data)
     const syncTimestamp = new Date();
     const totalSyncedForUpdate = created + updated;
-    let updatedIntegration: { lastSyncAt: Date } | null = null;
+    let updatedIntegration: { lastSyncAt: Date | null } | null = null;
     if (totalSyncedForUpdate > 0) {
       updatedIntegration = await prisma.softOneIntegration.update({
         where: { id: integrationId },
