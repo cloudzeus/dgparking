@@ -82,7 +82,9 @@ export async function login(
       redirect: false,
     });
 
-    return { success: true };
+    const callbackUrl = (formData.get("callbackUrl") as string)?.trim() || "/dashboard";
+    const safeUrl = callbackUrl.startsWith("/") ? callbackUrl : "/dashboard";
+    redirect(safeUrl);
   } catch (error) {
     if (error instanceof AuthError) {
       switch (error.type) {
@@ -91,6 +93,11 @@ export async function login(
         default:
           return { error: "Something went wrong" };
       }
+    }
+    // Next.js redirect() throws; rethrow so the framework can perform the redirect
+    const digest = error && typeof error === "object" && "digest" in error ? (error as { digest?: string }).digest : "";
+    if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT")) {
+      throw error;
     }
     console.error("Login error:", error);
     return { error: "Network error occurred" };

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useActionState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import gsap from "gsap";
 import { Button } from "@/components/ui/button";
@@ -12,10 +11,7 @@ import { Loader2, Mail, Lock, LogIn } from "lucide-react";
 import { login, type LoginState } from "@/lib/actions/auth";
 import { toast } from "sonner";
 
-export function LoginForm() {
-  const router = useRouter();
-  const callbackUrl = "/dashboard"; // Default to dashboard
-  
+export function LoginForm({ callbackUrl = "/dashboard" }: { callbackUrl?: string }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [state, formAction, isPending] = useActionState<LoginState | undefined, FormData>(
     login,
@@ -23,7 +19,6 @@ export function LoginForm() {
   );
 
   useEffect(() => {
-    // Add a small delay to ensure the component is fully rendered
     const timer = setTimeout(() => {
       const ctx = gsap.context(() => {
         gsap.fromTo(
@@ -34,7 +29,6 @@ export function LoginForm() {
       });
       return () => ctx.revert();
     }, 100);
-
     return () => clearTimeout(timer);
   }, []);
 
@@ -42,17 +36,13 @@ export function LoginForm() {
     if (state?.error) {
       toast.error(state.error);
     }
-    if (state?.success) {
-      toast.success("Login successful!");
-      router.push(callbackUrl);
-      router.refresh();
-    }
-  }, [state, router, callbackUrl]);
+  }, [state]);
 
   return (
     <Card ref={cardRef} className="border-0 shadow-xl" style={{ opacity: 0 }}>
       <CardContent className="pt-6">
         <form action={formAction} className="space-y-4">
+          <input type="hidden" name="callbackUrl" value={callbackUrl} />
           <div className="space-y-2">
             <Label htmlFor="email" className="text-xs font-medium uppercase">
               EMAIL ADDRESS

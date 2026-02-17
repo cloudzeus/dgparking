@@ -1,7 +1,11 @@
 import { LoginForm } from "@/components/auth/login-form";
 import Link from "next/link";
 
-export default function LoginPage() {
+type LoginPageProps = { searchParams: Promise<{ callbackUrl?: string }> };
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = await searchParams;
+  const callbackUrl = params?.callbackUrl && params.callbackUrl.startsWith("/") ? params.callbackUrl : "/dashboard";
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
@@ -14,7 +18,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <LoginForm />
+        <LoginForm callbackUrl={callbackUrl} />
 
         <div className="mt-6 text-center text-sm">
           <span className="text-muted-foreground">Don&apos;t have an account? </span>

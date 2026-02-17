@@ -66,33 +66,26 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  // Fetch stats based on role
-  const stats = await getDashboardStats(session.user.role);
-  
-  // Fetch recent LPR recognition events (only those with license plates)
-  let recognitionEvents: any[] = [];
-  let allRecentEvents: any[] = [];
-  
-  try {
-    // First, check total count in database
-    const totalCount = await prisma.lprRecognitionEvent.count();
-    console.log(`[DASHBOARD] Total recognition events in database: ${totalCount}`);
-    
-    // Query all recent events and filter in memory to handle edge cases
-    // Fetch all events (no limit) to ensure we get everything
-    allRecentEvents = await prisma.lprRecognitionEvent.findMany({
-      // No take limit - fetch all events
-      orderBy: {
-        recognitionTime: "desc",
-      },
+  const twoDaysAgoForQuery = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+  const DASHBOARD_EVENTS_LIMIT = 5000;
+
+  // Run stats and recent events in parallel for faster load
+  const [stats, allRecentEventsFromDb] = await Promise.all([
+    getDashboardStats(session.user.role),
+    prisma.lprRecognitionEvent.findMany({
+      where: { recognitionTime: { gte: twoDaysAgoForQuery } },
+      orderBy: { recognitionTime: "desc" },
+      take: DASHBOARD_EVENTS_LIMIT,
       include: {
-        camera: {
-          select: {
-            name: true,
-          },
-        },
+        camera: { select: { name: true } },
       },
-    });
+    }),
+  ]);
+
+  let recognitionEvents: any[] = [];
+  let allRecentEvents: any[] = allRecentEventsFromDb;
+
+  try {
 
     console.log(`[DASHBOARD] Queried ${allRecentEvents.length} events from database`);
 
