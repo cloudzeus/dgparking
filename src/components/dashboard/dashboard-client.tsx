@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Car, ArrowUpRight, ArrowDownRight, Clock, TrendingUp, TrendingDown, FileText, FileCheck, User, X, Search, RefreshCw, Loader2, MoreVertical, LogOut, LogIn } from "lucide-react";
+import { Car, ArrowUpRight, ArrowDownRight, Clock, TrendingUp, TrendingDown, FileText, FileCheck, User, X, Search, RefreshCw, Loader2, MoreVertical, LogOut, LogIn, Check } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -831,10 +831,19 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
                 onClick={handleSelectAll}
                 className="h-8 gap-1.5 text-xs"
               >
-                <Checkbox
-                  checked={platesStillInsideSet.size > 0 && selectedPlates.size === platesStillInsideSet.size}
-                  className="pointer-events-none"
-                />
+                <span
+                  role="img"
+                  aria-hidden
+                  className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-input dark:bg-input/30 ${
+                    platesStillInsideSet.size > 0 && selectedPlates.size === platesStillInsideSet.size
+                      ? "bg-primary border-primary text-primary-foreground"
+                      : ""
+                  }`}
+                >
+                  {platesStillInsideSet.size > 0 && selectedPlates.size === platesStillInsideSet.size ? (
+                    <Check className="h-2.5 w-2.5" />
+                  ) : null}
+                </span>
                 {selectedPlates.size === platesStillInsideSet.size && platesStillInsideSet.size > 0 ? "Deselect all" : "Select all"}
               </Button>
               <Button

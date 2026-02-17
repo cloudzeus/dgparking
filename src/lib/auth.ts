@@ -73,11 +73,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        // Update last login
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { lastLoginAt: new Date() },
-        });
+        // Update last login in background so login response isn't delayed by DB round-trip
+        void prisma.user
+          .update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date() },
+          })
+          .catch((err) => console.error("[auth] lastLoginAt update failed", err));
 
         return {
           id: user.id,
