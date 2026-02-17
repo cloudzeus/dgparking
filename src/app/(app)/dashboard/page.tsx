@@ -67,7 +67,7 @@ export default async function DashboardPage() {
   }
 
   const twoDaysAgoForQuery = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-  const DASHBOARD_EVENTS_LIMIT = 5000;
+  const DASHBOARD_EVENTS_LIMIT = 2000;
 
   // Run stats and recent events in parallel for faster load
   const [stats, allRecentEventsFromDb] = await Promise.all([
@@ -86,93 +86,57 @@ export default async function DashboardPage() {
   let allRecentEvents: any[] = allRecentEventsFromDb;
 
   try {
-
-    console.log(`[DASHBOARD] Queried ${allRecentEvents.length} events from database`);
-
-    // Filter events with valid license plates: non-empty, at least 2 characters (no single-digit/junk)
-    const validEvents = allRecentEvents
-      .filter((event) => {
-        const plate = event.licensePlate;
-        const trimmed = plate && typeof plate === "string" ? plate.trim() : "";
-        const isValid = trimmed.length >= 2;
-        if (!isValid && event) {
-          console.log(`[DASHBOARD] Filtered out event ${event.id}: plate="${plate}" (type: ${typeof plate}, length: ${plate?.length})`);
-        }
-        return isValid;
-      });
-
-    console.log(`[DASHBOARD] Valid events (with license plates): ${validEvents.length}`);
-
-    // Show ALL events - no deduplication
-    // User wants to see every single record
-    recognitionEvents = validEvents;
-    // No deduplication, no slice limit - show ALL events
-    
-    console.log(`[DASHBOARD] Showing ALL ${recognitionEvents.length} events (no deduplication)`);
-    console.log(`[DASHBOARD] Breakdown by direction:`);
-    const inCount = recognitionEvents.filter(e => e.direction === "IN").length;
-    const outCount = recognitionEvents.filter(e => e.direction === "OUT").length;
-    console.log(`[DASHBOARD]   - IN: ${inCount}`);
-    console.log(`[DASHBOARD]   - OUT: ${outCount}`);
-
-    // Always log what we found (for debugging)
-    console.log(`[DASHBOARD] Total events queried: ${allRecentEvents.length}`);
-    console.log(`[DASHBOARD] Events with valid license plates: ${recognitionEvents.length}`);
-    
-    if (allRecentEvents.length > 0 && recognitionEvents.length === 0) {
-      console.log(`[DASHBOARD] ⚠️ WARNING: Found ${allRecentEvents.length} events but none have valid license plates`);
-      const samplePlates = allRecentEvents.slice(0, 5).map((e: any) => ({
-        id: e.id,
-        plate: `"${e.licensePlate}"`,
-        plateType: typeof e.licensePlate,
-        plateLength: e.licensePlate?.length,
-        plateIsEmpty: e.licensePlate === "",
-        plateIsNull: e.licensePlate === null,
-        recognitionTime: e.recognitionTime,
-        cameraName: e.camera?.name || "N/A",
-      }));
-      console.log(`[DASHBOARD] Sample events (first 5):`, JSON.stringify(samplePlates, null, 2));
-    } else if (allRecentEvents.length === 0) {
-      console.log(`[DASHBOARD] ⚠️ No recognition events found in database at all`);
-      console.log(`[DASHBOARD] 💡 Possible reasons:`);
-      console.log(`[DASHBOARD]   1. No events have been received from cameras yet`);
-      console.log(`[DASHBOARD]   2. Camera is not registered in database (check LPR Cameras page)`);
-      console.log(`[DASHBOARD]   3. Events are being received but skipped (check webhook logs)`);
-      console.log(`[DASHBOARD]   4. Events don't have license plates (check LPR Logs page)`);
-    }
-  } catch (error) {
-    console.error(`[DASHBOARD] ❌ Error fetching recognition events:`, error);
-    if (error instanceof Error) {
-      console.error(`[DASHBOARD] Error message:`, error.message);
-      console.error(`[DASHBOARD] Error stack:`, error.stack);
-    }
-    // Continue with empty array - don't crash the page
-  }
-
-  // Fetch images for recognition events (only if we have events)
-  // Get all image types - we'll prioritize plate_image, full_image, snapshot for avatar
-  let images: Array<{ eventId: string; url: string; imageType: string }> = [];
-  if (recognitionEvents.length > 0) {
-    const eventIds = recognitionEvents.map((e) => e.id);
-    const fetchedImages = await prisma.lprImage.findMany({
-      where: {
-        eventType: "recognition",
-        eventId: { in: eventIds },
-      },
-      select: {
-        eventId: true,
-        url: true,
-        imageType: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+    // Filter events with valid license plates: non-empty, at least 2 characters
+    const validEvents = allRecentEvents.filter((event) => {
+      const plate = event.licensePlate;
+      const trimmed = plate && typeof plate === "string" ? plate.trim() : "";
+      return trimmed.length >= 2;
     });
-    images = fetchedImages;
+    recognitionEvents = validEvents;
+  } catch (error) {
+    console.error(`[DASHBOARD] ❌ Error processing recognition events:`, error);
   }
+
+  const eventIds = recognitionEvents.map((e) => e.id);
+  const now = new Date();
+
+  // Run all secondary data fetches in parallel for faster dashboard load
+  const [
+    fetchedImages,
+    itemsWithCodeForPlatesInItems,
+    activeInstWithLines,
+    itemsWithCodeForContract,
+    contractInfoMap,
+    contractsWithPlatesCount,
+  ] = await Promise.all([
+    eventIds.length > 0
+      ? prisma.lprImage.findMany({
+          where: { eventType: "recognition", eventId: { in: eventIds } },
+          select: { eventId: true, url: true, imageType: true },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
+    prisma.iTEMS.findMany({
+      where: { CODE: { not: null } },
+      select: { CODE: true },
+    }),
+    prisma.iNST.findMany({
+      where: { WDATETO: { gte: now }, ISACTIVE: 1, lines: { some: {} } },
+      select: { lines: { select: { MTRL: true } } },
+    }),
+    prisma.iTEMS.findMany({
+      where: { CODE: { not: null } },
+      select: { MTRL: true, CODE: true },
+    }),
+    getContractInfoByPlate(),
+    prisma.iNST.count({ where: { lines: { some: {} } } }),
+  ]);
+
+  type ImageRow = { eventId: string; url: string; imageType: string };
+  const images: ImageRow[] = fetchedImages;
 
   // Group images by eventId and prioritize: PLATE_IMAGE > FULL_IMAGE > SNAPSHOT > others
-  const imagesByEventId = new Map<string, typeof images>();
+  const imagesByEventId = new Map<string, ImageRow[]>();
   const imagePriority: Record<string, number> = {
     PLATE_IMAGE: 1,
     FULL_IMAGE: 2,
@@ -311,93 +275,43 @@ export default async function DashboardPage() {
     })
     .sort((a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime());
 
-  // Plates registered in ITEMS (CODE = license plate) — badge "ITEMS/MTRL"
-  let platesInItems = new Set<string>();
-  try {
-    const itemsWithCode = await prisma.iTEMS.findMany({
-      where: { CODE: { not: null } },
-      select: { CODE: true },
-    });
-    for (const item of itemsWithCode) {
-      if (item.CODE && typeof item.CODE === "string") {
-        const plate = item.CODE.trim().toUpperCase();
-        if (plate.length > 0) platesInItems.add(plate);
-      }
+  // Plates registered in ITEMS (CODE = license plate) — from parallel fetch
+  const platesInItems = new Set<string>();
+  for (const item of itemsWithCodeForPlatesInItems) {
+    if (item.CODE && typeof item.CODE === "string") {
+      const plate = item.CODE.trim().toUpperCase();
+      if (plate.length > 0) platesInItems.add(plate);
     }
-    console.log(`[DASHBOARD] Plates in ITEMS (CODE): ${platesInItems.size}`);
-  } catch (error) {
-    console.error(`[DASHBOARD] ❌ Error fetching ITEMS plates:`, error);
   }
 
-  // Contract license plates: only from INST where WDATETO is future, ISACTIVE=1, and has INSTLINES
-  // Flow: INST (filtered) → INSTLINES (MTRL) → ITEMS (MTRL match, CODE = license plate) — badge "CONTRACT"
-  let erpLicensePlates = new Set<string>();
-  try {
-    const now = new Date();
-    const activeInstWithLines = await prisma.iNST.findMany({
-      where: {
-        WDATETO: { gte: now },
-        ISACTIVE: 1,
-        lines: { some: {} },
-      },
-      select: { lines: { select: { MTRL: true } } },
-    });
-    const mtrlSet = new Set<string>();
-    for (const inst of activeInstWithLines) {
-      for (const line of inst.lines) {
-        if (line.MTRL && String(line.MTRL).trim() !== "") {
-          const normalized = String(line.MTRL).replace(/^0+/, "") || String(line.MTRL);
-          mtrlSet.add(normalized);
-          mtrlSet.add(line.MTRL.trim());
-        }
+  // Contract license plates: from parallel fetch (INST + ITEMS)
+  const erpLicensePlates = new Set<string>();
+  const mtrlSet = new Set<string>();
+  for (const inst of activeInstWithLines) {
+    for (const line of inst.lines) {
+      if (line.MTRL && String(line.MTRL).trim() !== "") {
+        const normalized = String(line.MTRL).replace(/^0+/, "") || String(line.MTRL);
+        mtrlSet.add(normalized);
+        mtrlSet.add(line.MTRL.trim());
       }
     }
-    const itemsWithCodeForContract = await prisma.iTEMS.findMany({
-      where: { CODE: { not: null } },
-      select: { MTRL: true, CODE: true },
-    });
-    for (const item of itemsWithCodeForContract) {
-      if (!item.CODE || typeof item.CODE !== "string") continue;
-      const normalizedMtrl = item.MTRL ? (String(item.MTRL).replace(/^0+/, "") || item.MTRL.trim()) : "";
-      const inContract = (normalizedMtrl && mtrlSet.has(normalizedMtrl)) || (item.MTRL && mtrlSet.has(item.MTRL.trim()));
-      if (inContract) {
-        const plate = item.CODE.trim().toUpperCase();
-        if (plate.length > 0) erpLicensePlates.add(plate);
-      }
+  }
+  for (const item of itemsWithCodeForContract) {
+    if (!item.CODE || typeof item.CODE !== "string") continue;
+    const normalizedMtrl = item.MTRL ? (String(item.MTRL).replace(/^0+/, "") || item.MTRL.trim()) : "";
+    const inContract = (normalizedMtrl && mtrlSet.has(normalizedMtrl)) || (item.MTRL && mtrlSet.has(item.MTRL.trim()));
+    if (inContract) {
+      const plate = item.CODE.trim().toUpperCase();
+      if (plate.length > 0) erpLicensePlates.add(plate);
     }
-    console.log(`[DASHBOARD] Contract license plates (INST→INSTLINES→ITEMS.CODE): ${erpLicensePlates.size}`);
-  } catch (error) {
-    console.error(`[DASHBOARD] ❌ Error fetching contract license plates:`, error);
   }
 
-  // Contract car counts (num01, carsIn) and slotType (contract vs visitor/regular fee) per plate
-  let contractInfoByPlate: Record<
-    string,
-    { num01: number; carsIn: number; slotType?: "contract" | "visitor" }
-  > = {};
-  try {
-    const contractInfoMap = await getContractInfoByPlate();
-    for (const [plate, info] of contractInfoMap.entries()) {
-      contractInfoByPlate[plate] = {
-        num01: info.num01,
-        carsIn: info.carsIn,
-        slotType: info.slotType,
-      };
-    }
-  } catch (error) {
-    console.error(`[DASHBOARD] ❌ Error fetching contract car info:`, error);
+  const contractInfoByPlate: Record<string, { num01: number; carsIn: number; slotType?: "contract" | "visitor" }> = {};
+  for (const [plate, info] of contractInfoMap.entries()) {
+    contractInfoByPlate[plate] = { num01: info.num01, carsIn: info.carsIn, slotType: info.slotType };
   }
 
-  // Contracts (INST) that have at least one INSTLINES (plate line) — for "contract-based" stat
-  let contractsWithPlates = 0;
-  try {
-    contractsWithPlates = await prisma.iNST.count({
-      where: { lines: { some: {} } },
-    });
-    console.log(`[DASHBOARD] Contracts with plates (INST with INSTLINES): ${contractsWithPlates}`);
-  } catch (error) {
-    console.error(`[DASHBOARD] ❌ Error fetching contracts with plates:`, error);
-  }
+  const contractsWithPlates = contractsWithPlatesCount;
 
   const statsWithCarsInside = { ...stats, carsInsideNow, contractsWithPlates };
 
