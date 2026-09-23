@@ -5,13 +5,13 @@ import { SettingsClient } from "@/components/settings/settings-client";
 import type { WorkingHoursRow } from "@/components/settings/settings-client";
 
 const DAYS = [
-  { dayOfWeek: 0, label: "Sunday" },
-  { dayOfWeek: 1, label: "Monday" },
-  { dayOfWeek: 2, label: "Tuesday" },
-  { dayOfWeek: 3, label: "Wednesday" },
-  { dayOfWeek: 4, label: "Thursday" },
-  { dayOfWeek: 5, label: "Friday" },
-  { dayOfWeek: 6, label: "Saturday" },
+  { dayOfWeek: 0, label: "Κυριακή" },
+  { dayOfWeek: 1, label: "Δευτέρα" },
+  { dayOfWeek: 2, label: "Τρίτη" },
+  { dayOfWeek: 3, label: "Τετάρτη" },
+  { dayOfWeek: 4, label: "Πέμπτη" },
+  { dayOfWeek: 5, label: "Παρασκευή" },
+  { dayOfWeek: 6, label: "Σάββατο" },
 ];
 
 export default async function SettingsPage() {

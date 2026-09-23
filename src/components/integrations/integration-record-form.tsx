@@ -11,8 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formFieldStyles } from "@/lib/form-styles";
-import { Save, Loader2, Search } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Spinner } from "@/components/ui/spinner";
+import { Save, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -115,8 +116,8 @@ export function IntegrationRecordForm({
       const checkData = await checkResponse.json();
       
       if (checkData.success && checkData.exists) {
-        const existingName = checkData.record?.NAME || "Unknown";
-        toast.error(`AFM ${afmToUse} already exists for customer: ${existingName}`);
+        const existingName = checkData.record?.NAME || "Άγνωστος";
+        toast.error(`Το ΑΦΜ ${afmToUse} υπάρχει ήδη στον πελάτη: ${existingName}`);
         setIsFetchingAFM(false);
         return;
       }
@@ -133,11 +134,11 @@ export function IntegrationRecordForm({
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to fetch AFM data");
+        throw new Error(data.error || "Η ανάκτηση στοιχείων ΑΦΜ απέτυχε");
       }
 
       if (!data.data) {
-        toast.error("No data found for this AFM");
+        toast.error("Δεν βρέθηκαν στοιχεία για αυτό το ΑΦΜ");
         return;
       }
 
@@ -191,15 +192,15 @@ export function IntegrationRecordForm({
             setFormData((prev) => ({ ...prev, IRSDATA: partialMatch.value }));
           } else {
             // If still no match, show a warning but don't set IRSDATA
-            toast.warning(`IRSDATA "${doyDescr}" not found in our database. Please select manually.`);
+            toast.warning(`Η ΔΟΥ «${doyDescr}» δεν βρέθηκε στη βάση. Επιλέξτε την χειροκίνητα.`);
           }
         }
       }
 
-      toast.success("AFM data loaded successfully");
+      toast.success("Τα στοιχεία του ΑΦΜ φορτώθηκαν");
     } catch (error) {
       console.error("AFM lookup error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to fetch AFM data");
+      toast.error(error instanceof Error ? error.message : "Η ανάκτηση στοιχείων ΑΦΜ απέτυχε");
     } finally {
       setIsFetchingAFM(false);
     }
@@ -272,8 +273,8 @@ export function IntegrationRecordForm({
           const checkData = await checkResponse.json();
           
           if (checkData.success && checkData.exists) {
-            const existingName = checkData.record?.NAME || "Unknown";
-            toast.error(`AFM ${submitData.AFM} already exists for customer: ${existingName}`);
+            const existingName = checkData.record?.NAME || "Άγνωστος";
+            toast.error(`Το ΑΦΜ ${submitData.AFM} υπάρχει ήδη στον πελάτη: ${existingName}`);
             setIsSubmitting(false);
             return;
           }
@@ -367,10 +368,10 @@ export function IntegrationRecordForm({
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to save record");
+        throw new Error(data.error || "Η αποθήκευση της εγγραφής απέτυχε");
       }
 
-      toast.success(`Record ${mode === "create" ? "created" : "updated"} successfully`);
+      toast.success(mode === "create" ? "Η εγγραφή δημιουργήθηκε" : "Η εγγραφή ενημερώθηκε");
       
       // Pass the new/updated record to onSuccess callback
       // This allows parent components to update their state without page reload
@@ -383,7 +384,7 @@ export function IntegrationRecordForm({
       }
     } catch (error) {
       console.error("Error saving record:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to save record");
+      toast.error(error instanceof Error ? error.message : "Η αποθήκευση της εγγραφής απέτυχε");
     } finally {
       setIsSubmitting(false);
     }
@@ -399,8 +400,8 @@ export function IntegrationRecordForm({
   });
 
   return (
-    <form onSubmit={handleSubmit} className={formFieldStyles.formSpacing}>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {formFields.map((field) => {
           const isRequired = field.isRequired && !field.isId;
           const fieldValue = formData[field.name] ?? "";
@@ -408,17 +409,15 @@ export function IntegrationRecordForm({
           if (field.type === "Boolean") {
             return (
               <div key={field.name} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
+                <Checkbox
                   id={field.name}
                   checked={Boolean(fieldValue)}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, [field.name]: e.target.checked }))
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, [field.name]: checked === true }))
                   }
-                  className="h-4 w-4"
                 />
-                <Label htmlFor={field.name} className={formFieldStyles.label}>
-                  {field.name.toUpperCase()} {isRequired && "*"}
+                <Label htmlFor={field.name} className="font-mono">
+                  {field.name} {isRequired && "*"}
                 </Label>
               </div>
             );
@@ -429,9 +428,9 @@ export function IntegrationRecordForm({
           if (modelName === "CUSTORMER" && field.name === "COUNTRY") {
             const currentValue = fieldValue ? String(fieldValue) : undefined;
             return (
-              <div key={field.name} className={formFieldStyles.fieldSpacing}>
-                <Label htmlFor={field.name} className={formFieldStyles.label}>
-                  {field.name.toUpperCase()} {isRequired && "*"}
+              <div key={field.name} className="flex flex-col gap-1.5">
+                <Label htmlFor={field.name} className="font-mono">
+                  {field.name} {isRequired && "*"}
                 </Label>
                 <Select
                   value={currentValue}
@@ -442,20 +441,17 @@ export function IntegrationRecordForm({
                     }))
                   }
                 >
-                  <SelectTrigger className={formFieldStyles.select} suppressHydrationWarning>
-                    <SelectValue placeholder="Select country" />
+                  <SelectTrigger className="w-full" suppressHydrationWarning>
+                    <SelectValue placeholder="Επιλογή χώρας" />
                   </SelectTrigger>
                   <SelectContent>
                     {!isRequired && (
-                      <SelectItem value="__none__" className={formFieldStyles.selectItem}>
-                        None
-                      </SelectItem>
+                      <SelectItem value="__none__">Καμία</SelectItem>
                     )}
                     {countries.map((country) => (
                       <SelectItem
                         key={country.value}
                         value={country.value}
-                        className={formFieldStyles.selectItem}
                       >
                         {country.label}
                       </SelectItem>
@@ -470,9 +466,9 @@ export function IntegrationRecordForm({
           if (modelName === "CUSTORMER" && field.name === "IRSDATA") {
             const currentValue = fieldValue ? String(fieldValue) : undefined;
             return (
-              <div key={field.name} className={formFieldStyles.fieldSpacing}>
-                <Label htmlFor={field.name} className={formFieldStyles.label}>
-                  {field.name.toUpperCase()} {isRequired && "*"}
+              <div key={field.name} className="flex flex-col gap-1.5">
+                <Label htmlFor={field.name} className="font-mono">
+                  {field.name} {isRequired && "*"}
                 </Label>
                 <Select
                   value={currentValue}
@@ -483,20 +479,17 @@ export function IntegrationRecordForm({
                     }))
                   }
                 >
-                  <SelectTrigger className={formFieldStyles.select} suppressHydrationWarning>
-                    <SelectValue placeholder="Select IRS data" />
+                  <SelectTrigger className="w-full" suppressHydrationWarning>
+                    <SelectValue placeholder="Επιλογή ΔΟΥ" />
                   </SelectTrigger>
                   <SelectContent>
                     {!isRequired && (
-                      <SelectItem value="__none__" className={formFieldStyles.selectItem}>
-                        None
-                      </SelectItem>
+                      <SelectItem value="__none__">Καμία</SelectItem>
                     )}
                     {irsData.map((irs) => (
                       <SelectItem
                         key={irs.value}
                         value={irs.value}
-                        className={formFieldStyles.selectItem}
                       >
                         {irs.label}
                       </SelectItem>
@@ -510,9 +503,9 @@ export function IntegrationRecordForm({
           // Handle AFM field with lookup button for CUSTORMER
           if (modelName === "CUSTORMER" && field.name === "AFM") {
             return (
-              <div key={field.name} className={formFieldStyles.fieldSpacing}>
-                <Label htmlFor={field.name} className={formFieldStyles.label}>
-                  {field.name.toUpperCase()} {isRequired && "*"}
+              <div key={field.name} className="flex flex-col gap-1.5">
+                <Label htmlFor={field.name} className="font-mono">
+                  {field.name} {isRequired && "*"}
                 </Label>
                 <div className="flex gap-1">
                   <Input
@@ -525,23 +518,19 @@ export function IntegrationRecordForm({
                         [field.name]: e.target.value,
                       }))
                     }
-                    className={formFieldStyles.input}
-                    required={isRequired}
+                                        required={isRequired}
                     disabled={isSubmitting || isFetchingAFM}
-                    placeholder="Enter AFM or leave empty for default (99999999)"
+                    placeholder="ΑΦΜ ή κενό για την προεπιλογή (99999999)"
                   />
                   <Button
                     type="button"
                     onClick={handleAFMLookup}
                     disabled={isSubmitting || isFetchingAFM}
-                    className={`${formFieldStyles.button} px-2`}
-                    title="Lookup AFM data"
+                    size="icon"
+                    aria-label="Αναζήτηση στοιχείων ΑΦΜ"
+                    title="Αναζήτηση στοιχείων ΑΦΜ"
                   >
-                    {isFetchingAFM ? (
-                      <Loader2 className={formFieldStyles.buttonIcon} />
-                    ) : (
-                      <Search className={formFieldStyles.buttonIcon} />
-                    )}
+                    {isFetchingAFM ? <Spinner /> : <Search />}
                   </Button>
                 </div>
               </div>
@@ -549,9 +538,9 @@ export function IntegrationRecordForm({
           }
 
           return (
-            <div key={field.name} className={formFieldStyles.fieldSpacing}>
-              <Label htmlFor={field.name} className={formFieldStyles.label}>
-                {field.name.toUpperCase()} {isRequired && "*"}
+            <div key={field.name} className="flex flex-col gap-1.5">
+              <Label htmlFor={field.name} className="font-mono">
+                {field.name} {isRequired && "*"}
               </Label>
               {field.type === "DateTime" ? (
                 <Input
@@ -568,8 +557,7 @@ export function IntegrationRecordForm({
                       [field.name]: e.target.value ? new Date(e.target.value).toISOString() : null,
                     }))
                   }
-                  className={formFieldStyles.input}
-                  required={isRequired}
+                                    required={isRequired}
                 />
               ) : (
                 <Input
@@ -592,8 +580,7 @@ export function IntegrationRecordForm({
                       [field.name]: e.target.value,
                     }));
                   }}
-                  className={formFieldStyles.input}
-                  required={isRequired}
+                                    required={isRequired}
                   disabled={field.isId && mode === "edit"}
                 />
               )}
@@ -602,26 +589,25 @@ export function IntegrationRecordForm({
         })}
       </div>
 
-      <div className="flex justify-end pt-4 border-t gap-2">
+      <div className="flex justify-end gap-2 border-t pt-4">
         <Button
           type="button"
           variant="outline"
-          onClick={onSuccess}
-          className={formFieldStyles.button}
+          onClick={() => onSuccess()}
           disabled={isSubmitting}
         >
-          CANCEL
+          Ακύρωση
         </Button>
-        <Button type="submit" className={formFieldStyles.button} disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? (
             <>
-              <Loader2 className={formFieldStyles.buttonIcon} />
-              SAVING...
+              <Spinner data-icon="inline-start" />
+              Αποθήκευση…
             </>
           ) : (
             <>
-              <Save className={formFieldStyles.buttonIcon} />
-              {mode === "create" ? "CREATE RECORD" : "SAVE CHANGES"}
+              <Save />
+              {mode === "create" ? "Δημιουργία εγγραφής" : "Αποθήκευση αλλαγών"}
             </>
           )}
         </Button>

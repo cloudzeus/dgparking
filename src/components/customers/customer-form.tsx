@@ -4,6 +4,7 @@ import { useEffect, useActionState, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Select,
   SelectContent,
@@ -11,11 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Save, Search } from "lucide-react";
+import { Save, Search } from "lucide-react";
 import { createCustomer, updateCustomer, type CustomerFormState } from "@/lib/actions/customers";
 import { fetchIRSData } from "@/lib/actions/irs";
 import { countries } from "@/lib/data/countries";
-import { formFieldStyles } from "@/lib/form-styles";
 import { toast } from "sonner";
 
 interface Customer {
@@ -84,7 +84,7 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
       });
     }
     if (state?.success) {
-      toast.success(mode === "create" ? "Customer created successfully" : "Customer updated successfully");
+      toast.success(mode === "create" ? "Ο πελάτης δημιουργήθηκε" : "Ο πελάτης ενημερώθηκε");
       onSuccess();
     }
   }, [state, mode, onSuccess]);
@@ -92,7 +92,7 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
   // Handle IRS API lookup
   const handleIRSLookup = async () => {
     if (!afm || afm.trim().length === 0) {
-      toast.error("Please enter an AFM first");
+      toast.error("Συμπληρώστε πρώτα το ΑΦΜ");
       return;
     }
 
@@ -101,7 +101,7 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
       const result = await fetchIRSData(afm);
       
       if (!result.success) {
-        toast.error(result.error || "Failed to fetch IRS data");
+        toast.error(result.error || "Η ανάκτηση στοιχείων από το Μητρώο απέτυχε");
         return;
       }
 
@@ -144,10 +144,10 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
           }
         }
 
-        toast.success("IRS data loaded successfully");
+        toast.success("Τα στοιχεία του Μητρώου φορτώθηκαν");
       }
     } catch (error) {
-      toast.error("Failed to fetch IRS data");
+      toast.error("Η ανάκτηση στοιχείων από το Μητρώο απέτυχε");
       console.error("IRS lookup error:", error);
     } finally {
       setIsFetchingIRS(false);
@@ -161,25 +161,24 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
 
       {/* Basic Information */}
       <div className="space-y-2">
-        <h3 className={formFieldStyles.sectionHeader}>
-          BASIC INFORMATION
+        <h3 className="text-xs font-semibold text-muted-foreground">
+          Βασικά στοιχεία
         </h3>
         <div className="space-y-1">
-          <Label htmlFor="CODE" className={formFieldStyles.label}>
-            CODE
+          <Label htmlFor="CODE" className="text-xs">
+            Κωδικός (CODE)
           </Label>
           <Input
             id="CODE"
             name="CODE"
             defaultValue={customer?.CODE || ""}
             disabled={isPending}
-            className={formFieldStyles.input}
           />
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="NAME" className={formFieldStyles.label}>
-            NAME *
+          <Label htmlFor="NAME" className="text-xs">
+            Επωνυμία (NAME) *
           </Label>
           <Input
             id="NAME"
@@ -189,13 +188,12 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
             onChange={(e) => setName(e.target.value)}
             required
             disabled={isPending}
-            className={formFieldStyles.input}
           />
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <Label htmlFor="TRDR" className={formFieldStyles.label}>
+            <Label htmlFor="TRDR" className="text-xs">
               TRDR
             </Label>
             <Input
@@ -203,12 +201,11 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
               name="TRDR"
               defaultValue={customer?.TRDR || ""}
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="AFM" className={formFieldStyles.label}>
-              AFM (Tax ID)
+            <Label htmlFor="AFM" className="text-xs">
+              ΑΦΜ (AFM)
             </Label>
             <div className="flex gap-1">
               <Input
@@ -217,21 +214,17 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
                 value={afm}
                 onChange={(e) => setAfm(e.target.value)}
                 disabled={isPending || isFetchingIRS}
-                className={formFieldStyles.input}
-                placeholder="Enter AFM"
+                placeholder="Εισαγωγή ΑΦΜ"
               />
               <Button
                 type="button"
                 onClick={handleIRSLookup}
                 disabled={isPending || isFetchingIRS || !afm.trim()}
-                className={`${formFieldStyles.button} px-2`}
-                title="Lookup IRS data"
+                title="Άντληση στοιχείων από το Μητρώο"
+                aria-label="Άντληση στοιχείων από το Μητρώο"
+                size="icon"
               >
-                {isFetchingIRS ? (
-                  <Loader2 className={formFieldStyles.buttonIcon} />
-                ) : (
-                  <Search className={formFieldStyles.buttonIcon} />
-                )}
+                {isFetchingIRS ? <Spinner /> : <Search />}
               </Button>
             </div>
           </div>
@@ -240,13 +233,13 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
 
       {/* Contact Information */}
       <div className="space-y-2">
-        <h3 className={formFieldStyles.sectionHeader}>
-          CONTACT INFORMATION
+        <h3 className="text-xs font-semibold text-muted-foreground">
+          Στοιχεία επικοινωνίας
         </h3>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <Label htmlFor="PHONE01" className={formFieldStyles.label}>
-              PHONE 01
+            <Label htmlFor="PHONE01" className="text-xs">
+              Τηλέφωνο (PHONE01)
             </Label>
             <Input
               id="PHONE01"
@@ -254,12 +247,11 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
               type="tel"
               defaultValue={customer?.PHONE01 || ""}
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="PHONE02" className={formFieldStyles.label}>
-              PHONE 02
+            <Label htmlFor="PHONE02" className="text-xs">
+              Τηλέφωνο 2 (PHONE02)
             </Label>
             <Input
               id="PHONE02"
@@ -267,15 +259,14 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
               type="tel"
               defaultValue={customer?.PHONE02 || ""}
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <Label htmlFor="EMAIL" className={formFieldStyles.label}>
-              EMAIL
+            <Label htmlFor="EMAIL" className="text-xs">
+              Email (EMAIL)
             </Label>
             <Input
               id="EMAIL"
@@ -283,12 +274,11 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
               type="email"
               defaultValue={customer?.EMAIL || ""}
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="EMAILACC" className={formFieldStyles.label}>
-              EMAIL ACC
+            <Label htmlFor="EMAILACC" className="text-xs">
+              Email λογιστηρίου (EMAILACC)
             </Label>
             <Input
               id="EMAILACC"
@@ -296,14 +286,13 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
               type="email"
               defaultValue={customer?.EMAILACC || ""}
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="WEBPAGE" className={formFieldStyles.label}>
-            WEBPAGE
+          <Label htmlFor="WEBPAGE" className="text-xs">
+            Ιστοσελίδα (WEBPAGE)
           </Label>
           <Input
             id="WEBPAGE"
@@ -311,7 +300,6 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
             type="url"
             defaultValue={customer?.WEBPAGE || ""}
             disabled={isPending}
-            className={formFieldStyles.input}
             placeholder="https://"
           />
         </div>
@@ -319,12 +307,12 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
 
       {/* Address Information */}
       <div className="space-y-2">
-        <h3 className={formFieldStyles.sectionHeader}>
-          ADDRESS INFORMATION
+        <h3 className="text-xs font-semibold text-muted-foreground">
+          Διεύθυνση
         </h3>
         <div className="space-y-1">
-          <Label htmlFor="ADDRESS" className={formFieldStyles.label}>
-            ADDRESS
+          <Label htmlFor="ADDRESS" className="text-xs">
+            Οδός (ADDRESS)
           </Label>
           <Input
             id="ADDRESS"
@@ -333,14 +321,13 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             disabled={isPending}
-            className={formFieldStyles.input}
           />
         </div>
 
         <div className="grid grid-cols-3 gap-2">
           <div className="space-y-1">
-            <Label htmlFor="CITY" className={formFieldStyles.label}>
-              CITY
+            <Label htmlFor="CITY" className="text-xs">
+              Πόλη (CITY)
             </Label>
             <Input
               id="CITY"
@@ -349,12 +336,11 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
               value={city}
               onChange={(e) => setCity(e.target.value)}
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="ZIP" className={formFieldStyles.label}>
-              ZIP CODE
+            <Label htmlFor="ZIP" className="text-xs">
+              Τ.Κ. (ZIP)
             </Label>
             <Input
               id="ZIP"
@@ -363,20 +349,19 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
               value={zip}
               onChange={(e) => setZip(e.target.value)}
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="COUNTRY" className={formFieldStyles.label}>
-              COUNTRY
+            <Label htmlFor="COUNTRY" className="text-xs">
+              Χώρα (COUNTRY)
             </Label>
             <Select name="COUNTRY" defaultValue={customer?.COUNTRY || "GR"}>
-              <SelectTrigger className={formFieldStyles.select}>
-                <SelectValue placeholder="Select country" />
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Επιλογή χώρας" />
               </SelectTrigger>
               <SelectContent className="max-h-48">
                 {countries.map((country) => (
-                  <SelectItem key={country.code} value={country.code} className={formFieldStyles.selectItem}>
+                  <SelectItem key={country.code} value={country.code} >
                     {country.name}
                   </SelectItem>
                 ))}
@@ -388,12 +373,12 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
 
       {/* Additional Information */}
       <div className="space-y-2">
-        <h3 className={formFieldStyles.sectionHeader}>
-          ADDITIONAL INFORMATION
+        <h3 className="text-xs font-semibold text-muted-foreground">
+          Πρόσθετα στοιχεία
         </h3>
         <div className="space-y-1">
-          <Label htmlFor="JOBTYPE" className={formFieldStyles.label}>
-            JOB TYPE
+          <Label htmlFor="JOBTYPE" className="text-xs">
+            Δραστηριότητα (JOBTYPE)
           </Label>
           <Input
             id="JOBTYPE"
@@ -402,13 +387,12 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
             value={jobType}
             onChange={(e) => setJobType(e.target.value)}
             disabled={isPending}
-            className={formFieldStyles.input}
           />
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="IRSDATA" className={formFieldStyles.label}>
-            IRS DATA
+          <Label htmlFor="IRSDATA" className="text-xs">
+            Στοιχεία Μητρώου (IRSDATA)
           </Label>
           <Input
             id="IRSDATA"
@@ -417,22 +401,21 @@ export function CustomerForm({ mode, customer, onSuccess }: CustomerFormProps) {
             value={irsData}
             onChange={(e) => setIrsData(e.target.value)}
             disabled={isPending}
-            className={formFieldStyles.input}
           />
         </div>
       </div>
 
       <div className="flex justify-end gap-3 pt-2 border-t">
-        <Button type="submit" disabled={isPending} className={formFieldStyles.button}>
+        <Button type="submit" disabled={isPending}>
           {isPending ? (
             <>
-              <Loader2 className="h-3 w-3 animate-spin" />
-              {mode === "create" ? "CREATING..." : "SAVING..."}
+              <Spinner data-icon="inline-start" />
+              {mode === "create" ? "Δημιουργία…" : "Αποθήκευση…"}
             </>
           ) : (
             <>
-              <Save className="h-3 w-3" />
-              {mode === "create" ? "CREATE CUSTOMER" : "SAVE CHANGES"}
+              <Save />
+              {mode === "create" ? "Δημιουργία πελάτη" : "Αποθήκευση αλλαγών"}
             </>
           )}
         </Button>

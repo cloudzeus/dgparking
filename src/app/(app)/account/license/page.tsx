@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { format, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
 import { LicenseModal } from "@/components/account/license-modal";
 
 export default async function LicensePage() {
@@ -23,7 +23,12 @@ export default async function LicensePage() {
     try {
       const d = parseISO(activationDateRaw);
       if (!isNaN(d.getTime())) {
-        activationDateFormatted = format(d, "MMMM d, yyyy");
+        activationDateFormatted = d.toLocaleDateString("el-GR", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+          timeZone: "Europe/Athens",
+        });
       }
     } catch {
       activationDateFormatted = activationDateRaw;

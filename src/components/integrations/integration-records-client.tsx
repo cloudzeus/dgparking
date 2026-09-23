@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import * as React from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import gsap from "gsap";
-import { format } from "date-fns";
-import { PageHeader } from "@/components/ui/page-header";
+import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
-import { DataTable, type Column } from "@/components/ui/data-table-legacy";
+import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader, EmptyState, InfoPanel, InfoRow, StatusBadge } from "@/components/admin/page";
+import { ArrowLeft, Database, Plus, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormDialog } from "@/components/ui/form-dialog";
 import { IntegrationRecordForm } from "./integration-record-form";
@@ -17,7 +19,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Card } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,22 +47,59 @@ interface Integration {
   };
 }
 
+interface ModelField {
+  name: string;
+  type: string;
+  isId: boolean;
+  isUnique: boolean;
+  isRequired: boolean;
+}
+
 interface IntegrationRecordsClientProps {
   integration: Integration;
   records: any[];
   modelName: string;
-  modelFields: Array<{
-    name: string;
-    type: string;
-    isId: boolean;
-    isUnique: boolean;
-    isRequired: boolean;
-  }>;
+  modelFields: ModelField[];
   relatedData?: {
     countries?: Record<string, string>;
     irsData?: Record<string, string>;
   };
 }
+
+const DASH = "—";
+
+/** Ημερομηνία στα ελληνικά, ζώνη Αθήνας. */
+function formatDate(value: unknown) {
+  if (!value) return DASH;
+  const date = new Date(value as string);
+  if (Number.isNaN(date.getTime())) return DASH;
+  return date.toLocaleDateString("el-GR", {
+    timeZone: "Europe/Athens",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") return DASH;
+  const num = Number(value);
+  return Number.isNaN(num) ? String(value) : num.toLocaleString("el-GR");
+}
+
+const PRIMARY_KEYS: Record<string, string> = {
+  CUSTORMER: "id",
+  User: "id",
+  COUNTRY: "COUNTRY",
+  IRSDATA: "IRSDATA",
+  VAT: "VAT",
+  SOCURRENCY: "SOCURRENCY",
+  TRDCATEGORY: "TRDCATEGORY",
+  ITEMS: "ITEMS",
+  PAYMENT: "PAYMENT",
+  INST: "INST",
+  INSTLINES: "INSTLINES",
+};
 
 export function IntegrationRecordsClient({
   integration,
@@ -78,6 +116,9 @@ export function IntegrationRecordsClient({
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [recordToDelete, setRecordToDelete] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(200);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -91,77 +132,109 @@ export function IntegrationRecordsClient({
     return () => ctx.revert();
   }, []);
 
-  // Build columns dynamically based on model fields
-  const columns: Column<any>[] = modelFields
-    .filter((field) => {
-      // Include common fields and exclude some internal fields
-      if (field.name === "id" && field.isId) return true;
-      if (["createdAt", "updatedAt"].includes(field.name)) return true;
-      // Include all other fields except internal Prisma fields
-      if (field.name.startsWith("_")) return false;
-      return true;
-    })
-    .map((field) => {
-      const column: Column<any> = {
-        key: field.name,
-        label: field.name.toUpperCase(),
-        sortable: true,
-      };
+  const getPrimaryKeyField = (model: string): string => PRIMARY_KEYS[model] || "id";
 
-      // Custom rendering based on field type and related data
-      if (field.type === "DateTime") {
-        column.render = (date: Date | null) => (
-          <span className="text-xs">
-            {date ? format(new Date(date), "MM/dd/yyyy") : "-"}
-          </span>
-        );
-      } else if (field.type === "Boolean") {
-        column.render = (value: boolean) => (
-          <Badge
-            variant={value ? "default" : "secondary"}
-            className="text-[8px] font-bold"
-          >
-            {value ? "YES" : "NO"}
-          </Badge>
-        );
-      } else if (field.type === "Int" || field.type === "Float") {
-        column.render = (value: number | null) => (
-          <span className="text-xs font-medium">
-            {value !== null && value !== undefined ? value.toString() : "-"}
-          </span>
-        );
-      } else if (field.isId) {
-        column.className = "font-medium";
-      }
+  const visibleFields = useMemo(
+    () => modelFields.filter((field) => !field.name.startsWith("_")),
+    [modelFields]
+  );
 
-      // Handle related fields for CUSTORMER model
-      if (modelName === "CUSTORMER") {
-        // Show COUNTRY NAME instead of code
-        if (field.name === "COUNTRY" && relatedData.countries) {
-          column.render = (value: string | null, record: any) => {
-            if (!value) return <span className="text-xs">-</span>;
-            const countryName = relatedData.countries?.[String(value)] || value;
-            return <span className="text-xs">{countryName}</span>;
-          };
-        }
-        // Show IRSDATA NAME instead of code
-        if (field.name === "IRSDATA" && relatedData.irsData) {
-          column.render = (value: string | null, record: any) => {
-            if (!value) return <span className="text-xs">-</span>;
-            const irsName = relatedData.irsData?.[value] || value;
-            return <span className="text-xs">{irsName}</span>;
-          };
-        }
-      }
+  /** Η στήλη που παίρνει τον χώρο που περισσεύει: όνομα ή η πρώτη στήλη κειμένου. */
+  const flexFieldName = useMemo(() => {
+    const named = visibleFields.find((field) => field.name === "NAME");
+    if (named) return named.name;
+    const text = visibleFields.find((field) => field.type === "String" && !field.isId);
+    return text?.name;
+  }, [visibleFields]);
 
-      return column;
+  const renderValue = (field: ModelField, value: any) => {
+    if (field.type === "DateTime") {
+      return <span className="tabular-nums">{formatDate(value)}</span>;
+    }
+    if (field.type === "Boolean") {
+      return <Badge variant={value ? "success" : "neutral"}>{value ? "Ναι" : "Όχι"}</Badge>;
+    }
+    if (field.type === "Int" || field.type === "Float") {
+      return <span className="tabular-nums">{formatNumber(value)}</span>;
+    }
+    if (modelName === "CUSTORMER" && field.name === "COUNTRY" && relatedData.countries) {
+      if (!value) return DASH;
+      return relatedData.countries[String(value)] || String(value);
+    }
+    if (modelName === "CUSTORMER" && field.name === "IRSDATA" && relatedData.irsData) {
+      if (!value) return DASH;
+      return relatedData.irsData[String(value)] || String(value);
+    }
+    if (value === null || value === undefined || value === "") return DASH;
+    return String(value);
+  };
+
+  const columns = useMemo<ColumnDef<any>[]>(
+    () =>
+      visibleFields.map((field) => {
+        const isNumeric = field.type === "Int" || field.type === "Float";
+        const isFlex = field.name === flexFieldName;
+        return {
+          accessorKey: field.name,
+          header: field.name,
+          size: isFlex ? 240 : isNumeric ? 100 : field.type === "DateTime" ? 110 : 140,
+          meta: {
+            label: field.name,
+            flex: isFlex,
+            align: isNumeric ? ("right" as const) : ("left" as const),
+          },
+          cell: ({ row }) => {
+            const value = row.original[field.name];
+            const content = renderValue(field, value);
+            return (
+              <div
+                className={
+                  isNumeric
+                    ? "truncate text-right tabular-nums"
+                    : field.isId
+                      ? "truncate font-mono"
+                      : "truncate"
+                }
+                title={value === null || value === undefined ? undefined : String(value)}
+              >
+                {content}
+              </div>
+            );
+          },
+        } satisfies ColumnDef<any>;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visibleFields, flexFieldName, modelName, relatedData]
+  );
+
+  /** Δευτερεύουσες στήλες κρυμμένες εξ ορισμού, ώστε ο πίνακας να χωρά χωρίς κύλιση. */
+  const defaultColumnVisibility = useMemo<VisibilityState>(() => {
+    const hidden: VisibilityState = {};
+    visibleFields.slice(8).forEach((field) => {
+      hidden[field.name] = false;
     });
+    return hidden;
+  }, [visibleFields]);
 
-  // Get default visible columns (first 6-8 fields)
-  const defaultVisibleColumns = columns
-    .slice(0, 8)
-    .map((col) => col.key)
-    .filter(Boolean);
+  const searchFields = useMemo(
+    () => visibleFields.slice(0, 5).map((field) => field.name),
+    [visibleFields]
+  );
+
+  const filteredRecords = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return records;
+    return records.filter((record) =>
+      searchFields.some((name) => String(record?.[name] ?? "").toLowerCase().includes(query))
+    );
+  }, [records, search, searchFields]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageRecords = useMemo(
+    () => filteredRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredRecords, currentPage, pageSize]
+  );
 
   const handleEdit = (record: any) => {
     setSelectedRecord(record);
@@ -191,232 +264,317 @@ export function IntegrationRecordsClient({
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to delete record");
+        throw new Error(data.error || "Η διαγραφή της εγγραφής απέτυχε");
       }
 
-      toast.success("Record deleted successfully");
+      toast.success("Η εγγραφή διαγράφηκε");
       setIsDeleteDialogOpen(false);
       setRecordToDelete(null);
       router.refresh();
     } catch (error) {
       console.error("Error deleting record:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to delete record");
+      toast.error(error instanceof Error ? error.message : "Η διαγραφή της εγγραφής απέτυχε");
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const getPrimaryKeyField = (modelName: string): string => {
-    const primaryKeys: Record<string, string> = {
-      CUSTORMER: "id",
-      User: "id",
-      COUNTRY: "COUNTRY",
-      IRSDATA: "IRSDATA",
-      VAT: "VAT",
-      SOCURRENCY: "SOCURRENCY",
-      TRDCATEGORY: "TRDCATEGORY",
-      ITEMS: "ITEMS",
-      PAYMENT: "PAYMENT",
-      INST: "INST",
-      INSTLINES: "INSTLINES",
-    };
-    return primaryKeys[modelName] || "id";
+  /** Η διαγραφή επιτρέπεται μόνο όταν η εγγραφή δεν έχει ταυτότητα στο ERP. */
+  const canDeleteRecord = (record: any): boolean => {
+    if (modelName === "CUSTORMER") return !record.TRDR || String(record.TRDR).trim() === "";
+    if (modelName === "ITEMS") return !record.MTRL || String(record.MTRL).trim() === "";
+    return true;
   };
 
-  // Build actions array - include delete only if TRDR/MTRL doesn't exist (for CUSTORMER/ITEMS)
-  type ActionItem = { label: string; onClick: (record: any) => void; variant?: "default" | "destructive"; icon?: React.ReactNode };
-  const getActionsForRecord = (record: any): ActionItem[] => {
-    const actions: ActionItem[] = [
-      {
-        label: "Edit Record",
-        onClick: handleEdit,
-      },
-    ];
-
-    // For CUSTORMER, only show delete if TRDR doesn't exist
-    if (modelName === "CUSTORMER") {
-      if (!record.TRDR || record.TRDR.trim() === "") {
-        actions.push({
-          label: "Delete Record",
-          onClick: handleDelete,
-          variant: "destructive" as const,
-          icon: <Trash2 className="h-3 w-3 mr-2" />,
-        });
-      }
-    } else if (modelName === "ITEMS") {
-      // For ITEMS, only show delete if MTRL doesn't exist
-      if (!record.MTRL || record.MTRL.trim() === "") {
-        actions.push({
-          label: "Delete Record",
-          onClick: handleDelete,
-          variant: "destructive" as const,
-          icon: <Trash2 className="h-3 w-3 mr-2" />,
-        });
-      }
-    } else {
-      // For other models, always show delete
-      actions.push({
-        label: "Delete Record",
-        onClick: handleDelete,
-        variant: "destructive" as const,
-        icon: <Trash2 className="h-3 w-3 mr-2" />,
-      });
+  const expandableContent = (record: any) => {
+    const primaryKeyField = getPrimaryKeyField(modelName);
+    const chunkSize = Math.ceil(visibleFields.length / 4) || 1;
+    const groups: ModelField[][] = [];
+    for (let i = 0; i < visibleFields.length; i += chunkSize) {
+      groups.push(visibleFields.slice(i, i + chunkSize));
     }
+    const accents = ["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4"];
 
-    return actions;
-  };
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold">
+            {record.NAME || record.CODE || `${modelName} ${record[primaryKeyField]}`}
+          </span>
+          {record.ISACTIVE !== undefined && (
+            <StatusBadge status={record.ISACTIVE === 1 ? "ACTIVE" : "INACTIVE"} />
+          )}
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {primaryKeyField}: {String(record[primaryKeyField] ?? DASH)}
+          </span>
+        </div>
 
-  return (
-    <div ref={containerRef} className="space-y-6 opacity-0">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push("/integrations")}
-            className="h-7 px-3 text-[10px] gap-1"
-          >
-            <ArrowLeft className="h-3 w-3" />
-            BACK
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={() => handleEdit(record)}>
+            <Pencil />
+            Επεξεργασία
           </Button>
-          <PageHeader
-            title={`${integration.name.toUpperCase()} - RECORDS`}
-            highlight="RECORDS"
-            subtitle={`Viewing ${records.length} record${records.length !== 1 ? "s" : ""} from ${modelName} model`}
-          />
+          {canDeleteRecord(record) && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto text-destructive hover:text-destructive"
+              onClick={() => handleDelete(record)}
+            >
+              <Trash2 />
+              Διαγραφή
+            </Button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {groups.map((group, index) => (
+            <InfoPanel
+              key={index}
+              title={`Στοιχεία ${index + 1}`}
+              accent={accents[index % accents.length]}
+            >
+              {group.map((field) => (
+                <InfoRow key={field.name} label={field.name} wrap>
+                  {renderValue(field, record[field.name])}
+                </InfoRow>
+              ))}
+            </InfoPanel>
+          ))}
         </div>
       </div>
+    );
+  };
 
-      {/* For INST model, show accordion with INSTLINES nested */}
+  const headerActions = (
+    <>
+      <Button variant="outline" onClick={() => router.push("/integrations")}>
+        <ArrowLeft />
+        Πίσω
+      </Button>
+      {modelName !== "INST" && (
+        <Button onClick={() => setIsAddDialogOpen(true)}>
+          <Plus />
+          Νέα εγγραφή
+        </Button>
+      )}
+    </>
+  );
+
+  return (
+    <div ref={containerRef} className="flex flex-col gap-4 opacity-0">
+      <PageHeader
+        title={`${integration.name} — Εγγραφές`}
+        description={`${records.length.toLocaleString("el-GR")} ${records.length === 1 ? "εγγραφή" : "εγγραφές"} από το μοντέλο ${modelName}.`}
+        icon={Database}
+        actions={headerActions}
+      />
+
+      {/* Για το μοντέλο INST: πτυσσόμενη λίστα με τις γραμμές INSTLINES από κάτω */}
       {modelName === "INST" ? (
-        <Card className="border-0 card-shadow-xl bg-card/50 backdrop-blur-sm">
-          <div className="p-6">
-            <Accordion type="single" collapsible className="w-full space-y-2">
-              {records.map((record: any) => {
-                const instLinesColumns: Column<any>[] = [
-                  { key: "LINENUM", label: "LINE #", sortable: true },
-                  { key: "MTRL", label: "MATERIAL", sortable: true },
-                  {
-                    key: "QTY",
-                    label: "QUANTITY",
-                    sortable: true,
-                    render: (value) => (value ? Number(value).toFixed(2) : "-"),
-                  },
-                  {
-                    key: "PRICE",
-                    label: "PRICE",
-                    sortable: true,
-                    render: (value) => (value ? Number(value).toFixed(2) : "-"),
-                  },
-                  { key: "MTRUNIT", label: "UNIT", sortable: true },
-                  {
-                    key: "FROMDATE",
-                    label: "FROM DATE",
-                    sortable: true,
-                    render: (value) => (value ? format(new Date(value), "dd/MM/yyyy") : "-"),
-                  },
-                  {
-                    key: "FINALDATE",
-                    label: "FINAL DATE",
-                    sortable: true,
-                    render: (value) => (value ? format(new Date(value), "dd/MM/yyyy") : "-"),
-                  },
-                  { key: "COMMENTS", label: "COMMENTS", sortable: false },
-                ];
+        records.length === 0 ? (
+          <EmptyState
+            icon={Database}
+            title="Καμία εγγραφή"
+            description="Δεν βρέθηκαν συμβόλαια για αυτή την ενσωμάτωση. Εκτελέστε συγχρονισμό από τη σελίδα ενσωματώσεων."
+          />
+        ) : (
+          <Accordion type="single" collapsible className="flex w-full flex-col gap-2">
+            {records.map((record: any) => {
+              const instLinesColumns: ColumnDef<any>[] = [
+                {
+                  accessorKey: "LINENUM",
+                  header: "LINENUM",
+                  size: 90,
+                  meta: { label: "Γραμμή", align: "right" },
+                  cell: ({ row }) => (
+                    <div className="text-right tabular-nums">{formatNumber(row.original.LINENUM)}</div>
+                  ),
+                },
+                {
+                  accessorKey: "MTRL",
+                  header: "MTRL",
+                  size: 120,
+                  meta: { label: "Είδος" },
+                  cell: ({ row }) => (
+                    <span className="font-mono">{row.original.MTRL ?? DASH}</span>
+                  ),
+                },
+                {
+                  accessorKey: "QTY",
+                  header: "QTY",
+                  size: 90,
+                  meta: { label: "Ποσότητα", align: "right" },
+                  cell: ({ row }) => (
+                    <div className="text-right tabular-nums">
+                      {row.original.QTY != null
+                        ? Number(row.original.QTY).toLocaleString("el-GR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
+                        : DASH}
+                    </div>
+                  ),
+                },
+                {
+                  accessorKey: "PRICE",
+                  header: "PRICE",
+                  size: 100,
+                  meta: { label: "Τιμή", align: "right" },
+                  cell: ({ row }) => (
+                    <div className="text-right tabular-nums">
+                      {row.original.PRICE != null
+                        ? Number(row.original.PRICE).toLocaleString("el-GR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
+                        : DASH}
+                    </div>
+                  ),
+                },
+                {
+                  accessorKey: "MTRUNIT",
+                  header: "MTRUNIT",
+                  size: 100,
+                  meta: { label: "Μονάδα" },
+                },
+                {
+                  accessorKey: "FROMDATE",
+                  header: "FROMDATE",
+                  size: 110,
+                  meta: { label: "Από" },
+                  cell: ({ row }) => (
+                    <span className="tabular-nums">{formatDate(row.original.FROMDATE)}</span>
+                  ),
+                },
+                {
+                  accessorKey: "FINALDATE",
+                  header: "FINALDATE",
+                  size: 110,
+                  meta: { label: "Έως" },
+                  cell: ({ row }) => (
+                    <span className="tabular-nums">{formatDate(row.original.FINALDATE)}</span>
+                  ),
+                },
+                {
+                  accessorKey: "COMMENTS",
+                  header: "COMMENTS",
+                  size: 220,
+                  enableSorting: false,
+                  meta: { label: "Σχόλια", flex: true },
+                  cell: ({ row }) => (
+                    <div className="truncate" title={row.original.COMMENTS ?? undefined}>
+                      {row.original.COMMENTS || DASH}
+                    </div>
+                  ),
+                },
+              ];
 
-                return (
-                  <AccordionItem
-                    key={record.INST}
-                    value={`inst-${record.INST}`}
-                    className="border border-muted-foreground/20 rounded-lg px-4 py-2 bg-card/50"
-                  >
-                    <AccordionTrigger className="hover:no-underline">
-                      <div className="flex items-center justify-between w-full pr-4">
-                        <div className="flex items-center gap-4">
-                          <div className="text-left">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-bold uppercase">
-                                {record.CODE || `INST-${record.INST}`}
-                              </span>
-                              {record.ISACTIVE === 1 ? (
-                                <Badge variant="default" className="text-[7px] px-1.5 py-0.5">
-                                  ACTIVE
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary" className="text-[7px] px-1.5 py-0.5">
-                                  INACTIVE
-                                </Badge>
-                              )}
-                              {record.BLOCKED === 1 && (
-                                <Badge variant="destructive" className="text-[7px] px-1.5 py-0.5">
-                                  BLOCKED
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="text-[9px] text-muted-foreground mt-1">
-                              {record.NAME || "No name"}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4 text-[9px] text-muted-foreground">
-                          <div>
-                            <span className="font-medium">Lines: </span>
-                            {record.lines?.length || 0}
-                          </div>
-                          {record.FROMDATE && (
-                            <div>
-                              <span className="font-medium">From: </span>
-                              {format(new Date(record.FROMDATE), "dd/MM/yyyy")}
-                            </div>
+              const lines = record.lines ?? [];
+
+              return (
+                <AccordionItem
+                  key={record.INST}
+                  value={`inst-${record.INST}`}
+                  className="rounded-md border bg-card px-3"
+                >
+                  <AccordionTrigger className="hover:no-underline">
+                    <div className="flex w-full flex-wrap items-center justify-between gap-2 pr-2">
+                      <div className="min-w-0 text-left">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-sm font-semibold">
+                            {record.CODE || `INST-${record.INST}`}
+                          </span>
+                          <StatusBadge status={record.ISACTIVE === 1 ? "ACTIVE" : "INACTIVE"} />
+                          {record.BLOCKED === 1 && (
+                            <Badge variant="danger">Σε φραγή</Badge>
                           )}
                         </div>
+                        <div className="mt-1 truncate text-xs text-muted-foreground">
+                          {record.NAME || "Χωρίς ονομασία"}
+                        </div>
                       </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="pt-4">
-                        {record.lines && record.lines.length > 0 ? (
-                          <DataTable
-                            data={record.lines}
-                            columns={instLinesColumns}
-                            title=""
-                            searchPlaceholder="Search lines..."
-                            searchFields={["MTRL", "COMMENTS", "SNCODE"]}
-                            defaultVisibleColumns={["LINENUM", "MTRL", "QTY", "PRICE", "MTRUNIT", "FROMDATE", "FINALDATE"]}
-                            storageKey={`integration-${integration.id}-inst-${record.INST}-lines`}
-                          />
-                        ) : (
-                          <div className="text-center py-8 text-[9px] text-muted-foreground">
-                            No lines found for this installation
-                          </div>
-                        )}
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground tabular-nums">
+                        <span>Γραμμές: {lines.length.toLocaleString("el-GR")}</span>
+                        {record.FROMDATE && <span>Από: {formatDate(record.FROMDATE)}</span>}
                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-            </Accordion>
-          </div>
-        </Card>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="pt-2">
+                      {lines.length > 0 ? (
+                        <DataTable
+                          data={lines}
+                          columns={instLinesColumns}
+                          title={`${lines.length.toLocaleString("el-GR")} γραμμές`}
+                          showExport={false}
+                          fixedLayout
+                          totalItems={lines.length}
+                          pageSize={lines.length}
+                          currentPage={1}
+                          totalPages={1}
+                          columnVisibilityStorageKey={`integration-${integration.id}-inst-lines`}
+                        />
+                      ) : (
+                        <EmptyState
+                          title="Καμία γραμμή"
+                          description="Το συμβόλαιο δεν έχει γραμμές INSTLINES."
+                        />
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        )
+      ) : records.length === 0 ? (
+        <EmptyState
+          icon={Database}
+          title="Καμία εγγραφή"
+          description={`Δεν βρέθηκαν εγγραφές για το μοντέλο ${modelName}. Εκτελέστε συγχρονισμό ή προσθέστε νέα εγγραφή.`}
+          action={
+            <Button onClick={() => setIsAddDialogOpen(true)}>
+              <Plus />
+              Νέα εγγραφή
+            </Button>
+          }
+        />
       ) : (
         <DataTable
-          data={records}
+          data={pageRecords}
           columns={columns}
-          searchPlaceholder={`Search ${integration.name.toLowerCase()}...`}
-          searchFields={columns.slice(0, 5).map((col) => col.key)}
-          addButtonLabel={`ADD ${integration.objectName || "RECORD"}`}
-          onAdd={() => setIsAddDialogOpen(true)}
-          onEdit={handleEdit}
-          actions={(record) => getActionsForRecord(record)}
-          defaultVisibleColumns={defaultVisibleColumns}
-          storageKey={`integration-${integration.id}-records`}
+          fixedLayout
+          searchPlaceholder={`Αναζήτηση σε ${integration.name}…`}
+          searchValue={search}
+          onSearchChange={(value) => {
+            setSearch(value);
+            setPage(1);
+          }}
+          totalItems={filteredRecords.length}
+          pageSize={pageSize}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          showExport={false}
+          columnVisibility={defaultColumnVisibility}
+          columnVisibilityStorageKey={`integration-${integration.id}-records`}
+          getRowId={(row, index) =>
+            String(row?.[getPrimaryKeyField(modelName)] ?? index)
+          }
+          expandableContent={expandableContent}
         />
       )}
 
-      {/* Add Record Dialog */}
+      {/* Προσθήκη εγγραφής */}
       <FormDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
-        title={`ADD NEW ${integration.objectName || "RECORD"}`}
+        title="Νέα εγγραφή"
         maxWidth="2xl"
       >
         <IntegrationRecordForm
@@ -431,11 +589,11 @@ export function IntegrationRecordsClient({
         />
       </FormDialog>
 
-      {/* Edit Record Dialog */}
+      {/* Επεξεργασία εγγραφής */}
       <FormDialog
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
-        title={`EDIT ${integration.objectName || "RECORD"}`}
+        title="Επεξεργασία εγγραφής"
         maxWidth="2xl"
       >
         {selectedRecord && (
@@ -454,23 +612,30 @@ export function IntegrationRecordsClient({
         )}
       </FormDialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Επιβεβαίωση διαγραφής */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-sm">Delete Record</AlertDialogTitle>
-            <AlertDialogDescription className="text-[9px]">
-              Are you sure you want to delete this record? This action cannot be undone.
+            <AlertDialogTitle>Διαγραφή εγγραφής</AlertDialogTitle>
+            <AlertDialogDescription>
+              Θέλετε σίγουρα να διαγράψετε αυτή την εγγραφή; Η ενέργεια δεν αναιρείται.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Ακύρωση</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {isDeleting ? (
+                <>
+                  <Spinner data-icon="inline-start" />
+                  Διαγραφή…
+                </>
+              ) : (
+                "Διαγραφή"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -478,6 +643,3 @@ export function IntegrationRecordsClient({
     </div>
   );
 }
-
-
-

@@ -4,10 +4,18 @@ import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formFieldStyles } from "@/lib/form-styles";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export interface LicenseData {
   buyerName: string;
@@ -34,86 +42,71 @@ export function LicenseModal({ license, open }: LicenseModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-sm font-bold uppercase">
-            Software License Certificate
-          </DialogTitle>
+          <DialogTitle>Πιστοποιητικό άδειας χρήσης λογισμικού</DialogTitle>
+          <DialogDescription>
+            Το παρόν αποτελεί την επίσημη παραχώρηση άδειας χρήσης για το λογισμικό που παρέχει
+            η {license.sellerName}.
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 text-[11px]">
-          <p className="text-muted-foreground">
-            This document serves as the official license grant for the software
-            product provided by {license.sellerName}.
-          </p>
 
-          <div>
-            <h3 className={formFieldStyles.sectionHeader}>License Information</h3>
-            <table className="w-full border-collapse mt-2 text-[10px]">
-              <tbody>
-                <tr className="border-b border-border">
-                  <td className="py-2 pr-4 font-medium text-muted-foreground w-1/3">
-                    Field
-                  </td>
-                  <td className="py-2 font-medium">Detail</td>
-                </tr>
-                <tr className="border-b border-border">
-                  <td className="py-2 pr-4 text-muted-foreground">
-                    Licensee (Buyer)
-                  </td>
-                  <td className="py-2">{license.buyerName}</td>
-                </tr>
-                <tr className="border-b border-border">
-                  <td className="py-2 pr-4 text-muted-foreground">Buyer VAT</td>
-                  <td className="py-2">{license.buyerVat}</td>
-                </tr>
-                <tr className="border-b border-border">
-                  <td className="py-2 pr-4 text-muted-foreground">
-                    Serial Number
-                  </td>
-                  <td className="py-2">{license.buyerSerial}</td>
-                </tr>
-                <tr className="border-b border-border">
-                  <td className="py-2 pr-4 text-muted-foreground">
-                    Activation Date
-                  </td>
-                  <td className="py-2">{license.activationDateFormatted}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <div className="flex flex-col gap-4 text-sm">
+          <section className="flex flex-col gap-2">
+            <h3 className="text-xs font-semibold text-muted-foreground">Στοιχεία άδειας</h3>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-1/3">Πεδίο</TableHead>
+                  <TableHead>Τιμή</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="text-muted-foreground">Κάτοχος άδειας (αγοραστής)</TableCell>
+                  <TableCell className="whitespace-normal break-words">{license.buyerName}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="text-muted-foreground">ΑΦΜ αγοραστή</TableCell>
+                  <TableCell className="tabular-nums">{license.buyerVat}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="text-muted-foreground">Σειριακός αριθμός</TableCell>
+                  <TableCell className="font-mono">{license.buyerSerial}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="text-muted-foreground">Ημερομηνία ενεργοποίησης</TableCell>
+                  <TableCell>{license.activationDateFormatted}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </section>
 
-          <div>
-            <h3 className={formFieldStyles.sectionHeader}>Grant of License</h3>
-            <p className="text-muted-foreground mt-1 leading-relaxed">
-              Subject to the terms and conditions of this agreement,{" "}
-              {license.sellerName} (Seller VAT: {license.sellerVat}) hereby
-              grants {license.buyerName} a non-exclusive, non-transferable
-              license to use the software associated with the serial number
-              provided above.
+          <section className="flex flex-col gap-1">
+            <h3 className="text-xs font-semibold text-muted-foreground">Παραχώρηση άδειας</h3>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Με βάση τους όρους και τις προϋποθέσεις της παρούσας συμφωνίας, η{" "}
+              {license.sellerName} (ΑΦΜ πωλητή: {license.sellerVat}) παραχωρεί στον/στην{" "}
+              {license.buyerName} μη αποκλειστική και μη μεταβιβάσιμη άδεια χρήσης του λογισμικού
+              που αντιστοιχεί στον παραπάνω σειριακό αριθμό.
             </p>
-          </div>
+          </section>
 
-          <div>
-            <h3 className={formFieldStyles.sectionHeader}>Terms of Use</h3>
-            <ul className="list-disc list-inside text-muted-foreground space-y-1 mt-1">
+          <section className="flex flex-col gap-1">
+            <h3 className="text-xs font-semibold text-muted-foreground">Όροι χρήσης</h3>
+            <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+              <li>Η άδεια ισχύει από την ημερομηνία ενεργοποίησης που αναγράφεται παραπάνω.</li>
+              <li>Η άδεια είναι συνδεδεμένη με την οντότητα που ταυτοποιείται από το ΑΦΜ του αγοραστή.</li>
               <li>
-                This license is valid starting from the Activation Date
-                specified.
-              </li>
-              <li>
-                The license is tied to the entity identified by the Buyer VAT.
-              </li>
-              <li>
-                Any unauthorized distribution, reverse engineering, or
-                modification of the software is strictly prohibited.
+                Απαγορεύεται αυστηρά κάθε μη εξουσιοδοτημένη διανομή, αντίστροφη μηχανίκευση ή
+                τροποποίηση του λογισμικού.
               </li>
             </ul>
-          </div>
+          </section>
 
-          <p className="text-muted-foreground text-[10px] border-t border-border pt-3">
-            Note: Please keep this license information and your unique serial
-            number in a secure location. You may be required to provide these
-            details for future software updates or technical support.
+          <p className="border-t pt-3 text-xs text-muted-foreground">
+            Σημείωση: φυλάξτε τα στοιχεία της άδειας και τον σειριακό αριθμό σε ασφαλές σημείο.
+            Μπορεί να σας ζητηθούν για μελλοντικές αναβαθμίσεις ή τεχνική υποστήριξη.
           </p>
         </div>
       </DialogContent>

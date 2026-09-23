@@ -8,15 +8,17 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { createUser, updateUser, type UserFormState } from "@/lib/actions/users";
 import { countries } from "@/lib/data/countries";
-import { formFieldStyles } from "@/lib/form-styles";
+import { roleLabel } from "@/lib/roles";
 import { toast } from "sonner";
 
 interface User {
@@ -42,6 +44,9 @@ interface UserFormProps {
   onSuccess: () => void;
 }
 
+const sectionHeader = "text-xs font-semibold text-muted-foreground";
+const fieldLabel = "text-xs font-medium";
+
 export function UserForm({ mode, user, currentUserRole, onSuccess }: UserFormProps) {
   const boundUpdateUser = user
     ? updateUser.bind(null, user.id)
@@ -62,7 +67,7 @@ export function UserForm({ mode, user, currentUserRole, onSuccess }: UserFormPro
       });
     }
     if (state?.success) {
-      toast.success(mode === "create" ? "User created successfully" : "User updated successfully");
+      toast.success(mode === "create" ? "Ο χρήστης δημιουργήθηκε" : "Ο χρήστης ενημερώθηκε");
       onSuccess();
     }
   }, [state, mode, onSuccess]);
@@ -73,16 +78,14 @@ export function UserForm({ mode, user, currentUserRole, onSuccess }: UserFormPro
       : ["MANAGER", "EMPLOYEE", "CLIENT"];
 
   return (
-    <form action={formAction} className="space-y-3">
-      {/* Basic Information */}
-      <div className="space-y-2">
-        <h3 className={formFieldStyles.sectionHeader}>
-          BASIC INFORMATION
-        </h3>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label htmlFor="firstName" className={formFieldStyles.label}>
-              FIRST NAME *
+    <form action={formAction} className="flex flex-col gap-4">
+      {/* Βασικά στοιχεία */}
+      <div className="flex flex-col gap-2">
+        <h3 className={sectionHeader}>Βασικά στοιχεία</h3>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="firstName" className={fieldLabel}>
+              Όνομα *
             </Label>
             <Input
               id="firstName"
@@ -90,12 +93,11 @@ export function UserForm({ mode, user, currentUserRole, onSuccess }: UserFormPro
               defaultValue={user?.firstName || ""}
               required
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="lastName" className={formFieldStyles.label}>
-              LAST NAME *
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="lastName" className={fieldLabel}>
+              Επώνυμο *
             </Label>
             <Input
               id="lastName"
@@ -103,14 +105,13 @@ export function UserForm({ mode, user, currentUserRole, onSuccess }: UserFormPro
               defaultValue={user?.lastName || ""}
               required
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="email" className={formFieldStyles.label}>
-            EMAIL ADDRESS *
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="email" className={fieldLabel}>
+            Διεύθυνση email *
           </Label>
           <Input
             id="email"
@@ -119,14 +120,13 @@ export function UserForm({ mode, user, currentUserRole, onSuccess }: UserFormPro
             defaultValue={user?.email || ""}
             required
             disabled={isPending}
-            className={formFieldStyles.input}
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label htmlFor="password" className={formFieldStyles.label}>
-              PASSWORD {mode === "create" ? "*" : "(leave blank to keep current)"}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="password" className={fieldLabel}>
+              Κωδικός {mode === "create" ? "*" : "(κενό = παραμένει ο ίδιος)"}
             </Label>
             <Input
               id="password"
@@ -136,35 +136,36 @@ export function UserForm({ mode, user, currentUserRole, onSuccess }: UserFormPro
               minLength={8}
               disabled={isPending}
               placeholder={mode === "edit" ? "••••••••" : ""}
-              className={formFieldStyles.input}
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="role" className={formFieldStyles.label}>
-              ROLE *
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="role" className={fieldLabel}>
+              Ρόλος *
             </Label>
             <Select name="role" defaultValue={user?.role || "CLIENT"}>
-              <SelectTrigger className={formFieldStyles.select}>
-                <SelectValue placeholder="Select role" />
+              <SelectTrigger id="role" className="w-full">
+                <SelectValue placeholder="Επιλογή ρόλου" />
               </SelectTrigger>
               <SelectContent>
-                {availableRoles.map((role) => (
-                  <SelectItem key={role} value={role} className={formFieldStyles.selectItem}>
-                    {role}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {availableRoles.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {roleLabel(role)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        <div className="flex items-center justify-between rounded bg-muted/30 p-2">
-          <div className="space-y-0">
-            <Label htmlFor="isActive" className={formFieldStyles.label}>
-              ACTIVE STATUS
+        <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 p-2">
+          <div className="min-w-0">
+            <Label htmlFor="isActive" className={fieldLabel}>
+              Ενεργός λογαριασμός
             </Label>
-            <p className="text-[8px] text-muted-foreground">
-              Inactive users cannot log in
+            <p className="text-xs text-muted-foreground">
+              Οι ανενεργοί χρήστες δεν μπορούν να συνδεθούν.
             </p>
           </div>
           <input
@@ -175,6 +176,7 @@ export function UserForm({ mode, user, currentUserRole, onSuccess }: UserFormPro
           <Switch
             id="isActive"
             name="isActiveSwitch"
+            aria-label="Ενεργός λογαριασμός"
             defaultChecked={user?.isActive !== false}
             onCheckedChange={(checked) => {
               const hiddenInput = document.querySelector(
@@ -182,20 +184,17 @@ export function UserForm({ mode, user, currentUserRole, onSuccess }: UserFormPro
               ) as HTMLInputElement;
               if (hiddenInput) hiddenInput.value = checked ? "true" : "false";
             }}
-            className="scale-75"
           />
         </div>
       </div>
 
-      {/* Contact Information */}
-      <div className="space-y-2">
-        <h3 className={formFieldStyles.sectionHeader}>
-          CONTACT INFORMATION
-        </h3>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="space-y-1">
-            <Label htmlFor="phone" className={formFieldStyles.label}>
-              PHONE
+      {/* Στοιχεία επικοινωνίας */}
+      <div className="flex flex-col gap-2">
+        <h3 className={sectionHeader}>Στοιχεία επικοινωνίας</h3>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="phone" className={fieldLabel}>
+              Σταθερό
             </Label>
             <Input
               id="phone"
@@ -203,12 +202,11 @@ export function UserForm({ mode, user, currentUserRole, onSuccess }: UserFormPro
               type="tel"
               defaultValue={user?.phone || ""}
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="mobile" className={formFieldStyles.label}>
-              MOBILE
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="mobile" className={fieldLabel}>
+              Κινητό
             </Label>
             <Input
               id="mobile"
@@ -216,12 +214,11 @@ export function UserForm({ mode, user, currentUserRole, onSuccess }: UserFormPro
               type="tel"
               defaultValue={user?.mobile || ""}
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="workPhone" className={formFieldStyles.label}>
-              WORK PHONE
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="workPhone" className={fieldLabel}>
+              Τηλέφωνο εργασίας
             </Label>
             <Input
               id="workPhone"
@@ -229,86 +226,82 @@ export function UserForm({ mode, user, currentUserRole, onSuccess }: UserFormPro
               type="tel"
               defaultValue={user?.workPhone || ""}
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
         </div>
       </div>
 
-      {/* Address Information */}
-      <div className="space-y-2">
-        <h3 className={formFieldStyles.sectionHeader}>
-          ADDRESS INFORMATION
-        </h3>
-        <div className="space-y-1">
-          <Label htmlFor="address" className={formFieldStyles.label}>
-            ADDRESS
+      {/* Διεύθυνση */}
+      <div className="flex flex-col gap-2">
+        <h3 className={sectionHeader}>Διεύθυνση</h3>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="address" className={fieldLabel}>
+            Οδός και αριθμός
           </Label>
           <Input
             id="address"
             name="address"
             defaultValue={user?.address || ""}
             disabled={isPending}
-            className={formFieldStyles.input}
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          <div className="space-y-1">
-            <Label htmlFor="city" className={formFieldStyles.label}>
-              CITY
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="city" className={fieldLabel}>
+              Πόλη
             </Label>
             <Input
               id="city"
               name="city"
               defaultValue={user?.city || ""}
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="zip" className={formFieldStyles.label}>
-              ZIP CODE
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="zip" className={fieldLabel}>
+              Ταχυδρομικός κώδικας
             </Label>
             <Input
               id="zip"
               name="zip"
               defaultValue={user?.zip || ""}
               disabled={isPending}
-              className={formFieldStyles.input}
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="country" className={formFieldStyles.label}>
-              COUNTRY
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="country" className={fieldLabel}>
+              Χώρα
             </Label>
             <Select name="country" defaultValue={user?.country || "GR"}>
-              <SelectTrigger className={formFieldStyles.select}>
-                <SelectValue placeholder="Select country" />
+              <SelectTrigger id="country" className="w-full">
+                <SelectValue placeholder="Επιλογή χώρας" />
               </SelectTrigger>
               <SelectContent className="max-h-48">
-                {countries.map((country) => (
-                  <SelectItem key={country.code} value={country.code} className={formFieldStyles.selectItem}>
-                    {country.name}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {countries.map((country) => (
+                    <SelectItem key={country.code} value={country.code}>
+                      {country.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>
         </div>
       </div>
 
-      <div className="flex justify-end pt-2 border-t border-muted-foreground/20">
-        <Button type="submit" disabled={isPending} className={formFieldStyles.button}>
+      <div className="flex justify-end border-t pt-3">
+        <Button type="submit" disabled={isPending}>
           {isPending ? (
             <>
-              <Loader2 className={`${formFieldStyles.buttonIcon} animate-spin`} />
-              {mode === "create" ? "CREATING..." : "SAVING..."}
+              <Spinner data-icon="inline-start" />
+              {mode === "create" ? "Δημιουργία…" : "Αποθήκευση…"}
             </>
           ) : (
             <>
-              <Save className={formFieldStyles.buttonIcon} />
-              {mode === "create" ? "CREATE" : "SAVE"}
+              <Save className="size-4" />
+              {mode === "create" ? "Δημιουργία" : "Αποθήκευση"}
             </>
           )}
         </Button>
@@ -316,4 +309,3 @@ export function UserForm({ mode, user, currentUserRole, onSuccess }: UserFormPro
     </form>
   );
 }
-

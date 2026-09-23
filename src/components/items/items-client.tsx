@@ -4,13 +4,22 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import gsap from "gsap";
 import type { Role } from "@prisma/client";
-import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState, KpiTile, PageHeader } from "@/components/admin/page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormDialog } from "@/components/ui/form-dialog";
 import { IntegrationRecordForm } from "@/components/integrations/integration-record-form";
-import { Search, Plus, ChevronLeft, ChevronRight } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import {
+  Car,
+  ChevronLeft,
+  ChevronRight,
+  CircleSlash,
+  Link2Off,
+  Plus,
+  Search,
+  SquareStack,
+} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface Item {
   ITEMS: number;
@@ -34,6 +43,8 @@ interface ItemsClientProps {
   }>;
 }
 
+const nf = new Intl.NumberFormat("el-GR");
+
 export function ItemsClient({
   items: initialItems,
   currentUserRole,
@@ -48,13 +59,13 @@ export function ItemsClient({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 500;
   const [items, setItems] = useState<Item[]>(initialItems);
-  
+
   // OPTIMIZATION: Debounce search input to avoid filtering on every keystroke
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
     }, 300); // 300ms debounce delay
-    
+
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -79,7 +90,7 @@ export function ItemsClient({
   const filteredItems = useMemo(() => {
     if (!debouncedSearch.trim()) return items;
     const searchLower = debouncedSearch.toLowerCase();
-    
+
     // For large datasets, optimize the filter
     if (items.length > 1000) {
       return items.filter((item) => {
@@ -112,170 +123,178 @@ export function ItemsClient({
     setCurrentPage(1);
   }, [debouncedSearch]);
 
-  // European license plate styling - classic white with blue EU flag strip
-  const getLicensePlateStyle = () => {
-    return {
-      background: "#ffffff",
-      border: "1px solid #9ca3af", // gray-400
-      color: "#000000",
-      fontFamily: "monospace",
-      width: "80px",
-      height: "29px", // Reduced by 6px (3px top + 3px bottom)
-    };
-  };
+  const counts = useMemo(
+    () => ({
+      total: items.length,
+      active: items.filter((item) => item.ISACTIVE === 1).length,
+      inactive: items.filter((item) => item.ISACTIVE !== 1).length,
+    }),
+    [items]
+  );
 
   if (!itemsIntegration) {
     return (
-      <div ref={containerRef} className="space-y-6 opacity-0">
+      <div ref={containerRef} className="space-y-4 opacity-0">
         <PageHeader
-          title="ITEMS"
-          highlight="ITEMS"
-          subtitle="Manage your items inventory"
+          className="mb-0"
+          title="Είδη"
+          description="Οι πινακίδες οχημάτων που τηρούνται ως είδη και συγχρονίζονται με το SoftOne."
+          icon={Car}
         />
-        <Card className="p-6">
-          <div className="text-center py-8">
-            <p className="text-[11px] text-muted-foreground mb-4">
-              No ITEMS integration found. Please create an ITEMS integration first.
-            </p>
-            <Button
-              onClick={() => router.push("/integrations")}
-              className="h-9 gap-2 px-6 py-3 text-[11px]"
-            >
-              Go to Integrations
+        <EmptyState
+          title="Δεν έχει οριστεί διασύνδεση ITEMS"
+          description="Για να δείτε και να καταχωρίσετε είδη, δημιουργήστε πρώτα μια διασύνδεση με μοντέλο ITEMS."
+          icon={Link2Off}
+          action={
+            <Button onClick={() => router.push("/integrations")}>
+              Μετάβαση στις διασυνδέσεις
             </Button>
-          </div>
-        </Card>
+          }
+        />
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} className="space-y-6 opacity-0">
+    <div ref={containerRef} className="space-y-4 opacity-0">
       <PageHeader
-        title="ITEMS"
-        highlight="ITEMS"
-        subtitle={`Viewing ${startIndex + 1}-${Math.min(endIndex, filteredItems.length)} of ${filteredItems.length} item${filteredItems.length !== 1 ? "s" : ""} (Page ${currentPage} of ${totalPages})`}
+        className="mb-0"
+        title="Είδη"
+        description="Οι πινακίδες οχημάτων που τηρούνται ως είδη και συγχρονίζονται με το SoftOne. Αναζητήστε με πινακίδα, κωδικό ή MTRL."
+        icon={Car}
+        actions={
+          <Button onClick={() => setIsAddDialogOpen(true)} title="Καταχώριση νέου είδους">
+            <Plus className="size-4" />
+            Νέο είδος
+          </Button>
+        }
       />
 
-      {/* Search and Add Button */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search items by name, code, or MTRL..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-9 pl-9 border-muted-foreground/20 focus:border-violet-500/50 text-[11px]"
-          />
-        </div>
-        <Button
-          onClick={() => setIsAddDialogOpen(true)}
-          size="sm"
-          className="h-9 gap-2 px-6 py-3 text-[11px] font-medium shadow-lg hover:shadow-xl transition-all duration-300"
-        >
-          <Plus className="h-3 w-3" />
-          ADD NEW ITEM
-        </Button>
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+        <KpiTile
+          label="Σύνολο ειδών"
+          value={nf.format(counts.total)}
+          hint="όπως έχουν φορτωθεί"
+          icon={SquareStack}
+          tone="blue"
+        />
+        <KpiTile
+          label="Ενεργά"
+          value={nf.format(counts.active)}
+          hint="διαθέσιμα προς χρήση"
+          icon={Car}
+          tone="green"
+        />
+        <KpiTile
+          label="Ανενεργά"
+          value={nf.format(counts.inactive)}
+          hint="δεν χρησιμοποιούνται"
+          icon={CircleSlash}
+          tone="amber"
+        />
+        <KpiTile
+          label="Αποτελέσματα"
+          value={nf.format(filteredItems.length)}
+          hint={
+            totalPages > 1
+              ? `σελίδα ${nf.format(currentPage)} από ${nf.format(totalPages)}`
+              : "με τα τρέχοντα φίλτρα"
+          }
+          icon={Search}
+          tone="violet"
+        />
       </div>
 
-      {/* License Plate Cards Grid - Responsive, fits as many as possible */}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] gap-3">
-        {paginatedItems.map((item) => {
-          const plateStyle = getLicensePlateStyle();
-          return (
-            <Card
+      {/* Φίλτρα */}
+      <Card>
+        <CardContent>
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              placeholder="Αναζήτηση με πινακίδα, κωδικό ή MTRL…"
+              aria-label="Αναζήτηση ειδών"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {filteredItems.length > 0
+              ? `Εμφανίζονται ${nf.format(startIndex + 1)}–${nf.format(
+                  Math.min(endIndex, filteredItems.length)
+                )} από ${nf.format(filteredItems.length)} είδη.`
+              : "Δεν υπάρχουν αποτελέσματα."}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Πινακίδες — όσες χωρούν ανά γραμμή */}
+      {filteredItems.length > 0 && (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] gap-3">
+          {paginatedItems.map((item) => (
+            <div
               key={item.ITEMS}
-              className="overflow-hidden border-0 hover:shadow-lg transition-all duration-300 cursor-pointer group relative rounded-sm p-0"
-              style={{
-                background: plateStyle.background,
-                border: plateStyle.border,
-                fontFamily: plateStyle.fontFamily,
-                width: plateStyle.width,
-                height: plateStyle.height,
-                borderRadius: "4px",
-              }}
-              onClick={() => {
-                // Optional: Navigate to item details or open edit dialog
-              }}
+              title={item.NAME || "Χωρίς πινακίδα"}
+              className="flex h-[29px] w-[80px] items-center overflow-hidden rounded border border-muted-foreground/40 bg-white"
             >
-              <div className="h-full flex items-center relative bg-white p-0" style={{ height: plateStyle.height }}>
-                {/* EU Blue Strip with Flag (left side - 5px wider, ~24% width) */}
-                <div
-                  className="absolute left-0 top-0 bottom-0 w-[24%] flex items-center justify-center p-0"
-                  style={{
-                    background: "#003399",
-                  }}
-                >
-                  {/* EU Flag - Circle of 12 yellow stars on blue background - smaller */}
-                  <div className="relative w-3.5 h-3.5">
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 14 14"
-                      className="absolute inset-0"
-                    >
-                      {/* 12 yellow stars arranged in a perfect circle - smaller */}
-                      {Array.from({ length: 12 }).map((_, i) => {
-                        const angle = (i * 30 - 90) * (Math.PI / 180);
-                        const cx = 7 + 3.5 * Math.cos(angle);
-                        const cy = 7 + 3.5 * Math.sin(angle);
-                        // Create 5-pointed star
-                        const starPoints = [];
-                        for (let j = 0; j < 5; j++) {
-                          const outerAngle = (j * 144 - 90) * (Math.PI / 180);
-                          const outerX = cx + 1 * Math.cos(outerAngle);
-                          const outerY = cy + 1 * Math.sin(outerAngle);
-                          starPoints.push(`${outerX},${outerY}`);
-                          const innerAngle = ((j + 0.5) * 144 - 90) * (Math.PI / 180);
-                          const innerX = cx + 0.4 * Math.cos(innerAngle);
-                          const innerY = cy + 0.4 * Math.sin(innerAngle);
-                          starPoints.push(`${innerX},${innerY}`);
-                        }
-                        return (
-                          <polygon
-                            key={i}
-                            points={starPoints.join(" ")}
-                            fill="#FFD700"
-                            stroke="#FFD700"
-                            strokeWidth="0.1"
-                          />
-                        );
-                      })}
-                    </svg>
-                  </div>
-                </div>
-                {/* Item Name (centered in white area - ~76% width) */}
-                <div
-                  className="flex-1 text-center font-bold uppercase ml-[24%] flex items-center justify-center h-full p-0"
-                  style={{ 
-                    color: plateStyle.color,
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  <div className="text-[11px] leading-tight line-clamp-1 wrap-break-word">
-                    {item.NAME || "NO NAME"}
-                  </div>
-                </div>
+              {/* Λωρίδα ΕΕ */}
+              <div className="flex h-full w-[24%] shrink-0 items-center justify-center bg-[#003399]">
+                <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
+                  {/* Κύκλος με 12 αστέρια — σήμα της Ευρωπαϊκής Ένωσης */}
+                  {Array.from({ length: 12 }).map((_, i) => {
+                    const angle = (i * 30 - 90) * (Math.PI / 180);
+                    const cx = 7 + 3.5 * Math.cos(angle);
+                    const cy = 7 + 3.5 * Math.sin(angle);
+                    const starPoints: string[] = [];
+                    for (let j = 0; j < 5; j++) {
+                      const outerAngle = (j * 144 - 90) * (Math.PI / 180);
+                      starPoints.push(
+                        `${cx + 1 * Math.cos(outerAngle)},${cy + 1 * Math.sin(outerAngle)}`
+                      );
+                      const innerAngle = ((j + 0.5) * 144 - 90) * (Math.PI / 180);
+                      starPoints.push(
+                        `${cx + 0.4 * Math.cos(innerAngle)},${cy + 0.4 * Math.sin(innerAngle)}`
+                      );
+                    }
+                    return (
+                      <polygon
+                        key={i}
+                        points={starPoints.join(" ")}
+                        fill="#FFD700"
+                        stroke="#FFD700"
+                        strokeWidth="0.1"
+                      />
+                    );
+                  })}
+                </svg>
               </div>
-            </Card>
-          );
-        })}
-      </div>
+              {/* Πινακίδα */}
+              <div className="flex min-w-0 flex-1 items-center justify-center px-1">
+                <span className="truncate font-mono text-xs font-bold tracking-wider text-black uppercase tabular-nums">
+                  {item.NAME || "—"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* Pagination Controls */}
+      {/* Σελιδοποίηση */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-6">
+        <div className="flex flex-wrap items-center justify-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
             disabled={currentPage === 1}
-            className="h-8 px-3 text-[10px] gap-1"
           >
-            <ChevronLeft className="h-3 w-3" />
-            Previous
+            <ChevronLeft className="size-4" />
+            Προηγούμενη
           </Button>
-          
+
           <div className="flex items-center gap-1">
             {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
               let pageNum: number;
@@ -288,14 +307,15 @@ export function ItemsClient({
               } else {
                 pageNum = currentPage - 3 + i;
               }
-              
+
               return (
                 <Button
                   key={pageNum}
                   variant={currentPage === pageNum ? "default" : "outline"}
-                  size="sm"
+                  size="icon-sm"
+                  aria-label={`Σελίδα ${pageNum}`}
+                  title={`Σελίδα ${pageNum}`}
                   onClick={() => setCurrentPage(pageNum)}
-                  className="h-8 w-8 p-0 text-[10px]"
                 >
                   {pageNum}
                 </Button>
@@ -308,27 +328,42 @@ export function ItemsClient({
             size="sm"
             onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
             disabled={currentPage === totalPages}
-            className="h-8 px-3 text-[10px] gap-1"
           >
-            Next
-            <ChevronRight className="h-3 w-3" />
+            Επόμενη
+            <ChevronRight className="size-4" />
           </Button>
         </div>
       )}
 
       {filteredItems.length === 0 && (
-        <Card className="p-6">
-          <div className="text-center py-8 text-[11px] text-muted-foreground">
-            {search ? "No items found matching your search." : "No items found."}
-          </div>
-        </Card>
+        <EmptyState
+          title={search ? "Κανένα είδος δεν ταιριάζει στην αναζήτηση" : "Δεν υπάρχουν είδη"}
+          description={
+            search
+              ? `Δεν βρέθηκε είδος για «${search}». Δοκιμάστε πινακίδα, κωδικό ή MTRL.`
+              : "Καταχωρίστε το πρώτο είδος για να εμφανιστεί εδώ."
+          }
+          icon={Car}
+          action={
+            search ? (
+              <Button variant="outline" onClick={() => setSearch("")}>
+                Καθαρισμός αναζήτησης
+              </Button>
+            ) : (
+              <Button onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="size-4" />
+                Νέο είδος
+              </Button>
+            )
+          }
+        />
       )}
 
-      {/* Add Item Dialog */}
+      {/* Παράθυρο καταχώρισης είδους */}
       <FormDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
-        title="ADD NEW ITEM"
+        title="Νέο είδος"
         maxWidth="2xl"
       >
         <IntegrationRecordForm
@@ -338,7 +373,7 @@ export function ItemsClient({
           integrationId={itemsIntegration.id}
           onSuccess={async (newRecord?: any) => {
             setIsAddDialogOpen(false);
-            
+
             // If we have the new record data, add it to the list optimistically
             if (newRecord) {
               // Add the new item to the beginning of the list (most recent first)
@@ -363,5 +398,3 @@ export function ItemsClient({
     </div>
   );
 }
-
-

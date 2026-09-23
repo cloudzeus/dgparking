@@ -2,7 +2,6 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { IntegrationsClient } from "@/components/integrations/integrations-client";
-import { PageHeader } from "@/components/ui/page-header";
 
 export default async function IntegrationsPage() {
   const session = await auth();
@@ -47,22 +46,14 @@ export default async function IntegrationsPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="SOFTONE INTEGRATIONS"
-        highlight="INTEGRATIONS"
-        subtitle="Manage your SoftOne ERP integrations and connections"
-      />
-
-      <IntegrationsClient
-        initialIntegrations={integrations.map((int) => ({
-          ...int,
-          configJson: (int.configJson ?? {}) as Record<string, any>,
-        }))}
-        connections={connections}
-        userId={session.user.id}
-      />
-    </div>
+    <IntegrationsClient
+      initialIntegrations={integrations.map((int) => ({
+        ...int,
+        configJson: (int.configJson ?? {}) as Record<string, any>,
+      }))}
+      connections={connections}
+      userId={session.user.id}
+    />
   );
 }
 

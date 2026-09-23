@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader, StatusBadge, EmptyState, InfoPanel, InfoRow } from "@/components/admin/page";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,27 +21,26 @@ import {
   Database,
   Table,
   Trash2,
-  Loader2,
   Edit,
   Eye,
   Clock,
   ArrowRightLeft,
   MapPin,
   RefreshCw,
-  CheckCircle2,
-  XCircle,
   List,
   MoreHorizontal,
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -47,7 +48,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SoftOneIntegrationWizard } from "@/components/softone/softone-integration-wizard";
 import { toast } from "sonner";
-import { formFieldStyles } from "@/lib/form-styles";
 import gsap from "gsap";
 import { useRouter } from "next/navigation";
 
@@ -77,6 +77,28 @@ interface IntegrationsClientProps {
   userId: string;
 }
 
+/** Ημερομηνία/ώρα στα ελληνικά, ζώνη Αθήνας. */
+function formatDateTime(value: Date | string) {
+  return new Date(value).toLocaleString("el-GR", {
+    timeZone: "Europe/Athens",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+const WEEKDAYS = [
+  "Κυριακή",
+  "Δευτέρα",
+  "Τρίτη",
+  "Τετάρτη",
+  "Πέμπτη",
+  "Παρασκευή",
+  "Σάββατο",
+];
+
 export function IntegrationsClient({
   initialIntegrations,
   connections,
@@ -101,7 +123,7 @@ export function IntegrationsClient({
     setIntegrations((prev) => {
       // Create a map of server integrations by ID
       const serverMap = new Map(initialIntegrations.map((int) => [int.id, int]));
-      
+
       // Update existing integrations with server data, but keep local lastSyncAt if it's more recent
       return prev.map((currentInt) => {
         const serverInt = serverMap.get(currentInt.id);
@@ -119,7 +141,7 @@ export function IntegrationsClient({
         return currentInt;
       }).concat(
         // Add any new integrations from server that aren't in current state
-        initialIntegrations.filter((serverInt) => 
+        initialIntegrations.filter((serverInt) =>
           !prev.some((currentInt) => currentInt.id === serverInt.id)
         )
       );
@@ -148,16 +170,16 @@ export function IntegrationsClient({
       const data = await response.json();
 
       if (!data.success) {
-        toast.error(data.error || "Failed to delete integration");
+        toast.error(data.error || "Η διαγραφή της ενσωμάτωσης απέτυχε");
         return;
       }
 
       setIntegrations((prev) => prev.filter((int) => int.id !== id));
-      toast.success("Integration deleted successfully");
+      toast.success("Η ενσωμάτωση διαγράφηκε");
       setDeleteDialogOpen(false);
       setDeletingId(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to delete integration");
+      toast.error(error instanceof Error ? error.message : "Η διαγραφή της ενσωμάτωσης απέτυχε");
     } finally {
       setIsDeleting(false);
     }
@@ -180,7 +202,7 @@ export function IntegrationsClient({
       const data = await response.json();
 
       if (!data.success) {
-        toast.error(data.error || "Failed to sync integration");
+        toast.error(data.error || "Ο συγχρονισμός απέτυχε");
         return;
       }
 
@@ -195,11 +217,11 @@ export function IntegrationsClient({
         }));
       }
 
-      let message = `Sync completed: ${created} created, ${updated} updated.`;
+      let message = `Ο συγχρονισμός ολοκληρώθηκε: ${created.toLocaleString("el-GR")} νέες, ${updated.toLocaleString("el-GR")} ενημερωμένες.`;
       if (skipped && skipped.count > 0) {
         const instNotFound = skipped.reasons?.INST_not_found ?? 0;
         const instNoTrdr = skipped.reasons?.INST_missing_TRDR ?? 0;
-        message += ` ${skipped.count} skipped (INST not in DB or no customer). Sync INST (contracts) first, then sync INSTLINES again to get all plates.`;
+        message += ` Παραλείφθηκαν ${skipped.count.toLocaleString("el-GR")} γραμμές (το INST δεν υπάρχει στη βάση ή δεν έχει πελάτη). Συγχρονίστε πρώτα το INST (συμβόλαια) και μετά ξανά το INSTLINES για να έρθουν όλες οι πινακίδες.`;
         toast.warning(message, { duration: 8000 });
       } else {
         toast.success(message);
@@ -218,14 +240,14 @@ export function IntegrationsClient({
       router.refresh();
     } catch (error) {
       console.error("Failed to sync integration:", error);
-      toast.error("Failed to sync integration");
+      toast.error("Ο συγχρονισμός απέτυχε");
     } finally {
       setSyncingIntegrationId(null);
     }
   };
 
   const handleWizardCreated = async (integration: { id: string; name: string }) => {
-    toast.success(`Integration "${integration.name}" created successfully`);
+    toast.success(`Η ενσωμάτωση «${integration.name}» αποθηκεύτηκε`);
     // Refresh the page to get updated integrations
     router.refresh();
     // Also fetch the new integration to add to local state (only if not already present)
@@ -253,7 +275,7 @@ export function IntegrationsClient({
   // Convert cron expression to readable text
   const getReadableSchedule = (config: Record<string, any>): string => {
     const schedule = config?.schedule;
-    if (!schedule) return "Not scheduled";
+    if (!schedule) return "Χωρίς προγραμματισμό";
 
     const presetSchedule = schedule.presetSchedule;
     const cronExpression = schedule.cronExpression;
@@ -263,24 +285,23 @@ export function IntegrationsClient({
     if (presetSchedule) {
       switch (presetSchedule) {
         case "every-15-min":
-          return "Every 15 minutes";
+          return "Κάθε 15 λεπτά";
         case "every-30-min":
-          return "Every 30 minutes";
+          return "Κάθε 30 λεπτά";
         case "hourly":
-          return "Every hour";
+          return "Κάθε ώρα";
         case "every-6-hours":
-          return "Once per 6 hours";
+          return "Κάθε 6 ώρες";
         case "every-12-hours":
-          return "Once per 12 hours";
+          return "Κάθε 12 ώρες";
         case "daily":
-          return scheduleTime ? `Daily at ${scheduleTime}` : "Daily";
+          return scheduleTime ? `Καθημερινά στις ${scheduleTime}` : "Καθημερινά";
         case "weekly": {
-          const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-          const dayName = days[parseInt(scheduleDay || "1")] || "Monday";
-          return scheduleTime ? `Weekly on ${dayName} at ${scheduleTime}` : `Weekly on ${dayName}`;
+          const dayName = WEEKDAYS[parseInt(scheduleDay || "1")] || "Δευτέρα";
+          return scheduleTime ? `Κάθε ${dayName} στις ${scheduleTime}` : `Κάθε ${dayName}`;
         }
         default:
-          return cronExpression || "Custom schedule";
+          return cronExpression || "Προσαρμοσμένος προγραμματισμός";
       }
     }
 
@@ -289,84 +310,77 @@ export function IntegrationsClient({
       const parts = cronExpression.split(" ");
       if (parts.length >= 5) {
         const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
-        
+
         // Every X minutes
         if (minute.startsWith("*/") && hour === "*" && dayOfMonth === "*" && month === "*" && dayOfWeek === "*") {
           const minutes = minute.replace("*/", "");
-          return `Every ${minutes} minutes`;
+          return `Κάθε ${minutes} λεπτά`;
         }
-        
+
         // Every X hours
         if (minute === "0" && hour.startsWith("*/") && dayOfMonth === "*" && month === "*" && dayOfWeek === "*") {
           const hours = hour.replace("*/", "");
-          return `Once per ${hours} hours`;
+          return `Κάθε ${hours} ώρες`;
         }
-        
+
         // Daily at specific time
         if (minute !== "*" && hour !== "*" && dayOfMonth === "*" && month === "*" && dayOfWeek === "*") {
-          return `Daily at ${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+          return `Καθημερινά στις ${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
         }
-        
+
         // Weekly
         if (dayOfWeek !== "*" && dayOfWeek !== "0" && dayOfWeek !== "7") {
-          const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-          const dayName = days[parseInt(dayOfWeek)] || "Monday";
+          const dayName = WEEKDAYS[parseInt(dayOfWeek)] || "Δευτέρα";
           if (minute !== "*" && hour !== "*") {
-            return `Weekly on ${dayName} at ${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+            return `Κάθε ${dayName} στις ${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
           }
-          return `Weekly on ${dayName}`;
+          return `Κάθε ${dayName}`;
         }
       }
-      
+
       return cronExpression;
     }
 
-    return "Not scheduled";
+    return "Χωρίς προγραμματισμό";
   };
 
+  const selectedConfig = (selectedIntegration?.configJson ?? {}) as any;
+  const selectedModelMapping = selectedConfig.modelMapping ?? {};
+
   return (
-    <div className="space-y-4">
-      {/* Header with Create Button */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-bold">MY INTEGRATIONS</h2>
-          <p className="text-[9px] text-muted-foreground mt-1">
-            {integrations.length} integration{integrations.length !== 1 ? "s" : ""} configured
-          </p>
-        </div>
-        <Button onClick={() => setWizardOpen(true)} className={formFieldStyles.button}>
-          <Plus className={formFieldStyles.buttonIcon} />
-          NEW INTEGRATION
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title="Ενσωματώσεις SoftOne"
+        description={`Συγχρονισμός δεδομένων του ERP με την εφαρμογή. ${integrations.length.toLocaleString("el-GR")} ${integrations.length === 1 ? "ενσωμάτωση" : "ενσωματώσεις"}.`}
+        icon={Database}
+        actions={
+          <Button onClick={() => setWizardOpen(true)}>
+            <Plus />
+            Νέα ενσωμάτωση
+          </Button>
+        }
+      />
 
       {/* Integrations Grid */}
       {integrations.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12 px-6">
-            <Database className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-sm font-semibold mb-2">No integrations yet</h3>
-            <p className="text-[9px] text-muted-foreground text-center mb-4 max-w-sm">
-              Create a SoftOne integration to sync ERP data (e.g. INST contracts, INSTLINES license plates). The wizard will let you authenticate, pick a table, and map fields.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                className={formFieldStyles.button}
-                onClick={() => router.push("/softone")}
-              >
-                SoftOne ERP
+        <EmptyState
+          icon={Database}
+          title="Καμία ενσωμάτωση ακόμη"
+          description="Δημιουργήστε μια ενσωμάτωση SoftOne για να συγχρονίζετε δεδομένα του ERP (π.χ. συμβόλαια INST, πινακίδες INSTLINES). Ο οδηγός σας καθοδηγεί στην ταυτοποίηση, στην επιλογή πίνακα και στην αντιστοίχιση πεδίων."
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button variant="outline" onClick={() => router.push("/softone")}>
+                Ρυθμίσεις SoftOne
               </Button>
-              <Button onClick={() => setWizardOpen(true)} className={formFieldStyles.button}>
-                <Plus className={formFieldStyles.buttonIcon} />
-                CREATE INTEGRATION
+              <Button onClick={() => setWizardOpen(true)}>
+                <Plus />
+                Δημιουργία ενσωμάτωσης
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          }
+        />
       ) : (
-        <div ref={cardsRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+        <div ref={cardsRef} className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {integrations.map((integration) => {
             const config = integration.configJson as any;
             const modelMapping = config?.modelMapping || {};
@@ -378,191 +392,162 @@ export function IntegrationsClient({
             const selectedFieldsCount = config?.selectedFields?.length || 0;
 
             return (
-              <Card
-                key={integration.id}
-                className="group relative overflow-hidden border bg-card hover:shadow-md transition-all duration-200"
-              >
-                <CardHeader className="relative p-2 pb-1.5">
+              <Card key={integration.id} className="group gap-0 py-3">
+                <CardHeader className="gap-1 px-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-[10px] font-bold truncate">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="truncate text-sm" title={integration.name}>
                         {integration.name}
                       </CardTitle>
-                      <CardDescription className="text-[8px] text-muted-foreground truncate">
+                      <CardDescription className="truncate text-xs" title={integration.connection.name}>
                         {integration.connection.name}
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      {/* Sync Status Badge */}
-                      {integration.lastSyncAt ? (
-                        <Badge 
-                          variant="secondary" 
-                          className="text-[7px] px-1.5 py-0.5 h-4 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-green-300 dark:border-green-700 flex items-center gap-1 shrink-0"
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Ενέργειες ενσωμάτωσης"
+                          title="Ενέργειες ενσωμάτωσης"
                         >
-                          <CheckCircle2 className="h-2.5 w-2.5" />
-                          <span className="font-medium whitespace-nowrap">
-                            {new Date(integration.lastSyncAt).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                          {recordCounts[integration.id] !== undefined && (
-                            <>
-                              <span className="mx-0.5">•</span>
-                              <span className="whitespace-nowrap">{recordCounts[integration.id]} records</span>
-                            </>
-                          )}
-                        </Badge>
-                      ) : (
-                        <Badge 
-                          variant="secondary" 
-                          className="text-[7px] px-1.5 py-0.5 h-4 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-300 dark:border-gray-700 flex items-center gap-1 shrink-0"
-                        >
-                          <XCircle className="h-2.5 w-2.5" />
-                          <span className="whitespace-nowrap">Never synced</span>
-                        </Badge>
-                      )}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            className="!h-2.5 !w-2.5 !p-0 !min-w-0 flex items-center justify-center hover:bg-muted rounded transition-colors opacity-0 group-hover:opacity-100"
-                            title="Actions"
-                          >
-                            <MoreHorizontal className="h-2.5 w-2.5 text-muted-foreground" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuLabel className="text-[9px]">ACTIONS</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
+                          <MoreHorizontal />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-64">
+                        <DropdownMenuLabel>Ενέργειες</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup>
                           <DropdownMenuItem
-                            className="text-[9px] cursor-pointer"
                             onClick={() => {
                               router.push(`/integrations/${integration.id}/records`);
                             }}
                           >
-                            <List className="h-3 w-3 mr-2 text-indigo-600" />
-                            View Records
+                            <List />
+                            Προβολή εγγραφών
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            className="text-[9px] cursor-pointer"
                             onClick={() => {
                               setSelectedIntegration(integration);
                               setViewDialogOpen(true);
                             }}
                           >
-                            <Eye className="h-3 w-3 mr-2 text-primary" />
-                            View Integration
+                            <Eye />
+                            Στοιχεία ενσωμάτωσης
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            className="text-[9px] cursor-pointer"
                             onClick={() => {
                               setSelectedIntegration(integration);
                               setEditWizardOpen(true);
                             }}
                           >
-                            <Edit className="h-3 w-3 mr-2 text-blue-600" />
-                            Edit Integration
+                            <Edit />
+                            Επεξεργασία ενσωμάτωσης
                           </DropdownMenuItem>
                           {modelName === "INSTLINES" && (
                             <DropdownMenuItem
-                              className="text-[9px] cursor-pointer"
                               onClick={() => {
-                                toast.info("INSTLINES full sync started. This may take 15–30 min. Do not close this tab.");
+                                toast.info("Ξεκίνησε πλήρης συγχρονισμός INSTLINES. Μπορεί να διαρκέσει 15–30 λεπτά. Μην κλείσετε αυτή την καρτέλα.");
                                 handleSyncNow(integration.id, { fullSync: true });
                               }}
                               disabled={syncingIntegrationId === integration.id}
                             >
-                              {syncingIntegrationId === integration.id ? (
-                                <Loader2 className="h-3 w-3 mr-2 text-amber-600 animate-spin" />
-                              ) : (
-                                <RefreshCw className="h-3 w-3 mr-2 text-amber-600" />
-                              )}
-                              Full sync (delete all & re-import ~32k)
+                              {syncingIntegrationId === integration.id ? <Spinner /> : <RefreshCw />}
+                              Πλήρης συγχρονισμός (διαγραφή όλων & επανεισαγωγή)
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem
-                            className="text-[9px] cursor-pointer"
                             onClick={() => handleSyncNow(integration.id)}
                             disabled={syncingIntegrationId === integration.id}
                           >
-                            {syncingIntegrationId === integration.id ? (
-                              <Loader2 className="h-3 w-3 mr-2 text-green-600 animate-spin" />
-                            ) : (
-                              <RefreshCw className="h-3 w-3 mr-2 text-green-600" />
-                            )}
-                            Sync Now
+                            {syncingIntegrationId === integration.id ? <Spinner /> : <RefreshCw />}
+                            Συγχρονισμός τώρα
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-[9px] cursor-pointer text-destructive focus:text-destructive"
-                            onClick={() => {
-                              setDeletingId(integration.id);
-                              setDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-3 w-3 mr-2" />
-                            Delete Integration
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => {
+                            setDeletingId(integration.id);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 />
+                          Διαγραφή ενσωμάτωσης
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {integration.lastSyncAt ? (
+                      <StatusBadge
+                        variant="success"
+                        label={`Συγχρονίστηκε ${formatDateTime(integration.lastSyncAt)}`}
+                      />
+                    ) : (
+                      <StatusBadge variant="neutral" label="Χωρίς συγχρονισμό" />
+                    )}
+                    {recordCounts[integration.id] !== undefined && (
+                      <Badge variant="outline" className="tabular-nums">
+                        {recordCounts[integration.id].toLocaleString("el-GR")} εγγραφές
+                      </Badge>
+                    )}
                   </div>
                 </CardHeader>
-                <CardContent className="relative p-2 pt-0 space-y-1">
-                  {/* Object & Table on same row */}
-                  <div className="flex items-center gap-2 text-[8px]">
-                    <div className="flex items-center gap-1 flex-1 min-w-0">
-                      <Database className="h-2.5 w-2.5 text-blue-600 shrink-0" />
-                      <span className="font-medium text-muted-foreground">OBJ:</span>
-                      <span className="truncate font-semibold">{integration.objectName}</span>
-                    </div>
-                    <div className="flex items-center gap-1 flex-1 min-w-0">
-                      <Table className="h-2.5 w-2.5 text-purple-600 shrink-0" />
-                      <span className="font-medium text-muted-foreground">TBL:</span>
-                      <span className="truncate font-semibold">{integration.tableName}</span>
-                      <Badge variant="secondary" className="text-[7px] px-1 py-0 h-3 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 border-purple-300 dark:border-purple-700">
+                <CardContent className="flex flex-col gap-1.5 px-3 pt-3 text-xs">
+                  {/* Object & Table */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="flex min-w-0 items-center gap-1">
+                      <Database className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="text-muted-foreground">Αντικείμενο:</span>
+                      <span className="truncate font-mono" title={integration.objectName}>
+                        {integration.objectName}
+                      </span>
+                    </span>
+                    <span className="flex min-w-0 items-center gap-1">
+                      <Table className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="text-muted-foreground">Πίνακας:</span>
+                      <span className="truncate font-mono" title={integration.tableName}>
+                        {integration.tableName}
+                      </span>
+                      <Badge variant="outline" className="font-mono">
                         {integration.tableDbname}
                       </Badge>
-                    </div>
+                    </span>
                   </div>
 
-                  {/* Model & Sync Direction on same row */}
-                  <div className="flex items-center gap-2 text-[8px]">
-                    <div className="flex items-center gap-1 flex-1 min-w-0">
-                      <MapPin className="h-2.5 w-2.5 text-green-600 shrink-0" />
-                      <span className="font-medium text-muted-foreground">MODEL:</span>
-                      <span className="truncate font-semibold">{modelName}</span>
-                    </div>
-                    <div className="flex items-center gap-1 flex-1 min-w-0">
-                      <ArrowRightLeft className="h-2.5 w-2.5 text-orange-600 shrink-0" />
-                      <span className="font-medium text-muted-foreground">SYNC:</span>
-                      <Badge 
-                        variant={syncDirection === "two-way" ? "default" : "secondary"} 
-                        className={`text-[7px] px-1 py-0 h-3 ${
-                          syncDirection === "two-way" 
-                            ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-green-300 dark:border-green-700" 
-                            : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 border-blue-300 dark:border-blue-700"
-                        }`}
-                      >
-                        {syncDirection === "two-way" ? "↔" : "→"}
+                  {/* Model & Sync Direction */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="flex min-w-0 items-center gap-1">
+                      <MapPin className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="text-muted-foreground">Μοντέλο:</span>
+                      <span className="truncate font-mono" title={modelName}>
+                        {modelName}
+                      </span>
+                    </span>
+                    <span className="flex min-w-0 items-center gap-1">
+                      <ArrowRightLeft className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="text-muted-foreground">Συγχρονισμός:</span>
+                      <Badge variant={syncDirection === "two-way" ? "info" : "neutral"}>
+                        {syncDirection === "two-way" ? "Αμφίδρομος" : "Μονόδρομος"}
                       </Badge>
-                    </div>
+                    </span>
                   </div>
 
                   {/* Schedule */}
-                  <div className="flex items-center gap-1.5 text-[8px]">
-                    <Clock className="h-2.5 w-2.5 text-cyan-600 shrink-0" />
-                    <span className="font-medium text-muted-foreground">SCHEDULE:</span>
-                    <span className="truncate text-[7px] bg-cyan-50 dark:bg-cyan-950/20 px-1 py-0.5 rounded">{readableSchedule}</span>
+                  <div className="flex min-w-0 items-center gap-1">
+                    <Clock className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <span className="text-muted-foreground">Πρόγραμμα:</span>
+                    <span className="truncate" title={readableSchedule}>
+                      {readableSchedule}
+                    </span>
                   </div>
 
                   {/* Stats */}
-                  <div className="flex items-center gap-2 pt-1 border-t text-[7px] text-muted-foreground">
-                    <span>{selectedFieldsCount} fields</span>
-                    <span>•</span>
-                    <span>{fieldMappingsCount} mapped</span>
+                  <div className="flex items-center gap-2 border-t pt-1.5 text-xs text-muted-foreground tabular-nums">
+                    <span>{selectedFieldsCount.toLocaleString("el-GR")} πεδία</span>
+                    <span aria-hidden>•</span>
+                    <span>{fieldMappingsCount.toLocaleString("el-GR")} αντιστοιχισμένα</span>
                   </div>
                 </CardContent>
               </Card>
@@ -594,125 +579,96 @@ export function IntegrationsClient({
 
       {/* View Integration Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="text-sm font-bold">INTEGRATION DETAILS</DialogTitle>
+            <DialogTitle>Στοιχεία ενσωμάτωσης</DialogTitle>
+            <DialogDescription>
+              Ρυθμίσεις αντιστοίχισης και προγραμματισμού της ενσωμάτωσης.
+            </DialogDescription>
           </DialogHeader>
           {selectedIntegration && (
-            <div className="space-y-4">
-              {/* Basic Info */}
-              <div className="space-y-2">
-                <h3 className="text-[10px] font-bold uppercase text-muted-foreground">BASIC INFORMATION</h3>
-                <div className="grid grid-cols-2 gap-3 text-[9px]">
-                  <div>
-                    <span className="font-medium text-muted-foreground">Name:</span>
-                    <div className="font-semibold">{selectedIntegration.name}</div>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Connection:</span>
-                    <div className="font-semibold">{selectedIntegration.connection.name}</div>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Object:</span>
-                    <div className="font-semibold">{selectedIntegration.objectName}</div>
-                    {selectedIntegration.objectCaption && (
-                      <div className="text-muted-foreground">{selectedIntegration.objectCaption}</div>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Table:</span>
-                    <div className="font-semibold">{selectedIntegration.tableName}</div>
-                    <Badge variant="secondary" className="text-[8px] mt-0.5">
-                      {selectedIntegration.tableDbname}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
+            <div className="flex flex-col gap-2">
+              <InfoPanel title="Βασικά στοιχεία">
+                <InfoRow label="Όνομα" wrap>
+                  {selectedIntegration.name}
+                </InfoRow>
+                <InfoRow label="Σύνδεση" wrap>
+                  {selectedIntegration.connection.name}
+                </InfoRow>
+                <InfoRow label="Αντικείμενο" mono>
+                  {selectedIntegration.objectName}
+                </InfoRow>
+                {selectedIntegration.objectCaption && (
+                  <InfoRow label="Περιγραφή αντικειμένου" wrap>
+                    {selectedIntegration.objectCaption}
+                  </InfoRow>
+                )}
+                <InfoRow label="Πίνακας" mono>
+                  {selectedIntegration.tableName}
+                </InfoRow>
+                <InfoRow label="Πίνακας βάσης" mono>
+                  {selectedIntegration.tableDbname}
+                </InfoRow>
+              </InfoPanel>
 
-              {/* Model Mapping */}
               {selectedIntegration.configJson && (
-                <div className="space-y-2">
-                  <h3 className="text-[10px] font-bold uppercase text-muted-foreground">MODEL MAPPING</h3>
-                  <div className="bg-muted/50 p-3 rounded-md space-y-2 text-[9px]">
-                    <div>
-                      <span className="font-medium text-muted-foreground">Target Model:</span>{" "}
-                      <span className="font-semibold">{(selectedIntegration.configJson as any).modelMapping?.modelName || "N/A"}</span>
-                    </div>
-                    <div>
-                      <span className="font-medium text-muted-foreground">Sync Direction:</span>{" "}
-                      <Badge variant={(selectedIntegration.configJson as any).modelMapping?.syncDirection === "two-way" ? "default" : "secondary"} className="text-[8px]">
-                        {(selectedIntegration.configJson as any).modelMapping?.syncDirection === "two-way" ? "Two-way (ERP ↔ App)" : "One-way (ERP → App)"}
-                      </Badge>
-                    </div>
-                    {(selectedIntegration.configJson as any).modelMapping?.uniqueIdentifier && (
-                      <div>
-                        <span className="font-medium text-muted-foreground">Unique Identifiers:</span>
-                        <div className="mt-1 space-y-1">
-                          <div className="font-mono text-[8px]">
-                            ERP: <span className="font-semibold">{(selectedIntegration.configJson as any).modelMapping.uniqueIdentifier.erpField}</span>
-                          </div>
-                          <div className="font-mono text-[8px]">
-                            Model: <span className="font-semibold">{(selectedIntegration.configJson as any).modelMapping.uniqueIdentifier.modelField}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <div>
-                      <span className="font-medium text-muted-foreground">Field Mappings:</span>{" "}
-                      <span className="font-semibold">
-                        {Object.keys((selectedIntegration.configJson as any).modelMapping?.fieldMappings || {}).length} configured
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <InfoPanel title="Αντιστοίχιση μοντέλου" accent="bg-chart-2">
+                  <InfoRow label="Μοντέλο προορισμού" mono>
+                    {selectedModelMapping.modelName || "—"}
+                  </InfoRow>
+                  <InfoRow label="Κατεύθυνση">
+                    <Badge variant={selectedModelMapping.syncDirection === "two-way" ? "info" : "neutral"}>
+                      {selectedModelMapping.syncDirection === "two-way"
+                        ? "Αμφίδρομος (ERP ↔ Εφαρμογή)"
+                        : "Μονόδρομος (ERP → Εφαρμογή)"}
+                    </Badge>
+                  </InfoRow>
+                  {selectedModelMapping.uniqueIdentifier && (
+                    <>
+                      <InfoRow label="Μοναδικό πεδίο ERP" mono>
+                        {selectedModelMapping.uniqueIdentifier.erpField}
+                      </InfoRow>
+                      <InfoRow label="Μοναδικό πεδίο μοντέλου" mono>
+                        {selectedModelMapping.uniqueIdentifier.modelField}
+                      </InfoRow>
+                    </>
+                  )}
+                  <InfoRow label="Αντιστοιχίσεις πεδίων">
+                    {Object.keys(selectedModelMapping.fieldMappings || {}).length.toLocaleString("el-GR")}
+                  </InfoRow>
+                </InfoPanel>
               )}
 
-              {/* Schedule */}
-              {selectedIntegration.configJson && (selectedIntegration.configJson as any).schedule && (
-                <div className="space-y-2">
-                  <h3 className="text-[10px] font-bold uppercase text-muted-foreground">SCHEDULE</h3>
-                  <div className="bg-muted/50 p-3 rounded-md space-y-1 text-[9px]">
-                    <div>
-                      <span className="font-medium text-muted-foreground">Schedule:</span>{" "}
-                      <span className="font-semibold">{getReadableSchedule(selectedIntegration.configJson)}</span>
-                    </div>
-                    <div>
-                      <span className="font-medium text-muted-foreground">Cron Expression:</span>
-                      <div className="font-mono text-[8px] mt-1">{(selectedIntegration.configJson as any).schedule.cronExpression}</div>
-                    </div>
-                  </div>
-                </div>
+              {selectedConfig.schedule && (
+                <InfoPanel title="Προγραμματισμός" accent="bg-chart-3">
+                  <InfoRow label="Συχνότητα" wrap>
+                    {getReadableSchedule(selectedIntegration.configJson)}
+                  </InfoRow>
+                  <InfoRow label="Έκφραση cron" mono wrap>
+                    {selectedConfig.schedule.cronExpression}
+                  </InfoRow>
+                </InfoPanel>
               )}
 
-              {/* Selected Fields */}
-              {selectedIntegration.configJson && (selectedIntegration.configJson as any).selectedFields && (
-                <div className="space-y-2">
-                  <h3 className="text-[10px] font-bold uppercase text-muted-foreground">
-                    SELECTED FIELDS ({(selectedIntegration.configJson as any).selectedFields.length})
-                  </h3>
+              {selectedConfig.selectedFields && (
+                <section className="rounded-md border bg-card p-3">
+                  <h4 className="mb-2 text-xs font-semibold">
+                    Επιλεγμένα πεδία ({(selectedConfig.selectedFields as string[]).length.toLocaleString("el-GR")})
+                  </h4>
                   <div className="flex flex-wrap gap-1">
-                    {(selectedIntegration.configJson as any).selectedFields.map((field: string) => (
-                      <Badge key={field} variant="outline" className="text-[8px] px-1.5 py-0.5">
+                    {(selectedConfig.selectedFields as string[]).map((field: string) => (
+                      <Badge key={field} variant="outline" className="font-mono">
                         {field}
                       </Badge>
                     ))}
                   </div>
-                </div>
+                </section>
               )}
 
-              {/* Timestamps */}
-              <div className="space-y-2 pt-2 border-t">
-                <div className="grid grid-cols-2 gap-3 text-[8px] text-muted-foreground">
-                  <div>
-                    <span className="font-medium">Created:</span>{" "}
-                    {new Date(selectedIntegration.createdAt).toLocaleString()}
-                  </div>
-                  <div>
-                    <span className="font-medium">Updated:</span>{" "}
-                    {new Date(selectedIntegration.updatedAt).toLocaleString()}
-                  </div>
-                </div>
-              </div>
+              <InfoPanel title="Χρονικά στοιχεία" accent="bg-chart-4">
+                <InfoRow label="Δημιουργήθηκε">{formatDateTime(selectedIntegration.createdAt)}</InfoRow>
+                <InfoRow label="Ενημερώθηκε">{formatDateTime(selectedIntegration.updatedAt)}</InfoRow>
+              </InfoPanel>
             </div>
           )}
         </DialogContent>
@@ -722,29 +678,27 @@ export function IntegrationsClient({
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-sm">Delete Integration</AlertDialogTitle>
-            <AlertDialogDescription className="text-[9px]">
-              Are you sure you want to delete this integration? This action cannot be undone.
+            <AlertDialogTitle>Διαγραφή ενσωμάτωσης</AlertDialogTitle>
+            <AlertDialogDescription>
+              Θέλετε σίγουρα να διαγράψετε αυτή την ενσωμάτωση; Η ενέργεια δεν αναιρείται.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting} className={formFieldStyles.button}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Ακύρωση</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingId && handleDelete(deletingId)}
               disabled={isDeleting}
-              className={`${formFieldStyles.button} bg-destructive text-destructive-foreground hover:bg-destructive/90`}
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
               {isDeleting ? (
                 <>
-                  <Loader2 className={formFieldStyles.buttonIcon} />
-                  DELETING...
+                  <Spinner data-icon="inline-start" />
+                  Διαγραφή…
                 </>
               ) : (
                 <>
-                  <Trash2 className={formFieldStyles.buttonIcon} />
-                  DELETE
+                  <Trash2 />
+                  Διαγραφή
                 </>
               )}
             </AlertDialogAction>
@@ -754,4 +708,3 @@ export function IntegrationsClient({
     </div>
   );
 }
-

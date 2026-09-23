@@ -3,16 +3,33 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import type { Role, LprRecognitionEvent, LprImage, LprCamera } from "@prisma/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageHeader } from "@/components/ui/page-header";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState, KpiTile, PageHeader } from "@/components/admin/page";
+import { BarTrendChart, ChartCard } from "@/components/admin/charts";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Car, ArrowUpRight, ArrowDownRight, Clock, TrendingUp, TrendingDown, FileText, FileCheck, User, X, Search, RefreshCw, Loader2, MoreVertical, LogOut, LogIn, Check } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Car,
+  Check,
+  Clock,
+  FileCheck,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  MoreVertical,
+  RefreshCw,
+  Search,
+  User,
+  X,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { format } from "date-fns";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -22,9 +39,41 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { formFieldStyles } from "@/lib/form-styles";
-import { BarChart, Bar, LabelList, XAxis } from "recharts";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+/** Αριθμοί στα ελληνικά. */
+const numberFormat = new Intl.NumberFormat("el-GR");
+
+/** Ώρα (ωω:λλ:δδ) σε ζώνη Ελλάδας. */
+const formatClock = (value: Date | string) =>
+  new Date(value).toLocaleTimeString("el-GR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZone: "Europe/Athens",
+  });
+
+/** Ημέρα και ώρα (ηη/μμ ωω:λλ) σε ζώνη Ελλάδας. */
+const formatDayTime = (value: Date | string) =>
+  new Date(value).toLocaleString("el-GR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Athens",
+  });
+
+/** Ημέρα, ώρα και δευτερόλεπτα σε ζώνη Ελλάδας. */
+const formatDayClock = (value: Date | string) =>
+  new Date(value).toLocaleString("el-GR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZone: "Europe/Athens",
+  });
 
 interface DashboardStats {
   totalVehicles: number;
@@ -108,19 +157,19 @@ function formatTimeInParking(entryTime: Date, now: Date): string {
   const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
   const minutes = totalMinutes % 60;
   const parts: string[] = [];
-  if (days > 0) parts.push(`${days}d`);
-  if (hours > 0) parts.push(`${hours}h`);
-  parts.push(`${minutes}m`);
+  if (days > 0) parts.push(`${days} ημ`);
+  if (hours > 0) parts.push(`${hours} ω`);
+  parts.push(`${minutes} λ`);
   return parts.join(" ");
 }
 
 /** Format duration in minutes as "Xh Ym" or "Xm" for total time in parking (after exit) */
 function formatDurationMinutes(totalMinutes: number): string {
-  if (totalMinutes < 60) return `${totalMinutes}m`;
+  if (totalMinutes < 60) return `${totalMinutes} λ`;
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  if (minutes === 0) return `${hours}h`;
-  return `${hours}h ${minutes}m`;
+  if (minutes === 0) return `${hours} ω`;
+  return `${hours} ω ${minutes} λ`;
 }
 
 /** Get license plate from event (camelCase or snake_case from API). */
@@ -274,7 +323,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   const handleMarkAllAsLeft = async () => {
     const toMark = [...selectedPlates].filter((p) => platesStillInsideSet.has(p));
     if (toMark.length === 0) {
-      toast.info("No selected cards that are still inside.");
+      toast.info("Δεν έχεις επιλέξει κάρτες οχημάτων που βρίσκονται μέσα.");
       return;
     }
     setMarkingAllAsLeft(true);
@@ -290,7 +339,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
     }
     setSelectedPlates(new Set());
     setMarkingAllAsLeft(false);
-    if (done > 0) toast.success(`Marked ${done} vehicle${done !== 1 ? "s" : ""} as left`);
+    if (done > 0) toast.success(`Καταγράφηκε η αποχώρηση ${done === 1 ? "1 οχήματος" : `${numberFormat.format(done)} οχημάτων`}`);
   };
 
   /** Mark vehicle as left at a given time (manual OUT). */
@@ -306,7 +355,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
       });
       const data = await res.json();
       if (!data.success || !data.event) {
-        toast.error(data.error || "Failed to record");
+        toast.error(data.error || "Η καταγραφή απέτυχε");
         return;
       }
       const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
@@ -338,9 +387,9 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           (a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime()
         );
       });
-      toast.success("Vehicle marked as left");
+      toast.success("Το όχημα καταγράφηκε ως αποχωρήσαν");
     } catch (e) {
-      toast.error("Failed to record");
+      toast.error("Η καταγραφή απέτυχε");
     }
   };
 
@@ -348,7 +397,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   const handleReevaluate = async (eventId: string, newLicensePlate: string) => {
     const plate = newLicensePlate.trim();
     if (plate.length < 2) {
-      toast.error("License plate must be at least 2 characters");
+      toast.error("Η πινακίδα πρέπει να έχει τουλάχιστον 2 χαρακτήρες");
       return;
     }
     try {
@@ -359,7 +408,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
       });
       const data = await res.json();
       if (!data.success || !data.event) {
-        toast.error(data.error || "Failed to update plate");
+        toast.error(data.error || "Η ενημέρωση της πινακίδας απέτυχε");
         return;
       }
       const updated = data.event as RecognitionEventWithRelations;
@@ -375,9 +424,9 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
         next[idx] = merged;
         return next;
       });
-      toast.success("License plate updated");
+      toast.success("Η πινακίδα ενημερώθηκε");
     } catch (e) {
-      toast.error("Failed to update plate");
+      toast.error("Η ενημέρωση της πινακίδας απέτυχε");
     }
   };
 
@@ -564,287 +613,159 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
     };
   }, [lastUpdateTime]);
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        ".stat-card",
-        { opacity: 0, y: 20, scale: 0.98 },
-        {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          duration: 0.5,
-          stagger: 0.1,
-          ease: "power3.out",
-        }
-      );
-    }, el);
-    return () => ctx.revert();
-  }, []);
-
   const getRoleGreeting = () => {
     switch (user.role) {
       case "ADMIN":
-        return "ADMINISTRATOR DASHBOARD";
+        return "Διαχειριστής";
       case "MANAGER":
-        return "MANAGER DASHBOARD";
+        return "Υπεύθυνος";
       case "EMPLOYEE":
-        return "EMPLOYEE DASHBOARD";
+        return "Υπάλληλος";
       case "CLIENT":
-        return "CLIENT DASHBOARD";
+        return "Πελάτης";
     }
   };
 
+  const displayName = user.firstName || user.email?.split("@")[0] || "";
+  const hasHourlyStats = hourlyStats.length > 0;
+
   return (
-    <div ref={containerRef} className="space-y-6">
+    <div ref={containerRef} className="space-y-4">
       <PageHeader
-        title={`WELCOME BACK ${user.firstName || user.email?.split('@')[0]}`}
-        highlight={user.firstName || user.email?.split('@')[0] || ""}
-        subtitle={`${getRoleGreeting()}. Here's your overview.`}
-      />
-
-      {/* Row 1: Total Vehicles, Total In, Total Out */}
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-primary/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 relative px-6 pt-6">
-            <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
-              TOTAL VEHICLES
-            </CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20">
-              <Car className="h-3.5 w-3.5 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent className="relative px-6 pb-4 pt-0 space-y-1">
-            <div className="text-2xl font-bold">
-              {hourlyStats.length > 0 ? todayTotal : stats.totalVehicles}
-            </div>
-            {hourlyStats.length > 0 && (
-              <ChartContainer
-                config={{
-                  in: { label: "IN (per 30 min)", color: "hsl(262 83% 58%)" },
-                } satisfies ChartConfig}
-                className="h-[140px] w-full -mx-1"
-              >
-                <BarChart data={hourlyStats} margin={{ top: 4, right: 4, left: 4, bottom: 24 }}>
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <XAxis dataKey="hour" tick={{ fontSize: 6 }} angle={-45} textAnchor="end" height={28} interval={2} />
-                  <Bar dataKey="in" fill="hsl(262 83% 58%)" radius={4}>
-                    <LabelList position="top" offset={6} className="fill-foreground" fontSize={8} formatter={(value: number) => value > 0 ? value : ""} />
-                  </Bar>
-                </BarChart>
-              </ChartContainer>
-            )}
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              {hourlyStats.length > 0 ? "IN per 30 min (e.g. 07:00 = 07:00–07:30)" : "All vehicles detected"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-primary/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 relative px-6 pt-6">
-            <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
-              TOTAL IN
-            </CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20">
-              <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent className="relative px-6 pb-4 pt-0 space-y-1">
-            <div className="text-2xl font-bold">
-              {hourlyStats.length > 0 ? todayIn : stats.totalIn}
-            </div>
-            {hourlyStats.length > 0 && (
-              <ChartContainer
-                config={{
-                  in: { label: "Vehicles in", color: "hsl(142 76% 36%)" },
-                } satisfies ChartConfig}
-                className="h-[140px] w-full -mx-1"
-              >
-                <BarChart data={hourlyStats} margin={{ top: 4, right: 4, left: 4, bottom: 24 }}>
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <XAxis dataKey="hour" tick={{ fontSize: 6 }} angle={-45} textAnchor="end" height={28} interval={2} />
-                  <Bar dataKey="in" fill="hsl(142 76% 36%)" radius={4}>
-                    <LabelList position="top" offset={6} className="fill-foreground" fontSize={8} formatter={(value: number) => value > 0 ? value : ""} />
-                  </Bar>
-                </BarChart>
-              </ChartContainer>
-            )}
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              {hourlyStats.length > 0 ? "Today 07:00–21:00" : "Vehicles entering"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute inset-0 bg-destructive/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 relative px-6 pt-6">
-            <CardTitle className="text-xs font-medium uppercase text-muted-foreground">
-              TOTAL OUT
-            </CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/20">
-              <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
-            </div>
-          </CardHeader>
-          <CardContent className="relative px-6 pb-4 pt-0 space-y-1">
-            <div className="text-2xl font-bold">
-              {hourlyStats.length > 0 ? todayOut : stats.totalOut}
-            </div>
-            {hourlyStats.length > 0 && (
-              <ChartContainer
-                config={{
-                  out: { label: "Vehicles out", color: "hsl(0 84% 60%)" },
-                } satisfies ChartConfig}
-                className="h-[140px] w-full -mx-1"
-              >
-                <BarChart data={hourlyStats} margin={{ top: 4, right: 4, left: 4, bottom: 24 }}>
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <XAxis dataKey="hour" tick={{ fontSize: 6 }} angle={-45} textAnchor="end" height={28} interval={2} />
-                  <Bar dataKey="out" fill="hsl(0 84% 60%)" radius={4}>
-                    <LabelList position="top" offset={6} className="fill-foreground" fontSize={8} formatter={(value: number) => value > 0 ? value : ""} />
-                  </Bar>
-                </BarChart>
-              </ChartContainer>
-            )}
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              {hourlyStats.length > 0 ? "Today 07:00–21:00" : "Vehicles exiting"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Row 2: Cars Inside Now, Contracts In, Contracts (with plates), Walk Ins — compact */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-4">
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 px-4 py-3">
-          <div className="absolute inset-0 bg-primary/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-[10px] font-medium uppercase text-muted-foreground shrink-0">
-              CARS INSIDE NOW
-            </CardTitle>
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/20">
-              <Car className="h-3.5 w-3.5 text-primary" />
-            </div>
-          </div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-xl font-bold">{stats.carsInsideNow ?? 0}</span>
-            <span className="text-[10px] text-muted-foreground">in parking</span>
-          </div>
-        </Card>
-
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 px-4 py-3">
-          <div className="absolute inset-0 bg-primary/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-[10px] font-medium uppercase text-muted-foreground shrink-0">
-              CONTRACTS IN
-            </CardTitle>
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/20">
-              <FileText className="h-3.5 w-3.5 text-primary" />
-            </div>
-          </div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-xl font-bold">{stats.contractsIn}</span>
-            <span className="text-[10px] text-muted-foreground">contract vehicles</span>
-          </div>
-        </Card>
-
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 px-4 py-3">
-          <div className="absolute inset-0 bg-primary/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-[10px] font-medium uppercase text-muted-foreground shrink-0">
-              CONTRACTS (WITH PLATES)
-            </CardTitle>
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/20">
-              <FileCheck className="h-3.5 w-3.5 text-primary" />
-            </div>
-          </div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-xl font-bold">{stats.contractsWithPlates ?? 0}</span>
-            <span className="text-[10px] text-muted-foreground">have plate lines</span>
-          </div>
-        </Card>
-
-        <Card className="stat-card group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 px-4 py-3">
-          <div className="absolute inset-0 bg-muted opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-[10px] font-medium uppercase text-muted-foreground shrink-0">
-              WALK INS
-            </CardTitle>
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted">
-              <User className="h-3.5 w-3.5 text-muted-foreground" />
-            </div>
-          </div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-xl font-bold">{stats.walkIns}</span>
-            <span className="text-[10px] text-muted-foreground">visitor vehicles</span>
-          </div>
-        </Card>
-      </div>
-
-      {/* Live status — most important: clear view of who's inside */}
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-bold uppercase text-muted-foreground flex items-center gap-2">
-              <span className="inline-flex h-2 w-2 rounded-full bg-green-500 animate-pulse" title="Live updates active" aria-hidden />
-              Live status — who&apos;s inside
-            </h2>
-            <p className="text-[9px] text-muted-foreground mt-0.5">
-              Last updated {format(lastUpdateTime, "HH:mm:ss")} · <strong>{liveCarsInsideCount}</strong> cars inside now. One card per plate; status updates when a car goes OUT.
-            </p>
-          </div>
+        title={`Καλώς ήρθες, ${displayName}`}
+        description={`${getRoleGreeting()} · επισκόπηση της κίνησης του πάρκινγκ σε πραγματικό χρόνο.`}
+        icon={LayoutDashboard}
+        actions={
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={refreshStatus}
             disabled={refreshingStatus}
-            className="h-8 gap-1.5 text-xs shrink-0"
+            title="Έλεγχος κατάστασης οχημάτων"
           >
-            {refreshingStatus ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-            )}
-            {refreshingStatus ? "Checking…" : "Check status"}
+            {refreshingStatus ? <Spinner data-icon="inline-start" /> : <RefreshCw aria-hidden />}
+            {refreshingStatus ? "Έλεγχος…" : "Έλεγχος κατάστασης"}
           </Button>
+        }
+      />
+
+      {/* Κάρτες αριθμών */}
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+        <KpiTile
+          label="Σύνολο οχημάτων"
+          value={numberFormat.format(hasHourlyStats ? todayTotal : stats.totalVehicles)}
+          hint={hasHourlyStats ? "αναγνωρίσεις σήμερα" : "όλες οι αναγνωρίσεις"}
+          icon={Car}
+          tone="blue"
+        />
+        <KpiTile
+          label="Είσοδοι"
+          value={numberFormat.format(hasHourlyStats ? todayIn : stats.totalIn)}
+          hint={hasHourlyStats ? "οχήματα που μπήκαν σήμερα" : "οχήματα που μπήκαν"}
+          icon={ArrowUpRight}
+          tone="green"
+        />
+        <KpiTile
+          label="Έξοδοι"
+          value={numberFormat.format(hasHourlyStats ? todayOut : stats.totalOut)}
+          hint={hasHourlyStats ? "οχήματα που βγήκαν σήμερα" : "οχήματα που βγήκαν"}
+          icon={ArrowDownRight}
+          tone="red"
+        />
+        <KpiTile
+          label="Οχήματα εντός"
+          value={numberFormat.format(stats.carsInsideNow ?? 0)}
+          hint="αυτή τη στιγμή στο πάρκινγκ"
+          icon={Car}
+          tone="amber"
+        />
+        <KpiTile
+          label="Συμβόλαια εντός"
+          value={numberFormat.format(stats.contractsIn)}
+          hint="οχήματα με συμβόλαιο"
+          icon={FileText}
+          tone="violet"
+        />
+        <KpiTile
+          label="Συμβόλαια με πινακίδες"
+          value={numberFormat.format(stats.contractsWithPlates ?? 0)}
+          hint="συμβόλαια που έχουν γραμμές πινακίδων"
+          icon={FileCheck}
+          tone="blue"
+        />
+        <KpiTile
+          label="Επισκέπτες"
+          value={numberFormat.format(stats.walkIns)}
+          hint="οχήματα επισκεπτών, 06:00–23:00"
+          icon={User}
+          tone="amber"
+        />
+      </div>
+
+      {/* Γράφημα κίνησης */}
+      <ChartCard
+        title="Κίνηση ανά 30 λεπτά"
+        description="Σήμερα 07:00–21:00 — είσοδοι και έξοδοι οχημάτων (π.χ. 07:00 = 07:00–07:30)."
+      >
+        {loadingHourlyStats ? (
+          <Skeleton className="h-60 w-full" />
+        ) : hasHourlyStats ? (
+          <BarTrendChart
+            data={hourlyStats}
+            xKey="hour"
+            height={240}
+            series={[
+              { key: "in", label: "Είσοδοι", color: "var(--chart-2)" },
+              { key: "out", label: "Έξοδοι", color: "var(--chart-5)" },
+            ]}
+          />
+        ) : (
+          <EmptyState
+            icon={Clock}
+            title="Δεν υπάρχουν στοιχεία κίνησης για σήμερα"
+            description="Μόλις οι κάμερες στείλουν αναγνωρίσεις, η κίνηση ανά 30 λεπτά θα εμφανιστεί εδώ."
+          />
+        )}
+      </ChartCard>
+
+      {/* Ζωντανή κατάσταση — ποια οχήματα βρίσκονται μέσα */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 text-sm font-semibold">
+              <span
+                className="inline-flex size-2 shrink-0 animate-pulse rounded-full bg-chart-2"
+                title="Οι ενημερώσεις γίνονται ζωντανά"
+                aria-hidden
+              />
+              Ζωντανή κατάσταση — ποια οχήματα είναι μέσα
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Τελευταία ενημέρωση {formatClock(lastUpdateTime)} · <strong>{numberFormat.format(liveCarsInsideCount)}</strong> οχήματα
+              μέσα τώρα. Μία κάρτα ανά πινακίδα· η κατάσταση αλλάζει μόλις το όχημα βγει.
+            </p>
+          </div>
         </div>
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <div className="relative min-w-[200px] flex-1">
+              <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
                 type="text"
-                placeholder="Search by license plate, direction (IN/OUT), vehicle type, or camera..."
+                placeholder="Αναζήτηση με πινακίδα, κατεύθυνση (IN/OUT), τύπο οχήματος ή κάμερα…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 text-xs h-8"
+                className="h-8 pl-9 text-xs"
+                aria-label="Αναζήτηση αναγνωρίσεων"
               />
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleSelectAll}
-                className="h-8 gap-1.5 text-xs"
-              >
-                <span
-                  role="img"
-                  aria-hidden
-                  className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-input dark:bg-input/30 ${
-                    platesStillInsideSet.size > 0 && selectedPlates.size === platesStillInsideSet.size
-                      ? "bg-primary border-primary text-primary-foreground"
-                      : ""
-                  }`}
-                >
-                  {platesStillInsideSet.size > 0 && selectedPlates.size === platesStillInsideSet.size ? (
-                    <Check className="h-2.5 w-2.5" />
-                  ) : null}
-                </span>
-                {selectedPlates.size === platesStillInsideSet.size && platesStillInsideSet.size > 0 ? "Deselect all" : "Select all"}
+            <div className="flex shrink-0 items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={handleSelectAll}>
+                <Check aria-hidden />
+                {selectedPlates.size === platesStillInsideSet.size && platesStillInsideSet.size > 0
+                  ? "Αποεπιλογή όλων"
+                  : "Επιλογή όλων"}
               </Button>
               <Button
                 type="button"
@@ -852,14 +773,9 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
                 size="sm"
                 onClick={handleMarkAllAsLeft}
                 disabled={markingAllAsLeft || selectedPlates.size === 0 || [...selectedPlates].filter((p) => platesStillInsideSet.has(p)).length === 0}
-                className="h-8 gap-1.5 text-xs"
               >
-                {markingAllAsLeft ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                ) : (
-                  <LogOut className="h-3.5 w-3.5" aria-hidden />
-                )}
-                Mark all as left ({[...selectedPlates].filter((p) => platesStillInsideSet.has(p)).length})
+                {markingAllAsLeft ? <Spinner data-icon="inline-start" /> : <LogOut aria-hidden />}
+                Αποχώρηση επιλεγμένων ({numberFormat.format([...selectedPlates].filter((p) => platesStillInsideSet.has(p)).length)})
               </Button>
             </div>
           </div>
@@ -884,7 +800,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
                     cameraName.includes(query)
                   );
                 }).length : 0;
-                return `Showing ${filteredCount} of ${events.length} events`;
+                return `Εμφανίζονται ${numberFormat.format(filteredCount)} από ${numberFormat.format(events.length)} αναγνωρίσεις`;
               })()}
             </p>
           )}
@@ -990,13 +906,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           });
 
           return filteredEvents.length > 0 ? (
-          <div 
-            className="grid gap-4" 
-            style={{ 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              width: '100%'
-            }}
-          >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {(() => {
               return filteredEvents.map((event) => {
               if (!event || !event.id) return null;
@@ -1073,34 +983,25 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
             })()}
           </div>
           ) : (
-            <Card className="border-0 card-shadow-xl bg-card/50 backdrop-blur-sm">
-              <CardContent className="p-6 text-center space-y-4">
-                <Search className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground font-medium">
-                    {searchQuery.trim() ? "No events found" : "No recognition events yet"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {searchQuery.trim() 
-                      ? `No events match your search: "${searchQuery}". Try a different search term.`
-                      : "Events will appear here once cameras start sending data with license plates."
-                    }
-                  </p>
-                </div>
-                {!searchQuery.trim() && (
-                  <div className="mt-4 p-3 rounded-lg bg-muted/50 border border-muted-foreground/20 text-left">
-                    <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Troubleshooting:</p>
-                    <ul className="text-[9px] text-muted-foreground space-y-1 list-disc list-inside">
-                      <li>Check if cameras are registered in <strong>LPR Cameras</strong> page</li>
-                      <li>Verify camera name/device ID matches webhook payload</li>
-                      <li>Check <strong>LPR Logs</strong> page for incoming events</li>
-                      <li>Ensure events contain license plate data</li>
-                      <li>Check server console logs for detailed error messages</li>
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={Search}
+              title={searchQuery.trim() ? "Δεν βρέθηκαν αναγνωρίσεις" : "Δεν υπάρχουν ακόμη αναγνωρίσεις"}
+              description={
+                searchQuery.trim()
+                  ? `Καμία αναγνώριση δεν ταιριάζει με την αναζήτηση «${searchQuery}». Δοκίμασε διαφορετικό όρο.`
+                  : "Οι αναγνωρίσεις θα εμφανιστούν εδώ μόλις οι κάμερες αρχίσουν να στέλνουν δεδομένα με πινακίδες."
+              }
+              action={
+                !searchQuery.trim() ? (
+                  <ul className="list-inside list-disc space-y-1 text-left text-xs text-muted-foreground">
+                    <li>Έλεγξε αν οι κάμερες είναι καταχωρημένες στη σελίδα «Κάμερες LPR».</li>
+                    <li>Βεβαιώσου ότι το όνομα ή το device ID της κάμερας ταιριάζει με το webhook.</li>
+                    <li>Δες τη σελίδα «Αρχεία LPR» για εισερχόμενα συμβάντα.</li>
+                    <li>Βεβαιώσου ότι τα συμβάντα περιέχουν δεδομένα πινακίδας.</li>
+                  </ul>
+                ) : undefined
+              }
+            />
           );
         })()}
       </div>
@@ -1147,8 +1048,6 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
   
   // Direction enum values are: IN, OUT, UNKNOWN (not APPROACH/AWAY) — use theme primary/destructive
   const DirectionIcon = event.direction === "IN" ? ArrowUpRight : event.direction === "OUT" ? ArrowDownRight : null;
-  const directionColor = event.direction === "IN" ? "text-primary" : event.direction === "OUT" ? "text-destructive" : "text-muted-foreground";
-  const directionBgColor = event.direction === "IN" ? "bg-primary/10 border-primary/20" : event.direction === "OUT" ? "bg-destructive/10 border-destructive/20" : "";
 
   useEffect(() => {
     if (cardRef.current) {
@@ -1176,49 +1075,52 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
     }
   }, [isNew]);
 
-  // Card state: 4 pastel backgrounds (lavender, lemon yellow for contract, pastel yellow/amber, sky blue)
-  // 1) Visitor over limit → pastel yellow (amber)  2) On contract → lemon yellow  3) Past date still in → sky blue  4) Inside → lavender  5) Car left / Past date → sky blue
-  const cardBgClass = isVisitorOverLimit
-    ? "bg-amber-50/95 dark:bg-amber-900/25 border border-amber-200/60 dark:border-amber-800/50"
-    : isInContract && !isVisitorOverLimit
-      ? "bg-yellow-100/95 dark:bg-yellow-900/25 border border-yellow-300/60 dark:border-yellow-700/50"
+  // Κατάσταση κάρτας: ετικέτα + μία φράση εξήγησης (χρώμα μόνο μέσω Badge).
+  const cardState = isVisitorOverLimit
+    ? {
+        label: "Υπέρβαση ορίου",
+        variant: "warning" as const,
+        description: "Οι θέσεις του συμβολαίου είναι πλήρεις — το όχημα χρεώνεται ως επισκέπτης.",
+      }
+    : isInContract
+      ? {
+          label: "Συμβόλαιο",
+          variant: "info" as const,
+          description: "Μετράει στις θέσεις του συμβολαίου (περιλαμβάνεται).",
+        }
       : isFromPastDate && isStillInside
-        ? "bg-sky-100/90 dark:bg-sky-900/25 border border-sky-200/60 dark:border-sky-800/50"
+        ? {
+            label: "Μέσα από προηγούμενη ημέρα",
+            variant: "warning" as const,
+            description: "Μπήκε προηγούμενη ημέρα και βρίσκεται ακόμη στο πάρκινγκ.",
+          }
         : isStillInside
-          ? "bg-violet-100/90 dark:bg-violet-900/25 border border-violet-200/60 dark:border-violet-800/50"
+          ? {
+              label: "Μέσα",
+              variant: "success" as const,
+              description: "Το όχημα βρίσκεται αυτή τη στιγμή στο πάρκινγκ.",
+            }
           : !isStillInside && (event.direction === "OUT" || isOutOnly)
-            ? "bg-sky-100/90 dark:bg-sky-900/25 border border-sky-200/60 dark:border-sky-800/50"
+            ? {
+                label: "Αποχώρησε",
+                variant: "neutral" as const,
+                description: "Το όχημα έχει βγει από το πάρκινγκ.",
+              }
             : isFromPastDate
-              ? "bg-sky-100/80 dark:bg-sky-900/20 border border-sky-200/50 dark:border-sky-800/40"
-              : "bg-card border border-border";
-
-  // State description (palette-style: keywords + "Often used" + explanation)
-  const stateLabel = isVisitorOverLimit
-    ? { keywords: "Over limit · Visitor fee · Attention", usedFor: "Contract slots full — this car pays regular visitor rate." }
-    : isInContract && !isVisitorOverLimit
-      ? { keywords: "Contract · Within limit · Authorized", usedFor: "Counts toward contract allowance (included)." }
-      : isFromPastDate && isStillInside
-        ? { keywords: "Past date · Still inside · Older entry", usedFor: "Entered on a previous day, still in parking." }
-        : isStillInside
-          ? { keywords: "Inside · Active · Present", usedFor: "Vehicle currently in parking." }
-          : !isStillInside && (event.direction === "OUT" || isOutOnly)
-            ? { keywords: "Departed · Left · Completed", usedFor: "Vehicle has left the parking." }
-            : isFromPastDate
-              ? { keywords: "Past · Archived", usedFor: "Event from a previous day." }
-              : { keywords: "—", usedFor: "—" };
+              ? {
+                  label: "Προηγούμενη ημέρα",
+                  variant: "neutral" as const,
+                  description: "Συμβάν από προηγούμενη ημέρα.",
+                }
+              : { label: "—", variant: "neutral" as const, description: "—" };
 
   return (
     <Card
       ref={cardRef}
       data-new-event={isNew ? "true" : undefined}
-      className={`group relative overflow-hidden border-0 card-shadow-xl backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 bg-transparent ${isNew ? "ring-2 ring-primary/50" : ""}`}
-      style={{ minWidth: '300px' }}
+      className={cn("relative min-w-0 overflow-hidden", isNew && "ring-2 ring-primary/50")}
     >
-      {/* Full card background (solid color by state) */}
-      <div className={`absolute inset-0 rounded-xl ${cardBgClass}`} />
-      <div className="absolute inset-0 rounded-xl bg-white/10 dark:bg-white/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none" />
-      
-      <CardContent className="relative p-4 z-10">
+      <CardContent className="p-4">
         <div className="flex flex-col gap-3">
           {/* License Plate Row with Image - 35px height, 90px width */}
           <div className="flex items-center gap-2">
@@ -1226,8 +1128,8 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
               <Checkbox
                 checked={isSelected}
                 onCheckedChange={onToggleSelect}
-                className="shrink-0 h-4 w-4"
-                aria-label={isSelected ? "Deselect card" : "Select card"}
+                className="size-4 shrink-0"
+                aria-label={isSelected ? "Αποεπιλογή κάρτας" : "Επιλογή κάρτας"}
               />
             )}
             {/* License Plate Image */}
@@ -1236,7 +1138,8 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                 fullImageUrl ? (
                   <>
                     <div 
-                      className="relative h-[35px] w-[100px] rounded-md overflow-hidden border border-border cursor-pointer hover:border-primary transition-colors"
+                      className="relative h-[35px] w-[100px] cursor-pointer overflow-hidden rounded-md border transition-colors hover:border-primary"
+                      title="Προβολή πλήρους εικόνας"
                       onClick={() => setIsImageModalOpen(true)}
                       onMouseOver={() => {
                         // Mouseover action can be added here for different behavior
@@ -1245,7 +1148,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                     >
                       <Image
                         src={imageUrl}
-                        alt={getDisplayPlate(event) || "Vehicle"}
+                        alt={`Πινακίδα ${getDisplayPlate(event)}`}
                         fill
                         className="object-cover"
                         sizes="100px"
@@ -1257,22 +1160,23 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                         showCloseButton={false}
                       >
                         <DialogTitle className="sr-only">
-                          {`${fullImage?.imageType === "FULL_IMAGE" ? "Full image" : "Snapshot"} - ${getDisplayPlate(event) || "Vehicle"}`}
+                          {`${fullImage?.imageType === "FULL_IMAGE" ? "Πλήρης εικόνα" : "Στιγμιότυπο"} — ${getDisplayPlate(event)}`}
                         </DialogTitle>
                         <div className="relative w-full bg-background/95 backdrop-blur-sm rounded-lg overflow-hidden border-2 border-border shadow-2xl">
                           {/* Close Button */}
                           <button
                             onClick={() => setIsImageModalOpen(false)}
-                            className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 backdrop-blur-sm border border-border hover:bg-background transition-colors shadow-lg"
-                            aria-label="Close"
+                            className="absolute top-4 right-4 z-10 flex size-8 items-center justify-center rounded-full border bg-background shadow-xs transition-colors hover:bg-accent"
+                            aria-label="Κλείσιμο"
+                            title="Κλείσιμο"
                           >
-                            <X className="h-4 w-4" />
+                            <X className="size-4" aria-hidden />
                           </button>
                           {/* Full Image */}
                           <div className="relative w-full max-h-[90vh] overflow-auto">
                             <Image
                               src={fullImageUrl}
-                              alt={`${fullImage?.imageType === "FULL_IMAGE" ? "Full image" : "Snapshot"} - ${getDisplayPlate(event) || "Vehicle"}`}
+                              alt={`${fullImage?.imageType === "FULL_IMAGE" ? "Πλήρης εικόνα" : "Στιγμιότυπο"} — ${getDisplayPlate(event)}`}
                               width={1280}
                               height={960}
                               className="w-full max-w-[1280px] h-auto object-contain"
@@ -1284,10 +1188,10 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                   </Dialog>
                   </>
                 ) : (
-                  <div className="relative h-[35px] w-[100px] rounded-md overflow-hidden border border-border">
+                  <div className="relative h-[35px] w-[100px] overflow-hidden rounded-md border">
                     <Image
                       src={imageUrl}
-                      alt={getDisplayPlate(event) || "Vehicle"}
+                      alt={`Πινακίδα ${getDisplayPlate(event)}`}
                       fill
                       className="object-cover"
                       sizes="100px"
@@ -1295,8 +1199,8 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                   </div>
                 )
               ) : (
-                <div className="flex h-[35px] w-[100px] items-center justify-center rounded-md bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-border">
-                  <Car className="h-4 w-4 text-blue-600" />
+                <div className="flex h-[35px] w-[100px] items-center justify-center rounded-md border bg-muted" title="Χωρίς εικόνα">
+                  <Car className="size-4 text-muted-foreground" aria-hidden />
                 </div>
               )}
             </div>
@@ -1304,14 +1208,12 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
             {/* Modal: View message — event payload without images (for checks) */}
             <Dialog open={isMessageModalOpen} onOpenChange={setIsMessageModalOpen}>
               <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
-                <DialogTitle className="text-sm font-bold uppercase text-muted-foreground">
-                  View message
-                </DialogTitle>
-                <p className="text-[9px] text-muted-foreground">
-                  Received event data (without image parts) for checks
+                <DialogTitle className="text-base">Προβολή μηνύματος</DialogTitle>
+                <p className="text-xs text-muted-foreground">
+                  Δεδομένα του συμβάντος όπως ελήφθησαν (χωρίς τις εικόνες), για έλεγχο.
                 </p>
                 <div className="flex-1 overflow-auto rounded-md border bg-muted/30 p-3">
-                  <pre className="text-[9px] whitespace-pre-wrap break-words font-mono">
+                  <pre className="font-mono text-xs break-words whitespace-pre-wrap">
                     {(() => {
                       try {
                         const { images: _img, ...rest } = event as RecognitionEventWithRelations & { images?: unknown };
@@ -1353,7 +1255,7 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                           2
                         );
                       } catch (e) {
-                        return `Error displaying message: ${e instanceof Error ? e.message : String(e)}`;
+                        return `Σφάλμα εμφάνισης μηνύματος: ${e instanceof Error ? e.message : String(e)}`;
                       }
                     })()}
                   </pre>
@@ -1365,20 +1267,18 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
             {onMarkAsLeft && (
               <Dialog open={isLeftModalOpen} onOpenChange={setIsLeftModalOpen}>
                 <DialogContent className="sm:max-w-sm">
-                  <DialogTitle className="text-sm font-bold uppercase text-muted-foreground">
-                    Set time vehicle left
-                  </DialogTitle>
-                  <div className={formFieldStyles.formSpacing}>
-                    <div className={formFieldStyles.fieldSpacing}>
-                      <Label htmlFor={`left-at-${event.id}`} className={formFieldStyles.label}>
-                        DATE & TIME
+                  <DialogTitle className="text-base">Ώρα αποχώρησης οχήματος</DialogTitle>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor={`left-at-${event.id}`} className="text-xs">
+                        Ημερομηνία και ώρα
                       </Label>
                       <Input
                         id={`left-at-${event.id}`}
                         type="datetime-local"
                         value={leftAt}
                         onChange={(e) => setLeftAt(e.target.value)}
-                        className={formFieldStyles.input}
+                        className="h-8 text-xs"
                       />
                     </div>
                     <div className="flex justify-end gap-2 pt-2 border-t">
@@ -1387,9 +1287,8 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                         variant="outline"
                         size="sm"
                         onClick={() => setIsLeftModalOpen(false)}
-                        className={formFieldStyles.button}
                       >
-                        Cancel
+                        Ακύρωση
                       </Button>
                       <Button
                         type="button"
@@ -1406,10 +1305,9 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                             setSavingLeft(false);
                           }
                         }}
-                        className={formFieldStyles.button}
                       >
-                        {savingLeft ? <Loader2 className="h-3 w-3 animate-spin" /> : <LogOut className={formFieldStyles.buttonIcon} />}
-                        {savingLeft ? "Saving…" : "Mark as left"}
+                        {savingLeft ? <Spinner data-icon="inline-start" /> : <LogOut aria-hidden />}
+                        {savingLeft ? "Αποθήκευση…" : "Καταγραφή αποχώρησης"}
                       </Button>
                     </div>
                   </div>
@@ -1421,14 +1319,12 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
             {onReevaluate && (
               <Dialog open={isReevaluateModalOpen} onOpenChange={setIsReevaluateModalOpen}>
                 <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
-                  <DialogTitle className="text-sm font-bold uppercase text-muted-foreground">
-                    Reevaluate
-                  </DialogTitle>
-                  <p className="text-[9px] text-muted-foreground">
-                    Read the event message again and add or correct the license plate.
+                  <DialogTitle className="text-base">Επανεκτίμηση</DialogTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Διάβασε ξανά το μήνυμα του συμβάντος και συμπλήρωσε ή διόρθωσε την πινακίδα.
                   </p>
-                  <div className="flex-1 overflow-auto rounded-md border bg-muted/30 p-3 min-h-[120px]">
-                    <pre className="text-[9px] whitespace-pre-wrap break-words font-mono">
+                  <div className="min-h-[120px] flex-1 overflow-auto rounded-md border bg-muted/30 p-3">
+                    <pre className="font-mono text-xs break-words whitespace-pre-wrap">
                       {(() => {
                         try {
                           const { images: _img, ...rest } = event as RecognitionEventWithRelations & { images?: unknown };
@@ -1470,21 +1366,21 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                             2
                           );
                         } catch (e) {
-                          return `Error displaying message: ${e instanceof Error ? e.message : String(e)}`;
+                          return `Σφάλμα εμφάνισης μηνύματος: ${e instanceof Error ? e.message : String(e)}`;
                         }
                       })()}
                     </pre>
                   </div>
-                  <div className={formFieldStyles.fieldSpacing}>
-                    <Label htmlFor={`reevaluate-plate-${event.id}`} className={formFieldStyles.label}>
-                      LICENSE PLATE
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`reevaluate-plate-${event.id}`} className="text-xs">
+                      Πινακίδα
                     </Label>
                     <Input
                       id={`reevaluate-plate-${event.id}`}
                       value={reevaluatePlate}
                       onChange={(e) => setReevaluatePlate(e.target.value)}
-                      placeholder="e.g. ABC-1234"
-                      className={formFieldStyles.input}
+                      placeholder="π.χ. ΑΒΧ-1234"
+                      className="h-8 font-mono text-xs uppercase tabular-nums"
                     />
                   </div>
                   <div className="flex justify-end gap-2 pt-2 border-t">
@@ -1493,9 +1389,8 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                       variant="outline"
                       size="sm"
                       onClick={() => setIsReevaluateModalOpen(false)}
-                      className={formFieldStyles.button}
                     >
-                      Cancel
+                      Ακύρωση
                     </Button>
                     <Button
                       type="button"
@@ -1510,32 +1405,29 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                           setSavingReevaluate(false);
                         }
                       }}
-                      className={formFieldStyles.button}
                     >
-                      {savingReevaluate ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className={formFieldStyles.buttonIcon} />}
-                      {savingReevaluate ? "Saving…" : "Save plate"}
+                      {savingReevaluate ? <Spinner data-icon="inline-start" /> : <RefreshCw aria-hidden />}
+                      {savingReevaluate ? "Αποθήκευση…" : "Αποθήκευση πινακίδας"}
                     </Button>
                   </div>
                 </DialogContent>
               </Dialog>
             )}
 
-            {/* Two rows: row1 = plate + dropdown, row2 = badges (ERP, direction, contract, INSIDE, etc.) */}
-            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-              {/* Row 1: license plate text + dropdown */}
+            {/* Δύο γραμμές: πινακίδα + ενέργειες, από κάτω οι ετικέτες κατάστασης */}
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              {/* Γραμμή 1: πινακίδα + μενού ενεργειών */}
               <div className="flex items-center gap-2">
-                <h3 className="text-xs font-bold uppercase text-foreground truncate min-w-0" title={getDisplayPlate(event)}>
+                <h3
+                  className="min-w-0 truncate font-mono text-xs font-semibold uppercase tabular-nums"
+                  title={getDisplayPlate(event)}
+                >
                   {getDisplayPlate(event)}
                 </h3>
                 <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 shrink-0 rounded-md text-xs"
-                  aria-label="Actions"
-                >
-                  <MoreVertical className="h-3.5 w-3.5" />
+                <Button variant="ghost" size="icon-sm" aria-label="Ενέργειες οχήματος" title="Ενέργειες οχήματος">
+                  <MoreVertical aria-hidden />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -1545,8 +1437,8 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                     setIsMessageModalOpen(true);
                   }}
                 >
-                  <FileText className="h-3.5 w-3.5 mr-2" />
-                  View message
+                  <FileText className="mr-2 size-4" aria-hidden />
+                  Προβολή μηνύματος
                 </DropdownMenuItem>
                 {onReevaluate && (
                   <DropdownMenuItem
@@ -1556,8 +1448,8 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                       setIsReevaluateModalOpen(true);
                     }}
                   >
-                    <RefreshCw className="h-3.5 w-3.5 mr-2" />
-                    Reevaluate
+                    <RefreshCw className="mr-2 size-4" aria-hidden />
+                    Επανεκτίμηση
                   </DropdownMenuItem>
                 )}
                 {onMarkAsLeft && isStillInside && (
@@ -1569,68 +1461,54 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                       setLeftAt(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
                     }}
                   >
-                    <LogOut className="h-3.5 w-3.5 mr-2" />
-                    Left
+                    <LogOut className="mr-2 size-4" aria-hidden />
+                    Αποχώρηση
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
               </div>
 
-              {/* Row 2: ERP, direction icon, contract num01, INSIDE, other badges — text-[9px] bold */}
-              <div className="flex flex-wrap items-center gap-1.5 text-[9px]">
+              {/* Γραμμή 2: ετικέτες — ERP, κατεύθυνση, συμβόλαιο, κατάσταση */}
+              <div className="flex flex-wrap items-center gap-1.5">
               {isInItems && (
-                <Badge variant="secondary" className="text-[9px] font-bold px-1.5 py-0.5 bg-muted text-muted-foreground border border-border">
+                <Badge variant="neutral" title="Η πινακίδα υπάρχει ως είδος στο ERP">
                   ERP
                 </Badge>
               )}
               {DirectionIcon && (
-                <div
-                  className={`flex items-center justify-center h-5 w-5 rounded border ${directionBgColor} ${directionColor} flex-shrink-0`}
-                  title={event.direction === "IN" ? "Approach (coming in)" : "Away (leaving)"}
+                <Badge
+                  variant={event.direction === "IN" ? "success" : "danger"}
+                  title={event.direction === "IN" ? "Είσοδος στο πάρκινγκ" : "Έξοδος από το πάρκινγκ"}
                 >
-                  <DirectionIcon className="h-3 w-3" />
-                </div>
+                  <DirectionIcon aria-hidden />
+                  {event.direction === "IN" ? "Είσοδος" : "Έξοδος"}
+                </Badge>
               )}
               {isInContract && contractNum01 > 0 && !isVisitorOverLimit && (
                 <Badge
-                  variant="secondary"
-                  className={`text-[9px] font-bold px-1.5 py-0.5 border ${isExceeded ? "bg-destructive/15 text-destructive border-destructive/30" : "bg-primary/15 text-primary border-primary/30"}`}
+                  variant={isExceeded ? "danger" : "info"}
+                  className="tabular-nums"
+                  title="Οχήματα εντός προς θέσεις συμβολαίου"
                 >
                   {contractCarsIn}/{contractNum01}
                 </Badge>
               )}
-              {isInContract && isVisitorOverLimit && (
-                <Badge variant="secondary" className="text-[9px] font-bold px-1.5 py-0.5 bg-muted text-muted-foreground border border-border">
-                  Visitor
-                </Badge>
-              )}
-              {isInContract && contractNum01 === 0 && !isVisitorOverLimit && (
-                <Badge variant="secondary" className="text-[9px] font-bold px-1.5 py-0.5 bg-primary/15 text-primary border border-primary/30">
-                  CONTRACT
-                </Badge>
-              )}
-              {isStillInside && !isExceeded && (
-                <Badge variant="secondary" className="text-[9px] font-bold px-1.5 py-0.5 bg-primary/15 text-primary border border-primary/30">
-                  INSIDE
-                </Badge>
-              )}
-              {isExceeded && (
-                <Badge variant="secondary" className="text-[9px] font-bold px-1.5 py-0.5 bg-destructive/15 text-destructive border border-destructive/30">
-                  EXCEEDED
-                </Badge>
-              )}
+              {isInContract && isVisitorOverLimit && <Badge variant="warning">Επισκέπτης</Badge>}
+              {isInContract && contractNum01 === 0 && !isVisitorOverLimit && <Badge variant="info">Συμβόλαιο</Badge>}
+              {isStillInside && !isExceeded && <Badge variant="success">Μέσα</Badge>}
+              {isExceeded && <Badge variant="danger">Υπέρβαση</Badge>}
               {isOutOnly && (
                 <>
-                  <Badge
-                    variant="secondary"
-                    className="text-[9px] font-bold px-1.5 py-0.5 bg-destructive/15 text-destructive border border-destructive/30"
-                    title="Abnormal: no IN capture"
-                  >
-                    NO IN
+                  <Badge variant="danger" title="Μη φυσιολογικό: δεν καταγράφηκε είσοδος">
+                    Χωρίς είσοδο
                   </Badge>
-                  <Link href={`/reports/out-without-in?plate=${encodeURIComponent(getPlate(event).toUpperCase())}`} className="text-[9px] font-bold text-primary hover:underline">
-                    Report
+                  <Link
+                    href={`/reports/out-without-in?plate=${encodeURIComponent(getPlate(event).toUpperCase())}`}
+                    className="text-xs font-medium text-primary hover:underline"
+                    title="Άνοιγμα αναφοράς εξόδων χωρίς είσοδο"
+                  >
+                    Αναφορά
                   </Link>
                 </>
               )}
@@ -1638,95 +1516,67 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
             </div>
           </div>
 
-          {/* State description (palette-style) */}
-          <div className="rounded-lg bg-black/5 dark:bg-white/5 px-2.5 py-2 space-y-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-foreground/90">
-              {stateLabel.keywords}
-            </p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center rounded-md bg-foreground/10 dark:bg-foreground/20 px-2 py-1 text-xs font-bold text-foreground">
-                Often used
-              </span>
-              <span className="text-[10px] text-muted-foreground">
-                {stateLabel.usedFor}
-              </span>
-            </div>
+          {/* Περιγραφή κατάστασης */}
+          <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-2">
+            <Badge variant={cardState.variant}>{cardState.label}</Badge>
+            <span className="min-w-0 text-xs text-muted-foreground">{cardState.description}</span>
           </div>
 
-          {/* Details */}
-          <div className="flex-1 min-w-0 space-y-1.5">
+          {/* Στοιχεία */}
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
 
-            {/* Vehicle Details */}
-            <div className="space-y-0.5 text-xs">
+            {/* Στοιχεία οχήματος */}
+            <div className="flex flex-col gap-1 text-xs">
               {(event.vehicleBrand || event.vehicleType || event.vehicleColor || event.plateColor) ? (
                 <>
                   {event.vehicleBrand && (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-muted-foreground">Brand:</span>
-                      <span className="font-medium text-foreground">{event.vehicleBrand}</span>
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="text-muted-foreground">Μάρκα:</span>
+                      <span className="truncate font-medium">{event.vehicleBrand}</span>
                     </div>
                   )}
                   
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {event.vehicleType && (
-                      <span className="px-1.5 py-0.5 rounded bg-muted text-xs font-medium uppercase">
-                        {event.vehicleType}
-                      </span>
-                    )}
-                    {event.vehicleColor && (
-                      <span className="px-1.5 py-0.5 rounded bg-muted text-xs font-medium">
-                        {event.vehicleColor}
-                      </span>
-                    )}
-                    {event.plateColor && (
-                      <span className="px-1.5 py-0.5 rounded bg-muted text-xs font-medium">
-                        {event.plateColor} Plate
-                      </span>
-                    )}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {event.vehicleType && <Badge variant="outline">{event.vehicleType}</Badge>}
+                    {event.vehicleColor && <Badge variant="outline">{event.vehicleColor}</Badge>}
+                    {event.plateColor && <Badge variant="outline">Πινακίδα {event.plateColor}</Badge>}
                   </div>
                 </>
               ) : (
-                <div className="text-xs text-muted-foreground italic">
-                  Vehicle details not available
+                <div className="text-xs text-muted-foreground">
+                  Δεν υπάρχουν στοιχεία οχήματος
                 </div>
               )}
             </div>
 
-            {/* Time and Camera — same card: when OUT, show Left at + Came in at */}
-            <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground pt-1 border-t border-border/50">
+            {/* Ώρα και κάμερα — στην έξοδο δείχνει και την ώρα εισόδου */}
+            <div className="flex flex-wrap items-center gap-2 border-t pt-1.5 text-xs text-muted-foreground">
               <div className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
+                <Clock className="size-4" aria-hidden />
                 {event.direction === "OUT" ? (
-                  <span>Left at: {format(new Date(event.recognitionTime), "dd/MM HH:mm:ss")}</span>
+                  <span className="tabular-nums">Αποχώρησε: {formatDayClock(event.recognitionTime)}</span>
                 ) : (
-                  <span>Recognized at: {format(new Date(event.recognitionTime), "HH:mm:ss")}</span>
+                  <span className="tabular-nums">Αναγνωρίστηκε: {formatClock(event.recognitionTime)}</span>
                 )}
               </div>
               {entryTime && event.direction === "OUT" && (
-                <Badge
-                  variant="secondary"
-                  className="text-xs font-bold px-2 py-1 bg-muted text-muted-foreground border border-border inline-flex items-center gap-1"
-                >
-                  Came in at: {format(entryTime, "dd/MM HH:mm")}
+                <Badge variant="neutral" className="tabular-nums">
+                  Μπήκε: {formatDayTime(entryTime)}
                 </Badge>
               )}
               {isStillInside && (
-                <Badge
-                  variant="secondary"
-                  className="text-xs font-bold px-2 py-1 bg-primary/15 text-primary border border-primary/30 inline-flex items-center gap-1.5"
-                  suppressHydrationWarning
-                >
-                  <Clock className="h-3.5 w-3.5" />
-                  {mounted ? formatTimeInParking(event.recognitionTime, now) : "—"} in parking
+                <Badge variant="success" className="tabular-nums" suppressHydrationWarning>
+                  <Clock aria-hidden />
+                  {mounted ? formatTimeInParking(event.recognitionTime, now) : "—"} στο πάρκινγκ
                 </Badge>
               )}
               {event.camera?.name && (
-                <span className="truncate">{event.camera.name}</span>
+                <span className="min-w-0 truncate" title={event.camera.name}>{event.camera.name}</span>
               )}
               {event.direction && (
                 <span
-                  className={`uppercase font-medium ${directionColor}`}
-                  title={event.direction === "IN" ? "From camera: Approach = coming in (IN)" : event.direction === "OUT" ? "From camera: Away = leaving (OUT)" : undefined}
+                  className="font-medium"
+                  title={event.direction === "IN" ? "Από την κάμερα: Approach = είσοδος (IN)" : event.direction === "OUT" ? "Από την κάμερα: Away = έξοδος (OUT)" : undefined}
                 >
                   {event.direction}
                 </span>
@@ -1739,21 +1589,20 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                       ? Math.round((new Date(event.recognitionTime).getTime() - new Date(entryTime).getTime()) / (60 * 1000))
                       : null;
                 return totalMinutes != null && totalMinutes >= 0 ? (
-                  <Badge
-                    variant="secondary"
-                    className="text-xs font-bold px-2 py-1 bg-primary/15 text-primary border border-primary/30 inline-flex items-center gap-1"
-                  >
-                    <Clock className="h-3 w-3" />
-                    Time in parking: {formatDurationMinutes(totalMinutes)}
+                  <Badge variant="info" className="tabular-nums">
+                    <Clock aria-hidden />
+                    Χρόνος στο πάρκινγκ: {formatDurationMinutes(totalMinutes)}
                   </Badge>
                 ) : null;
               })()}
             </div>
 
-            {/* Additional Info — speed only (confidence and region removed) */}
+            {/* Πρόσθετα στοιχεία — μόνο ταχύτητα */}
             {(event.speed !== null && event.speed !== undefined) ? (
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span>Speed: {typeof event.speed === "number" ? `${event.speed} km/h` : event.speed}</span>
+                <span className="tabular-nums">
+                  Ταχύτητα: {typeof event.speed === "number" ? `${numberFormat.format(event.speed)} χλμ/ώρα` : event.speed}
+                </span>
               </div>
             ) : null}
           </div>

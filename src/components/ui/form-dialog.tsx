@@ -17,11 +17,11 @@ interface FormDialogProps {
 }
 
 const maxWidthClasses = {
-  sm: "max-w-sm",
-  md: "max-w-md",
-  lg: "max-w-lg",
-  xl: "max-w-xl",
-  "2xl": "max-w-2xl",
+  sm: "sm:max-w-sm",
+  md: "sm:max-w-md",
+  lg: "sm:max-w-lg",
+  xl: "sm:max-w-xl",
+  "2xl": "sm:max-w-2xl",
 };
 
 export function FormDialog({
@@ -30,26 +30,17 @@ export function FormDialog({
   title,
   children,
   maxWidth = "lg",
-  maxHeight = "max-h-[85vh]",
+  maxHeight = "max-h-[90vh]",
 }: FormDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={`${maxWidthClasses[maxWidth]} ${maxHeight} overflow-y-auto`}>
         <DialogHeader>
-          <DialogTitle className="uppercase text-sm font-bold">{title}</DialogTitle>
+          {/* Όχι `uppercase`: στα ελληνικά χάνονται οι τόνοι (MASTER §1). */}
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         {children}
       </DialogContent>
     </Dialog>
   );
 }
-
-
-
-
-
-
-
-
-
-

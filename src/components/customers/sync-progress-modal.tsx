@@ -3,7 +3,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle } from "lucide-react";
 
 interface SyncProgressModalProps {
   open: boolean;
@@ -15,6 +15,26 @@ interface SyncProgressModalProps {
     current?: number;
   };
   error?: string;
+}
+
+/** Μία μέτρηση του συγχρονισμού — ίδιο ύφος και στις τρεις καταστάσεις. */
+function SyncStat({ label, value, tone }: { label: string; value: number; tone?: "success" | "warning" }) {
+  return (
+    <div className="rounded-md border bg-card p-2 text-center">
+      <div
+        className={
+          tone === "success"
+            ? "text-lg font-semibold tabular-nums text-green-700 dark:text-green-400"
+            : tone === "warning"
+              ? "text-lg font-semibold tabular-nums text-amber-700 dark:text-amber-400"
+              : "text-lg font-semibold tabular-nums text-muted-foreground"
+        }
+      >
+        {value.toLocaleString("el-GR")}
+      </div>
+      <div className="mt-0.5 text-xs text-muted-foreground">{label}</div>
+    </div>
+  );
 }
 
 export function SyncProgressModal({
@@ -30,29 +50,29 @@ export function SyncProgressModal({
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="max-w-md" showCloseButton={status !== "syncing"}>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" showCloseButton={status !== "syncing"}>
         <DialogHeader>
-          <DialogTitle className="uppercase text-sm font-bold flex items-center gap-2">
-            {status === "syncing" && <Loader2 className="h-4 w-4 animate-spin" />}
-            {status === "syncing" && "SYNCING CUSTOMERS FROM ERP"}
-            {status === "completed" && "SYNC COMPLETED"}
-            {status === "error" && "SYNC FAILED"}
+          <DialogTitle className="flex items-center gap-2">
+            {status === "syncing" && (
+              <>
+                <Spinner />
+                Συγχρονισμός πελατών από το ERP
+              </>
+            )}
+            {status === "completed" && "Ο συγχρονισμός ολοκληρώθηκε"}
+            {status === "error" && "Ο συγχρονισμός απέτυχε"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-2">
           {status === "syncing" && (
             <>
-              <div className="flex items-center justify-center py-4">
-                <Spinner className="h-8 w-8 text-violet-500" />
-              </div>
-
               <div className="space-y-2">
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Processing customers...</span>
+                  <span>Επεξεργασία πελατών…</span>
                   {progress && progress.total > 0 && (
-                    <span>
-                      {progress.synced + progress.skipped} / {progress.total}
+                    <span className="tabular-nums">
+                      {(progress.synced + progress.skipped).toLocaleString("el-GR")} / {progress.total.toLocaleString("el-GR")}
                     </span>
                   )}
                 </div>
@@ -60,115 +80,45 @@ export function SyncProgressModal({
               </div>
 
               {progress && (
-                <div className="grid grid-cols-3 gap-4 pt-2">
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-violet-600">
-                      {progress.synced}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground uppercase">
-                      Synced
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-yellow-600">
-                      {progress.skipped}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground uppercase">
-                      Skipped
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-muted-foreground">
-                      {progress.total}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground uppercase">
-                      Total
-                    </div>
-                  </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <SyncStat label="Νέοι" value={progress.synced} tone="success" />
+                  <SyncStat label="Παραλείφθηκαν" value={progress.skipped} tone="warning" />
+                  <SyncStat label="Σύνολο" value={progress.total} />
                 </div>
               )}
 
-              <p className="text-xs text-center text-muted-foreground">
-                Please wait while we sync customers from SoftOne ERP...
+              <p className="text-center text-xs text-muted-foreground">
+                Ο συγχρονισμός με το SoftOne ERP εκτελείται — μην κλείσετε το παράθυρο.
               </p>
             </>
           )}
 
           {status === "completed" && progress && (
             <div className="space-y-4">
-              <div className="flex items-center justify-center py-4">
-                <div className="h-16 w-16 rounded-full bg-green-500/10 flex items-center justify-center">
-                  <svg
-                    className="h-8 w-8 text-green-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </div>
+              <div className="flex items-center justify-center py-2">
+                <CheckCircle2 className="size-10 text-green-600 dark:text-green-400" aria-hidden />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="text-lg font-bold text-green-600">
-                    {progress.synced}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground uppercase">
-                    Synced
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-yellow-600">
-                    {progress.skipped}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground uppercase">
-                    Skipped
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-muted-foreground">
-                    {progress.total}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground uppercase">
-                    Total
-                  </div>
-                </div>
+              <div className="grid grid-cols-3 gap-2">
+                <SyncStat label="Νέοι" value={progress.synced} tone="success" />
+                <SyncStat label="Παραλείφθηκαν" value={progress.skipped} tone="warning" />
+                <SyncStat label="Σύνολο" value={progress.total} />
               </div>
 
-              <p className="text-xs text-center text-muted-foreground">
-                Sync completed successfully!
+              <p className="text-center text-xs text-muted-foreground">
+                Ο συγχρονισμός ολοκληρώθηκε με επιτυχία.
               </p>
             </div>
           )}
 
           {status === "error" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-center py-4">
-                <div className="h-16 w-16 rounded-full bg-red-500/10 flex items-center justify-center">
-                  <svg
-                    className="h-8 w-8 text-red-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </div>
+              <div className="flex items-center justify-center py-2">
+                <XCircle className="size-10 text-destructive" aria-hidden />
               </div>
 
-              <p className="text-xs text-center text-red-600">
-                {error || "An error occurred during sync"}
+              <p className="text-center text-xs text-destructive">
+                {error || "Παρουσιάστηκε σφάλμα κατά τον συγχρονισμό."}
               </p>
             </div>
           )}
@@ -177,12 +127,3 @@ export function SyncProgressModal({
     </Dialog>
   );
 }
-
-
-
-
-
-
-
-
-

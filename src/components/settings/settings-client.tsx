@@ -1,14 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/admin/page";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { formFieldStyles } from "@/lib/form-styles";
-import { Loader2, Save, Clock, RefreshCw } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Save, Clock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 export type WorkingHoursRow = {
@@ -22,6 +30,17 @@ export type WorkingHoursRow = {
 interface SettingsClientProps {
   initialWorkingHours: WorkingHoursRow[];
 }
+
+/** Ελληνικά ονόματα ημερών — παρουσίαση μόνο, ανεξάρτητα από την ετικέτα που έρχεται από το API. */
+const DAY_LABELS: Record<number, string> = {
+  0: "Κυριακή",
+  1: "Δευτέρα",
+  2: "Τρίτη",
+  3: "Τετάρτη",
+  4: "Πέμπτη",
+  5: "Παρασκευή",
+  6: "Σάββατο",
+};
 
 export function SettingsClient({ initialWorkingHours }: SettingsClientProps) {
   const [workingHours, setWorkingHours] =
@@ -42,7 +61,7 @@ export function SettingsClient({ initialWorkingHours }: SettingsClientProps) {
         setWorkingHours(data.workingHours);
       }
     } catch (e) {
-      toast.error("Failed to load working hours");
+      toast.error("Η φόρτωση του ωραρίου απέτυχε");
     } finally {
       setLoading(false);
     }
@@ -65,12 +84,12 @@ export function SettingsClient({ initialWorkingHours }: SettingsClientProps) {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success("Working hours saved");
+        toast.success("Το ωράριο αποθηκεύτηκε");
       } else {
-        toast.error(data.error || "Failed to save");
+        toast.error(data.error || "Η αποθήκευση απέτυχε");
       }
     } catch (e) {
-      toast.error("Failed to save working hours");
+      toast.error("Η αποθήκευση του ωραρίου απέτυχε");
     } finally {
       setSaving(false);
     }
@@ -85,106 +104,105 @@ export function SettingsClient({ initialWorkingHours }: SettingsClientProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
-        title="SETTINGS"
-        subtitle="Parking working hours per weekday for managing cars and pricing"
-      />
-
-      <Card className="border-0 card-shadow-xl bg-card/50 backdrop-blur-sm">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            PARKING WORKING HOURS
-          </CardTitle>
-          <div className="flex gap-2">
+        title="Ρυθμίσεις"
+        description="Ωράριο λειτουργίας του πάρκινγκ ανά ημέρα — καθορίζει την πρόσβαση και την τιμολόγηση."
+        icon={Clock}
+        actions={
+          <>
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={loadWorkingHours}
               disabled={loading}
-              className={formFieldStyles.button}
+              title="Ανανέωση από τη βάση"
             >
-              {loading ? (
-                <Loader2 className={formFieldStyles.buttonIcon + " animate-spin"} />
-              ) : (
-                <RefreshCw className={formFieldStyles.buttonIcon} />
-              )}
-              REFRESH
+              {loading ? <Spinner /> : <RefreshCw />}
+              Ανανέωση
             </Button>
-            <Button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className={formFieldStyles.button}
-            >
-              {saving ? (
-                <Loader2 className={formFieldStyles.buttonIcon + " animate-spin"} />
-              ) : (
-                <Save className={formFieldStyles.buttonIcon} />
-              )}
-              SAVE
+            <Button type="button" onClick={handleSave} disabled={saving} title="Αποθήκευση ωραρίου">
+              {saving ? <Spinner /> : <Save />}
+              Αποθήκευση
             </Button>
-          </div>
+          </>
+        }
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="size-4 text-primary" aria-hidden />
+            Ωράριο λειτουργίας
+          </CardTitle>
+          <CardDescription>
+            Ορίστε ώρα ανοίγματος και κλεισίματος για κάθε ημέρα. Οι κλειστές ημέρες δεν έχουν ώρες.
+          </CardDescription>
         </CardHeader>
-        <CardContent className={formFieldStyles.formSpacing}>
-          <p className="text-[9px] text-muted-foreground mb-3">
-            Set open/close times for each weekday. Closed days have no open/close time. Used for managing access and pricing.
-          </p>
-          <div className="space-y-2">
-            {workingHours.map((row) => (
-              <div
-                key={row.dayOfWeek}
-                className={`grid grid-cols-1 md:grid-cols-12 ${formFieldStyles.gridGap} items-center gap-2 border-b border-border/50 pb-2 last:border-0`}
-              >
-                <div className="md:col-span-2 font-medium text-[9px] uppercase">
-                  {row.label}
-                </div>
-                <div className="md:col-span-2 flex items-center gap-2">
-                  <Switch
-                    id={`closed-${row.dayOfWeek}`}
-                    checked={row.isClosed}
-                    onCheckedChange={(checked) =>
-                      updateRow(row.dayOfWeek, { isClosed: checked })
-                    }
-                  />
-                  <Label
-                    htmlFor={`closed-${row.dayOfWeek}`}
-                    className="text-[9px] uppercase"
-                  >
-                    Closed
-                  </Label>
-                </div>
-                {!row.isClosed && (
-                  <>
-                    <div className={`md:col-span-2 ${formFieldStyles.fieldSpacing}`}>
-                      <Label className={formFieldStyles.label}>OPEN</Label>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Ημέρα</TableHead>
+                <TableHead>Κλειστά</TableHead>
+                <TableHead>Άνοιγμα</TableHead>
+                <TableHead>Κλείσιμο</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {workingHours.map((row) => (
+                <TableRow key={row.dayOfWeek}>
+                  <TableCell className="font-medium">
+                    {DAY_LABELS[row.dayOfWeek] ?? row.label}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id={`closed-${row.dayOfWeek}`}
+                        checked={row.isClosed}
+                        onCheckedChange={(checked) =>
+                          updateRow(row.dayOfWeek, { isClosed: checked })
+                        }
+                      />
+                      <Label htmlFor={`closed-${row.dayOfWeek}`} className="text-xs">
+                        {row.isClosed ? "Κλειστά" : "Ανοιχτά"}
+                      </Label>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {row.isClosed ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
                       <Input
                         type="time"
+                        aria-label={`Ώρα ανοίγματος — ${DAY_LABELS[row.dayOfWeek] ?? row.label}`}
                         value={row.openTime}
                         onChange={(e) =>
                           updateRow(row.dayOfWeek, { openTime: e.target.value })
                         }
-                        className={formFieldStyles.input}
+                        className="h-8 w-32 tabular-nums"
                       />
-                    </div>
-                    <div className={`md:col-span-2 ${formFieldStyles.fieldSpacing}`}>
-                      <Label className={formFieldStyles.label}>CLOSE</Label>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {row.isClosed ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
                       <Input
                         type="time"
+                        aria-label={`Ώρα κλεισίματος — ${DAY_LABELS[row.dayOfWeek] ?? row.label}`}
                         value={row.closeTime}
                         onChange={(e) =>
                           updateRow(row.dayOfWeek, { closeTime: e.target.value })
                         }
-                        className={formFieldStyles.input}
+                        className="h-8 w-32 tabular-nums"
                       />
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

@@ -1,21 +1,30 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import gsap from "gsap";
-import { PageHeader } from "@/components/ui/page-header";
+import { PageHeader, KpiTile, EmptyState } from "@/components/admin/page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formFieldStyles } from "@/lib/form-styles";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { CalendarIcon, Download, ArrowDownRight, Car, Clock, Camera, X } from "lucide-react";
+import {
+  CalendarIcon,
+  Download,
+  ArrowDownRight,
+  Car,
+  Clock,
+  Camera,
+  X,
+  Fingerprint,
+  ImageIcon,
+  CalendarRange,
+} from "lucide-react";
 import Image from "next/image";
 import type { Role } from "@prisma/client";
 
@@ -53,6 +62,29 @@ interface OutWithoutInClientProps {
   plateFilter?: string | null;
 }
 
+/** Ημερομηνία σε ώρα Ελλάδας. */
+function formatDate(value: Date) {
+  return value.toLocaleDateString("el-GR", {
+    timeZone: "Europe/Athens",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/** Ημερομηνία και ώρα σε ώρα Ελλάδας. */
+function formatDateTime(value: Date) {
+  return value.toLocaleString("el-GR", {
+    timeZone: "Europe/Athens",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
 export function OutWithoutInClient({
   events: initialEvents,
   startDate: initialStartDate,
@@ -82,6 +114,23 @@ export function OutWithoutInClient({
     return () => ctx.revert();
   }, []);
 
+  const summary = useMemo(() => {
+    const plates = new Set(
+      initialEvents
+        .map((e) => (e.licensePlate || "").trim().toUpperCase())
+        .filter((p) => p.length > 0)
+    );
+    const withImage = initialEvents.filter((e) => e.images.length > 0).length;
+    const days =
+      Math.max(
+        1,
+        Math.round(
+          (initialEndDate.getTime() - initialStartDate.getTime()) / (24 * 60 * 60 * 1000)
+        )
+      ) || 1;
+    return { plates: plates.size, withImage, days };
+  }, [initialEvents, initialStartDate, initialEndDate]);
+
   const handleDateChange = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("startDate", format(startDate, "yyyy-MM-dd"));
@@ -92,14 +141,14 @@ export function OutWithoutInClient({
 
   const handleExportCSV = () => {
     const headers = [
-      "License Plate",
-      "Recognition Time",
-      "Camera",
-      "Vehicle Type",
-      "Vehicle Brand",
-      "Vehicle Color",
-      "Confidence",
-      "Speed",
+      "Πινακίδα",
+      "Ώρα αναγνώρισης",
+      "Κάμερα",
+      "Τύπος οχήματος",
+      "Μάρκα",
+      "Χρώμα",
+      "Βεβαιότητα",
+      "Ταχύτητα",
     ];
     const rows = initialEvents.map((event) => [
       event.licensePlate || "",
@@ -129,37 +178,84 @@ export function OutWithoutInClient({
   };
 
   return (
-    <div ref={containerRef} className="space-y-6">
+    <div ref={containerRef} className="space-y-4">
       <PageHeader
-        title="OUT WITHOUT IN REPORT"
-        subtitle={
+        title="Έξοδοι χωρίς είσοδο"
+        description={
           initialPlateFilter
-            ? `Vehicles that exited without a recorded entry — viewing plate: ${initialPlateFilter}`
-            : "Vehicles that exited without a recorded entry (camera missed IN event)"
+            ? `Οχήματα που βγήκαν χωρίς καταγεγραμμένη είσοδο — πινακίδα: ${initialPlateFilter}`
+            : "Οχήματα που βγήκαν χωρίς καταγεγραμμένη είσοδο (η κάμερα δεν κατέγραψε το συμβάν εισόδου)."
+        }
+        icon={ArrowDownRight}
+        actions={
+          initialEvents.length > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              title="Εξαγωγή των εγγραφών σε αρχείο CSV"
+            >
+              <Download className="size-4" />
+              Εξαγωγή CSV
+            </Button>
+          ) : undefined
         }
       />
 
-      {/* Date Filter Controls */}
-      <Card className="border-0 card-shadow-xl bg-card/50 backdrop-blur-sm">
+      {/* Αριθμοί */}
+      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+        <KpiTile
+          label="Έξοδοι χωρίς είσοδο"
+          value={initialEvents.length.toLocaleString("el-GR")}
+          hint="Συμβάντα στην επιλεγμένη περίοδο"
+          icon={ArrowDownRight}
+          tone="red"
+        />
+        <KpiTile
+          label="Μοναδικές πινακίδες"
+          value={summary.plates.toLocaleString("el-GR")}
+          hint="Διαφορετικά οχήματα"
+          icon={Fingerprint}
+          tone="blue"
+        />
+        <KpiTile
+          label="Με φωτογραφία"
+          value={summary.withImage.toLocaleString("el-GR")}
+          hint="Συμβάντα με εικόνα από την κάμερα"
+          icon={ImageIcon}
+          tone="green"
+        />
+        <KpiTile
+          label="Ημέρες περιόδου"
+          value={summary.days.toLocaleString("el-GR")}
+          hint={`${formatDate(initialStartDate)} — ${formatDate(initialEndDate)}`}
+          icon={CalendarRange}
+          tone="amber"
+        />
+      </div>
+
+      {/* Φίλτρα */}
+      <Card>
         <CardHeader>
-          <CardTitle className="text-xs font-bold uppercase text-muted-foreground">
-            FILTER BY DATE RANGE
-          </CardTitle>
+          <CardTitle>Φίλτρο περιόδου</CardTitle>
         </CardHeader>
-        <CardContent className={formFieldStyles.formSpacing}>
-          <div className={`grid grid-cols-1 md:grid-cols-3 ${formFieldStyles.gridGap} items-end`}>
-            <div className={formFieldStyles.fieldSpacing}>
-              <Label htmlFor="startDate" className={formFieldStyles.label}>
-                START DATE
+        <CardContent>
+          <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-3">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="startDate" className="text-xs text-muted-foreground">
+                Από
               </Label>
               <Popover open={isStartDateOpen} onOpenChange={setIsStartDateOpen}>
                 <PopoverTrigger asChild>
                   <Button
+                    id="startDate"
                     variant="outline"
-                    className={`${formFieldStyles.input} justify-start text-left font-normal`}
+                    className="w-full justify-start text-left font-normal"
+                    title="Επιλογή ημερομηνίας έναρξης"
                   >
-                    <CalendarIcon className={formFieldStyles.buttonIcon} />
-                    {format(startDate, "PPP")}
+                    <CalendarIcon className="size-4" />
+                    <span className="truncate">{formatDate(startDate)}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -178,18 +274,20 @@ export function OutWithoutInClient({
               </Popover>
             </div>
 
-            <div className={formFieldStyles.fieldSpacing}>
-              <Label htmlFor="endDate" className={formFieldStyles.label}>
-                END DATE
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="endDate" className="text-xs text-muted-foreground">
+                Έως
               </Label>
               <Popover open={isEndDateOpen} onOpenChange={setIsEndDateOpen}>
                 <PopoverTrigger asChild>
                   <Button
+                    id="endDate"
                     variant="outline"
-                    className={`${formFieldStyles.input} justify-start text-left font-normal`}
+                    className="w-full justify-start text-left font-normal"
+                    title="Επιλογή ημερομηνίας λήξης"
                   >
-                    <CalendarIcon className={formFieldStyles.buttonIcon} />
-                    {format(endDate, "PPP")}
+                    <CalendarIcon className="size-4" />
+                    <span className="truncate">{formatDate(endDate)}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -208,191 +306,149 @@ export function OutWithoutInClient({
               </Popover>
             </div>
 
-            <div className="flex gap-2">
-              <Button onClick={handleDateChange} className={formFieldStyles.button}>
-                APPLY FILTER
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" onClick={handleDateChange} title="Εφαρμογή του φίλτρου περιόδου">
+                Εφαρμογή
               </Button>
-              {initialEvents.length > 0 && (
-                <Button onClick={handleExportCSV} variant="outline" className={formFieldStyles.button}>
-                  <Download className={formFieldStyles.buttonIcon} />
-                  EXPORT CSV
-                </Button>
-              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Summary Card */}
-      <Card className="border-0 card-shadow-xl bg-card/50 backdrop-blur-sm">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-red-500/10 to-orange-500/10">
-              <ArrowDownRight className="h-4 w-4 text-red-600" />
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase text-muted-foreground">
-                TOTAL OUT WITHOUT IN
-              </p>
-              <p className="text-2xl font-bold">{initialEvents.length}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Events Table */}
+      {/* Πίνακας συμβάντων */}
       {initialEvents.length > 0 ? (
-        <Card className="border-0 card-shadow-xl bg-card/50 backdrop-blur-sm">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">
-              OUT EVENTS WITHOUT MATCHING IN
-            </CardTitle>
+            <CardTitle>Έξοδοι χωρίς αντίστοιχη είσοδο</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className={formFieldStyles.label}>IMAGE</TableHead>
-                    <TableHead className={formFieldStyles.label}>LICENSE PLATE</TableHead>
-                    <TableHead className={formFieldStyles.label}>RECOGNITION TIME</TableHead>
-                    <TableHead className={formFieldStyles.label}>CAMERA</TableHead>
-                    <TableHead className={formFieldStyles.label}>VEHICLE INFO</TableHead>
-                    <TableHead className={formFieldStyles.label}>CONFIDENCE</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {initialEvents.map((event) => {
-                    const imageUrl = event.images[0]?.url;
-                    return (
-                      <TableRow key={event.id}>
-                        <TableCell>
-                          {imageUrl ? (
-                            <button
-                              type="button"
-                              onClick={() => setImageModalUrl(imageUrl)}
-                              className="relative h-12 w-20 rounded-md overflow-hidden border border-border cursor-pointer hover:border-primary transition-colors block"
-                            >
-                              <Image
-                                src={imageUrl}
-                                alt={event.licensePlate || "Vehicle"}
-                                fill
-                                className="object-cover"
-                                sizes="80px"
-                              />
-                            </button>
-                          ) : (
-                            <div className="flex h-12 w-20 items-center justify-center rounded-md bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-border">
-                              <Car className="h-4 w-4 text-blue-600" />
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Φωτογραφία</TableHead>
+                  <TableHead>Πινακίδα</TableHead>
+                  <TableHead>Ώρα αναγνώρισης</TableHead>
+                  <TableHead>Κάμερα</TableHead>
+                  <TableHead>Στοιχεία οχήματος</TableHead>
+                  <TableHead className="text-right">Βεβαιότητα</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {initialEvents.map((event) => {
+                  const imageUrl = event.images[0]?.url;
+                  return (
+                    <TableRow key={event.id}>
+                      <TableCell>
+                        {imageUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => setImageModalUrl(imageUrl)}
+                            aria-label={`Άνοιγμα φωτογραφίας για την πινακίδα ${event.licensePlate || "άγνωστη"}`}
+                            title="Άνοιγμα φωτογραφίας"
+                            className="relative block h-12 w-20 cursor-pointer overflow-hidden rounded-md border transition-colors hover:border-primary"
+                          >
+                            <Image
+                              src={imageUrl}
+                              alt={event.licensePlate || "Όχημα"}
+                              fill
+                              className="object-cover"
+                              sizes="80px"
+                            />
+                          </button>
+                        ) : (
+                          <div
+                            className="flex h-12 w-20 items-center justify-center rounded-md border bg-muted"
+                            title="Χωρίς φωτογραφία"
+                          >
+                            <Car className="size-4 text-muted-foreground" aria-hidden />
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono uppercase tabular-nums">
+                            {event.licensePlate || "Άγνωστη"}
+                          </span>
+                          <Badge variant="danger">Χωρίς είσοδο</Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="flex items-center gap-1 tabular-nums">
+                          <Clock className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                          {formatDateTime(new Date(event.recognitionTime))}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="flex min-w-0 items-center gap-1">
+                          <Camera className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                          <span className="truncate">{event.camera?.name || "Άγνωστη"}</span>
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {event.vehicleBrand && (
+                            <div className="min-w-0">
+                              <span className="text-muted-foreground">Μάρκα: </span>
+                              <span className="font-medium">{event.vehicleBrand}</span>
                             </div>
                           )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold uppercase">
-                              {event.licensePlate || "UNKNOWN"}
-                            </span>
-                            <Badge
-                              variant="destructive"
-                              className="text-[0.5rem] px-1.5 py-0.5"
-                            >
-                              NO IN
-                            </Badge>
+                          <div className="flex flex-wrap gap-1">
+                            {event.vehicleType && <Badge variant="neutral">{event.vehicleType}</Badge>}
+                            {event.vehicleColor && <Badge variant="neutral">{event.vehicleColor}</Badge>}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 text-xs">
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            {format(new Date(event.recognitionTime), "yyyy-MM-dd HH:mm:ss")}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 text-xs">
-                            <Camera className="h-3 w-3 text-muted-foreground" />
-                            {event.camera?.name || "Unknown"}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-0.5">
-                            {event.vehicleBrand && (
-                              <div className="text-xs">
-                                <span className="text-muted-foreground">Brand: </span>
-                                <span className="font-medium">{event.vehicleBrand}</span>
-                              </div>
-                            )}
-                            <div className="flex gap-1 flex-wrap">
-                              {event.vehicleType && (
-                                <Badge variant="secondary" className="text-[0.5rem] px-1.5 py-0.5">
-                                  {event.vehicleType}
-                                </Badge>
-                              )}
-                              {event.vehicleColor && (
-                                <Badge variant="secondary" className="text-[0.5rem] px-1.5 py-0.5">
-                                  {event.vehicleColor}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {event.confidence !== null && event.confidence !== undefined ? (
-                            <span className="text-xs">
-                              {typeof event.confidence === "number"
-                                ? `${Math.round(event.confidence)}%`
-                                : event.confidence}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">N/A</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {event.confidence !== null && event.confidence !== undefined ? (
+                          typeof event.confidence === "number"
+                            ? `${Math.round(event.confidence).toLocaleString("el-GR")}%`
+                            : event.confidence
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-0 card-shadow-xl bg-card/50 backdrop-blur-sm">
-          <CardContent className="p-6 text-center space-y-4">
-            <ArrowDownRight className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground font-medium">
-                No OUT events without matching IN found
-              </p>
-              <p className="text-xs text-muted-foreground">
-                All OUT events in the selected date range have corresponding IN events.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={ArrowDownRight}
+          title="Καμία έξοδος χωρίς είσοδο"
+          description="Όλες οι έξοδοι της επιλεγμένης περιόδου έχουν αντίστοιχη καταγεγραμμένη είσοδο."
+        />
       )}
 
-      {/* Image modal — 1280px width */}
+      {/* Προβολή φωτογραφίας — πλάτος 1280px */}
       <Dialog open={!!imageModalUrl} onOpenChange={(open) => !open && setImageModalUrl(null)}>
         <DialogContent
-          className="max-w-[1280px] w-full p-0 bg-transparent border-0 shadow-none"
+          className="w-full max-w-[1280px] border-0 bg-transparent p-0 shadow-none"
           showCloseButton={false}
         >
-          <DialogTitle className="sr-only">Vehicle image</DialogTitle>
+          <DialogTitle className="sr-only">Φωτογραφία οχήματος</DialogTitle>
           {imageModalUrl && (
-            <div className="relative w-full bg-background/95 backdrop-blur-sm rounded-lg overflow-hidden border-2 border-border shadow-2xl">
-              <button
+            <div className="relative w-full overflow-hidden rounded-lg border bg-background">
+              <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={() => setImageModalUrl(null)}
-                className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 backdrop-blur-sm border border-border hover:bg-background transition-colors shadow-lg"
-                aria-label="Close"
+                className="absolute top-4 right-4 z-10 rounded-full"
+                aria-label="Κλείσιμο φωτογραφίας"
+                title="Κλείσιμο"
               >
-                <X className="h-4 w-4" />
-              </button>
-              <div className="relative w-full max-h-[90vh] overflow-auto">
+                <X className="size-4" />
+              </Button>
+              <div className="relative max-h-[90vh] w-full overflow-auto">
                 <Image
                   src={imageModalUrl}
-                  alt="Vehicle"
+                  alt="Φωτογραφία οχήματος"
                   width={1280}
                   height={960}
-                  className="w-full max-w-[1280px] h-auto object-contain"
+                  className="h-auto w-full max-w-[1280px] object-contain"
                   sizes="1280px"
                 />
               </div>
