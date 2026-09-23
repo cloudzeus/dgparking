@@ -1,0 +1,93 @@
+{
+  "site": {
+    "name": "MEGA Parking",
+    "tagline": "Pireo",
+    "address": "Via Mavromichali 4, Pireo 185 45",
+    "workingHours": "Orari di apertura",
+    "workingHoursWeekday": "Lunedì – Venerdì: 06:30 – 22:30",
+    "workingHoursSaturday": "Sabato: 08:00 – 16:00",
+    "workingHoursSunday": "Domenica: chiuso"
+  },
+  "nav": {
+    "home": "Home",
+    "services": "Servizi",
+    "about": "Chi siamo",
+    "prices": "Prezzi",
+    "carWash": "Lavaggio auto",
+    "contact": "Contatti",
+    "menu": "Menu",
+    "openMenu": "Apri il menu",
+    "language": "Lingua",
+    "login": "Accedi",
+    "register": "Registrati",
+    "customerPortal": "Area clienti"
+  },
+  "hero": {
+    "badge": "Gestione intelligente del parcheggio",
+    "title": "Soluzioni di parcheggio intelligenti",
+    "subtitle": "a Pireo",
+    "description": "Riconoscimento delle targhe, accesso controllato, contratti e monitoraggio in tempo reale. Un'unica piattaforma per tutto il parcheggio.",
+    "primaryCta": "Crea un account",
+    "secondaryCta": "Accesso clienti"
+  },
+  "features": {
+    "title": "Cosa fa la piattaforma",
+    "description": "Tutto ciò che serve a un parcheggio per funzionare senza scartoffie e senza code.",
+    "lpr": {
+      "title": "Riconoscimento delle targhe",
+      "description": "Le telecamere leggono la targa all'ingresso e all'uscita e registrano ogni movimento con foto e orario."
+    },
+    "access": {
+      "title": "Accesso controllato",
+      "description": "Le sbarre si aprono da sole per i veicoli con un contratto attivo. I visitatori entrano e pagano in base al tempo."
+    },
+    "contracts": {
+      "title": "Contratti e abbonamenti",
+      "description": "Abbonamenti mensili, contratti aziendali e più veicoli per cliente, con date di validità e limiti."
+    },
+    "dashboard": {
+      "title": "Situazione in tempo reale",
+      "description": "Quali veicoli sono dentro, quanti posti restano e cosa è successo nell'ultima ora — in una sola schermata."
+    },
+    "erp": {
+      "title": "Integrazione con SoftOne",
+      "description": "Clienti, articoli e documenti restano allineati con l'ERP, senza doppi inserimenti."
+    },
+    "reports": {
+      "title": "Report e storico",
+      "description": "Movimenti per giorno, uscite senza ingresso e lo storico completo dei riconoscimenti per ogni targa."
+    }
+  },
+  "about": {
+    "title": "Perché MEGA Parking",
+    "description": "Parcheggia accanto al porto di Pireo, in una struttura sorvegliata 24 ore su 24.",
+    "location": {
+      "title": "Nel cuore di Pireo",
+      "description": "A pochi minuti dal porto, dagli uffici e dai mezzi pubblici."
+    },
+    "security": {
+      "title": "Sicurezza 24/7",
+      "description": "Una struttura ben illuminata, con telecamere e sistemi di sicurezza attivi tutto il giorno."
+    },
+    "space": {
+      "title": "Posti spaziosi",
+      "description": "Posti ampi, adatti sia alle utilitarie sia ai SUV di grandi dimensioni."
+    },
+    "support": {
+      "title": "Sempre a disposizione",
+      "description": "Personale pronto ad aiutarti per il parcheggio e per i nostri servizi."
+    }
+  },
+  "cta": {
+    "title": "Pronto a semplificare il tuo parcheggio?",
+    "description": "Crea un account e gestisci abbonamento, veicoli e movimenti da un unico posto.",
+    "primary": "Crea un account",
+    "secondary": "Contattaci"
+  },
+  "footer": {
+    "quickLinks": "Link rapidi",
+    "services": "Servizi",
+    "contact": "Contatti",
+    "rights": "Tutti i diritti riservati."
+  }
+}

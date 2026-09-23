@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Inter } from "next/font/google";
+import { Geist_Mono, Inter, Roboto } from "next/font/google";
+import { getLocale } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -15,6 +16,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/* MEGA Parking: η γραμματοσειρά του δημόσιου site. */
+const roboto = Roboto({
+  variable: "--font-roboto",
+  subsets: ["latin", "greek"],
+  display: "swap",
+});
+
 /** Prevents static prerender of internal routes (_not-found, _global-error) which fail with useContext during build. */
 export const dynamic = "force-dynamic";
 
@@ -24,15 +32,23 @@ export const metadata: Metadata = {
     "SMART-PARK: αναγνώριση πινακίδων, έλεγχος πρόσβασης, συμβόλαια και πίνακες ελέγχου σε πραγματικό χρόνο.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Δημόσιες σελίδες: η γλώσσα της διαδρομής (/el, /en, /it).
+  // Σελίδες διαχείρισης: δεν έχουν πρόθεμα, οπότε μένει η προεπιλογή (ελληνικά).
+  const locale = await getLocale();
+
   return (
     // Οι μεταβλητές γραμματοσειράς στο <html>: τα tokens (--font-sans) τις
     // διαβάζουν από το :root του dg-theme.css.
-    <html lang="el" className={`${inter.variable} ${geistMono.variable}`} suppressHydrationWarning>
+    <html
+      lang={locale}
+      className={`${inter.variable} ${geistMono.variable} ${roboto.variable}`}
+      suppressHydrationWarning
+    >
       <body className="min-h-screen bg-background font-sans antialiased" suppressHydrationWarning>
         {children}
         <Toaster position="top-center" richColors />

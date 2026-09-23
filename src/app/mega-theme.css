@@ -1,0 +1,84 @@
+/*
+ * MEGA Parking — χρώματα του δημόσιου site (cloudzeus/megaparkingsite).
+ *
+ * Ισχύουν ΜΟΝΟ μέσα στο `.theme-mega` (το layout των δημόσιων σελίδων), ώστε
+ * οι σελίδες διαχείρισης να κρατούν τα tokens του DG. Ίδια components,
+ * διαφορετική μάρκα.
+ *
+ * Μπλε #17285B · Κόκκινο #BE0E30 · Roboto.
+ */
+
+.theme-mega {
+  --radius: 0.5rem;
+
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.269 0.061 265); /* MEGA blue σε κείμενο */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.269 0.061 265);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.269 0.061 265);
+
+  --primary: oklch(0.297 0.086 268); /* #17285B */
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.968 0.007 265);
+  --secondary-foreground: oklch(0.297 0.086 268);
+  --muted: oklch(0.968 0.007 265);
+  --muted-foreground: oklch(0.49 0.02 265);
+  --accent: oklch(0.948 0.012 265);
+  --accent-foreground: oklch(0.297 0.086 268);
+
+  --destructive: oklch(0.505 0.196 19); /* #BE0E30 */
+
+  --border: oklch(0.912 0.009 265);
+  --input: oklch(0.912 0.009 265);
+  --ring: oklch(0.297 0.086 268);
+
+  /* Η μάρκα ως δικά της tokens, για ό,τι δεν είναι σημασιολογικό. */
+  --mega-blue: #17285b;
+  --mega-red: #be0e30;
+}
+
+.dark .theme-mega,
+.theme-mega.dark {
+  --background: oklch(0.242 0.069 268); /* βαθύ MEGA blue */
+  --foreground: oklch(0.98 0 0);
+  --card: oklch(0.297 0.086 268);
+  --card-foreground: oklch(0.98 0 0);
+  --popover: oklch(0.297 0.086 268);
+  --popover-foreground: oklch(0.98 0 0);
+
+  --primary: oklch(0.98 0 0);
+  --primary-foreground: oklch(0.297 0.086 268);
+
+  --secondary: oklch(0.34 0.07 268);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.34 0.07 268);
+  --muted-foreground: oklch(0.78 0.02 265);
+  --accent: oklch(0.34 0.07 268);
+  --accent-foreground: oklch(0.98 0 0);
+
+  --destructive: oklch(0.62 0.2 19);
+
+  --border: oklch(1 0 0 / 14%);
+  --input: oklch(1 0 0 / 18%);
+  --ring: oklch(0.78 0.03 265);
+}
+
+/* Roboto στο site — Inter/Segoe μένουν στις σελίδες διαχείρισης. */
+.theme-mega {
+  font-family: var(--font-roboto), var(--font-inter), system-ui, sans-serif;
+}
+
+/* Το κόκκινο της μάρκας ως υπογράμμιση τίτλου ή τονισμός. */
+.theme-mega .text-mega-red {
+  color: var(--mega-red);
+}
+
+.theme-mega .bg-mega-blue {
+  background-color: var(--mega-blue);
+}
+
+.theme-mega .bg-mega-red {
+  background-color: var(--mega-red);
+}

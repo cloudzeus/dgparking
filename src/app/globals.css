@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 /* DG design system: παλέτα, ρευστά μεγέθη κειμένου, σκιές, γραμματοσειρά. */
 @import "./dg-theme.css";
+/* MEGA Parking: η μάρκα του δημόσιου site, μόνο μέσα στο `.theme-mega`. */
+@import "./mega-theme.css";
 
 @custom-variant dark (&:is(.dark *));
 

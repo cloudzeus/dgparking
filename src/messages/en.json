@@ -1,0 +1,93 @@
+{
+  "site": {
+    "name": "MEGA Parking",
+    "tagline": "Piraeus",
+    "address": "4 Mavromichali St, Piraeus 185 45",
+    "workingHours": "Working hours",
+    "workingHoursWeekday": "Monday – Friday: 06:30 – 22:30",
+    "workingHoursSaturday": "Saturday: 08:00 – 16:00",
+    "workingHoursSunday": "Sunday: closed"
+  },
+  "nav": {
+    "home": "Home",
+    "services": "Services",
+    "about": "About us",
+    "prices": "Prices",
+    "carWash": "Car wash",
+    "contact": "Contact",
+    "menu": "Menu",
+    "openMenu": "Open menu",
+    "language": "Language",
+    "login": "Sign in",
+    "register": "Register",
+    "customerPortal": "Customer portal"
+  },
+  "hero": {
+    "badge": "Smart parking management",
+    "title": "Smart parking solutions",
+    "subtitle": "in Piraeus",
+    "description": "Licence plate recognition, controlled access, contracts and real-time monitoring. One platform for the whole car park.",
+    "primaryCta": "Create an account",
+    "secondaryCta": "Customer sign in"
+  },
+  "features": {
+    "title": "What the platform does",
+    "description": "Everything a car park needs to run without paperwork and without queues.",
+    "lpr": {
+      "title": "Licence plate recognition",
+      "description": "Cameras read the plate on the way in and on the way out, and record every movement with a photo and a timestamp."
+    },
+    "access": {
+      "title": "Controlled access",
+      "description": "Barriers open by themselves for vehicles with an active contract. Visitors pass through and are charged for their time."
+    },
+    "contracts": {
+      "title": "Contracts and subscriptions",
+      "description": "Monthly subscriptions, corporate contracts and several vehicles per customer, with validity dates and limits."
+    },
+    "dashboard": {
+      "title": "Real-time picture",
+      "description": "Which vehicles are inside, how many spaces are left and what happened in the last hour — on one screen."
+    },
+    "erp": {
+      "title": "SoftOne integration",
+      "description": "Customers, items and documents stay in step with the ERP, with nothing entered twice."
+    },
+    "reports": {
+      "title": "Reports and history",
+      "description": "Movements per day, exits without an entry, and the full recognition history for every plate."
+    }
+  },
+  "about": {
+    "title": "Why MEGA Parking",
+    "description": "Park next to the port of Piraeus, in a facility that is monitored around the clock.",
+    "location": {
+      "title": "In the heart of Piraeus",
+      "description": "Minutes from the port, the offices and public transport."
+    },
+    "security": {
+      "title": "Secure 24/7",
+      "description": "A well-lit facility with cameras and security systems throughout the day."
+    },
+    "space": {
+      "title": "Spacious bays",
+      "description": "Wide spaces that fit everything from compact cars to large SUVs."
+    },
+    "support": {
+      "title": "Here to help",
+      "description": "Staff on hand for anything you need about parking and our services."
+    }
+  },
+  "cta": {
+    "title": "Ready to simplify your parking?",
+    "description": "Create an account and manage your subscription, your vehicles and your movements from one place.",
+    "primary": "Create an account",
+    "secondary": "Contact us"
+  },
+  "footer": {
+    "quickLinks": "Quick links",
+    "services": "Services",
+    "contact": "Contact",
+    "rights": "All rights reserved."
+  }
+}

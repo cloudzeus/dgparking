@@ -1,5 +1,7 @@
 import { auth } from "@/lib/auth";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import createIntlMiddleware from "next-intl/middleware";
+import { routing } from "@/i18n/routing";
 
 // Routes that don't require authentication
 const publicRoutes = ["/", "/login", "/register", "/forgot-password", "/reset-password"];
@@ -13,7 +15,19 @@ const roleRoutes: Record<string, string[]> = {
   "/dashboard": ["ADMIN", "MANAGER", "EMPLOYEE", "CLIENT"],
 };
 
-export default auth((req) => {
+/**
+ * Δημόσιο site (MEGA Parking): `/`, `/el`, `/en`, `/it` — το next-intl διαλέγει
+ * γλώσσα και ανακατευθύνει. Δεν χρειάζονται σύνδεση.
+ */
+const intlMiddleware = createIntlMiddleware(routing);
+
+const LOCALE_PATH = new RegExp(`^/(${routing.locales.join("|")})(/|$)`);
+
+function isSitePath(pathname: string) {
+  return pathname === "/" || LOCALE_PATH.test(pathname);
+}
+
+const authProxy = auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
   const userRole = req.auth?.user?.role;
@@ -22,19 +36,19 @@ export default auth((req) => {
   const isPublicRoute = publicRoutes.some(
     (route) => nextUrl.pathname === route || nextUrl.pathname.startsWith("/api/auth")
   );
-  
+
   // Allow SoftOne API routes (they handle their own authentication)
   const isSoftOneApiRoute = nextUrl.pathname.startsWith("/api/softone");
-  
+
   // Allow Cron API routes (they handle their own authentication via X-Cron-Secret)
   const isCronApiRoute = nextUrl.pathname.startsWith("/api/cron");
-  
+
   // Allow Auth API routes
   const isAuthApiRoute = nextUrl.pathname.startsWith("/api/auth");
-  
+
   // Allow Webhook routes (cameras need to POST without authentication)
   const isWebhookRoute = nextUrl.pathname.startsWith("/api/webhooks");
-  
+
   if (isSoftOneApiRoute || isCronApiRoute || isAuthApiRoute || isWebhookRoute) {
     return NextResponse.next();
   }
@@ -66,9 +80,13 @@ export default auth((req) => {
   return NextResponse.next();
 });
 
+export default function proxy(req: NextRequest, event: unknown) {
+  if (isSitePath(req.nextUrl.pathname)) {
+    return intlMiddleware(req);
+  }
+  return (authProxy as unknown as (req: NextRequest, event: unknown) => Response)(req, event);
+}
+
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };
-
-
-

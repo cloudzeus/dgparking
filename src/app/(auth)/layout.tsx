@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Σύνδεση — Kolleris Parking",
+  title: "Σύνδεση — MEGA Parking",
 };
 
 export default function AuthLayout({
@@ -9,5 +9,7 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <div className="min-h-screen bg-muted/40">{children}</div>;
+  // Η σύνδεση είναι η είσοδος των πελατών στο site: κρατά τη μάρκα MEGA
+  // Parking. Από το `/dashboard` και μέσα ισχύουν τα tokens του DG.
+  return <div className="theme-mega min-h-screen bg-muted/40">{children}</div>;
 }
