@@ -1,0 +1,31 @@
+{
+  "site": {
+    "name": "MEGA Parking",
+    "tagline": "Pireo",
+    "address": "Via Mavromichali 4, Pireo 185 45",
+    "workingHours": "Orari di apertura",
+    "workingHoursWeekday": "Lunedì – Venerdì: 06:30 – 22:30",
+    "workingHoursSaturday": "Sabato: 08:00 – 16:00",
+    "workingHoursSunday": "Domenica: chiuso"
+  },
+  "nav": {
+    "home": "Home",
+    "services": "Servizi",
+    "about": "Chi siamo",
+    "prices": "Prezzi",
+    "carWash": "Lavaggio auto",
+    "contact": "Contatti",
+    "menu": "Menu",
+    "openMenu": "Apri il menu",
+    "language": "Lingua",
+    "login": "Accedi",
+    "register": "Registrati",
+    "customerPortal": "Area clienti"
+  },
+  "footer": {
+    "quickLinks": "Link rapidi",
+    "services": "Servizi",
+    "contact": "Contatti",
+    "rights": "Tutti i diritti riservati."
+  }
+}

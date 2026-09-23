@@ -49,7 +49,12 @@ const authProxy = auth((req) => {
   // Allow Webhook routes (cameras need to POST without authentication)
   const isWebhookRoute = nextUrl.pathname.startsWith("/api/webhooks");
 
-  if (isSoftOneApiRoute || isCronApiRoute || isAuthApiRoute || isWebhookRoute) {
+  // Φόρμες του δημόσιου site (επικοινωνία, αίτημα προσφοράς) — χωρίς σύνδεση.
+  const isSiteFormRoute =
+    nextUrl.pathname.startsWith("/api/send-contact") ||
+    nextUrl.pathname.startsWith("/api/send-proposal");
+
+  if (isSoftOneApiRoute || isCronApiRoute || isAuthApiRoute || isWebhookRoute || isSiteFormRoute) {
     return NextResponse.next();
   }
 

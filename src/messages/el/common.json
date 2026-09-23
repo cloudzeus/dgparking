@@ -1,0 +1,31 @@
+{
+  "site": {
+    "name": "MEGA Parking",
+    "tagline": "Πειραιάς",
+    "address": "Μαυρομιχάλη 4, Πειραιάς 185 45",
+    "workingHours": "Ωράριο λειτουργίας",
+    "workingHoursWeekday": "Δευτέρα – Παρασκευή: 06:30 – 22:30",
+    "workingHoursSaturday": "Σάββατο: 08:00 – 16:00",
+    "workingHoursSunday": "Κυριακή: κλειστά"
+  },
+  "nav": {
+    "home": "Αρχική",
+    "services": "Υπηρεσίες",
+    "about": "Σχετικά με εμάς",
+    "prices": "Τιμές",
+    "carWash": "Πλύσιμο αυτοκινήτου",
+    "contact": "Επικοινωνία",
+    "menu": "Μενού",
+    "openMenu": "Άνοιγμα μενού",
+    "language": "Γλώσσα",
+    "login": "Σύνδεση",
+    "register": "Εγγραφή",
+    "customerPortal": "Πύλη πελατών"
+  },
+  "footer": {
+    "quickLinks": "Γρήγοροι σύνδεσμοι",
+    "services": "Υπηρεσίες",
+    "contact": "Επικοινωνία",
+    "rights": "Με επιφύλαξη παντός δικαιώματος."
+  }
+}

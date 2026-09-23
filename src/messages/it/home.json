@@ -1,0 +1,186 @@
+{
+  "hero": {
+    "badge": "Gestione intelligente del parcheggio",
+    "title": "Soluzioni di parcheggio intelligenti",
+    "subtitle": "a Pireo",
+    "description": "Riconoscimento delle targhe, accesso controllato, contratti e monitoraggio in tempo reale. Un'unica piattaforma per tutto il parcheggio.",
+    "primaryCta": "Crea un account",
+    "secondaryCta": "Accesso clienti"
+  },
+  "whyChooseUs": {
+    "title": "Perché Scegliere MEGA Parking?",
+    "description": "Parcheggia accanto al porto di Pireo, in una struttura sorvegliata 24 ore su 24.",
+    "location": {
+      "title": "Posizione Privilegiata",
+      "description": "Situati vicino al Porto di Pireo e al centro città, siamo a pochi minuti dalle imprese locali, dalle attrazioni e dai nodi di trasporto."
+    },
+    "security": {
+      "title": "Sicuro e Protetto",
+      "description": "La nostra struttura è ben illuminata e monitorata con sistemi di sicurezza avanzati per garantire che il tuo veicolo rimanga sicuro e protetto in ogni momento."
+    },
+    "space": {
+      "title": "Parcheggio Spazioso",
+      "description": "Ampi spazi di parcheggio confortevoli progettati per accogliere veicoli di tutte le dimensioni, dalle auto compatte ai SUV più grandi."
+    },
+    "carWash": {
+      "title": "Lavaggio Auto a Mano",
+      "description": "Il nostro servizio premium di lavaggio auto a mano offre un tocco personalizzato, assicurando che la tua auto riceva le migliori cure possibili."
+    },
+    "support": {
+      "title": "Supporto Clienti",
+      "description": "Il nostro personale amichevole è sempre disponibile per assisterti con qualsiasi domanda o preoccupazione riguardante i nostri servizi di parcheggio."
+    }
+  },
+  "features": {
+    "title": "Cosa fa la piattaforma",
+    "description": "Tutto ciò che serve a un parcheggio per funzionare senza scartoffie e senza code.",
+    "lpr": {
+      "title": "Riconoscimento delle targhe",
+      "description": "Le telecamere leggono la targa all'ingresso e all'uscita e registrano ogni movimento con foto e orario."
+    },
+    "access": {
+      "title": "Accesso controllato",
+      "description": "Le sbarre si aprono da sole per i veicoli con un contratto attivo. I visitatori entrano e pagano in base al tempo."
+    },
+    "contracts": {
+      "title": "Contratti e abbonamenti",
+      "description": "Abbonamenti mensili, contratti aziendali e più veicoli per cliente, con date di validità e limiti."
+    },
+    "dashboard": {
+      "title": "Situazione in tempo reale",
+      "description": "Quali veicoli sono dentro, quanti posti restano e cosa è successo nell'ultima ora — in una sola schermata."
+    },
+    "erp": {
+      "title": "Integrazione con SoftOne",
+      "description": "Clienti, articoli e documenti restano allineati con l'ERP, senza doppi inserimenti."
+    },
+    "reports": {
+      "title": "Report e storico",
+      "description": "Movimenti per giorno, uscite senza ingresso e lo storico completo dei riconoscimenti per ogni targa."
+    }
+  },
+  "carWashServices": {
+    "title": "Servizi di Lavaggio Auto",
+    "description": "Servizi professionali di lavaggio auto presso le nostre strutture.",
+    "popular": "Popolare",
+    "cta": "Prenota Lavaggio",
+    "basic": {
+      "title": "Lavaggio Base",
+      "price": "20€",
+      "features": ["Lavaggio esterno a mano", "Pulizia pneumatici", "Pulizia finestre"]
+    },
+    "premium": {
+      "title": "Lavaggio Premium",
+      "price": "30€",
+      "features": ["Tutto del Basic", "Aspirazione interni", "Pulizia cruscotto", "Deodorante"]
+    },
+    "deluxe": {
+      "title": "Lavaggio Deluxe",
+      "price": "40€",
+      "features": ["Tutto del Premium", "Cera a mano", "Lucidatura pneumatici", "Dettagliatura interni"]
+    }
+  },
+  "business": {
+    "title": "Soluzioni Aziendali",
+    "description": "Soluzioni di parcheggio personalizzate per aziende e organizzazioni.",
+    "corporateTitle": "Parcheggio Aziendale",
+    "points": [
+      "Posti auto dedicati per i tuoi dipendenti",
+      "Contratti mensili flessibili",
+      "Tariffe scontate per prenotazioni di gruppo",
+      "Carte di accesso speciali per il tuo team"
+    ],
+    "imageAlt": "Illustrazione parcheggio aziendale",
+    "proposal": {
+      "trigger": "Richiedi Proposta",
+      "title": "Richiesta Proposta Commerciale",
+      "description": "Compila questo modulo per richiedere una soluzione di parcheggio personalizzata per la tua azienda.",
+      "companyName": "Nome Azienda",
+      "companyNamePlaceholder": "Inserisci il nome dell'azienda",
+      "contactName": "Persona di Contatto",
+      "contactNamePlaceholder": "Inserisci il nome del contatto",
+      "email": "Email",
+      "emailPlaceholder": "Inserisci email",
+      "phone": "Numero di Telefono",
+      "phonePlaceholder": "Inserisci il numero di telefono",
+      "serviceType": "Tipo di Servizio",
+      "serviceTypePlaceholder": "Seleziona un tipo di servizio",
+      "serviceTypes": {
+        "monthly": "Parcheggio Mensile",
+        "vip": "Parcheggio VIP",
+        "reserved": "Posti Riservati",
+        "fleet": "Gestione Flotta",
+        "events": "Parcheggio Eventi"
+      },
+      "vehicleCount": "Numero di Veicoli",
+      "vehicleCountPlaceholder": "Seleziona il numero di veicoli",
+      "vehicleCounts": {
+        "1-5": "1-5 veicoli",
+        "6-10": "6-10 veicoli",
+        "11-20": "11-20 veicoli",
+        "21-50": "21-50 veicoli",
+        "50+": "Più di 50 veicoli"
+      },
+      "accessNeeded": "Accesso Richiesto",
+      "accessOptions": {
+        "weekdays": "Solo giorni feriali",
+        "weekends": "Solo weekend",
+        "all-week": "Tutta la settimana",
+        "24-7": "Accesso 24/7",
+        "custom": "Orario personalizzato"
+      },
+      "additionalInfo": "Informazioni Aggiuntive",
+      "additionalInfoPlaceholder": "Eventuali requisiti specifici o domande...",
+      "additionalInfoHelp": "Fornisci eventuali informazioni aggiuntive che potrebbero aiutarci a preparare la tua proposta.",
+      "agreement": "Accetto i termini e le condizioni",
+      "agreementHelp": "Ti contatteremo entro 48 ore con una proposta personalizzata.",
+      "submit": "Invia Richiesta",
+      "submitting": "Invio in corso...",
+      "success": "Richiesta proposta inviata con successo!",
+      "error": "Errore nell'invio della richiesta. Per favore riprova più tardi.",
+      "errors": {
+        "companyName": "Il nome dell'azienda deve contenere almeno 2 caratteri.",
+        "contactName": "Il nome del contatto deve contenere almeno 3 caratteri.",
+        "email": "Inserisci un indirizzo email valido.",
+        "phone": "Il numero di telefono deve contenere almeno 10 cifre.",
+        "serviceType": "Seleziona un tipo di servizio.",
+        "vehicleCount": "Seleziona il numero di veicoli.",
+        "accessNeeded": "Seleziona quando è necessario l'accesso.",
+        "agreement": "Devi accettare i termini e le condizioni."
+      }
+    }
+  },
+  "cta": {
+    "title": "Pronto a semplificare il tuo parcheggio?",
+    "description": "Crea un account e gestisci abbonamento, veicoli e movimenti da un unico posto.",
+    "primary": "Crea un account",
+    "secondary": "Contattaci"
+  },
+  "testimonials": {
+    "title": "Cosa Dicono i Nostri Clienti",
+    "description": "Migliaia di clienti soddisfatti si fidano di MEGA Parking ogni giorno.",
+    "rating": "{stars} stelle su 5",
+    "items": [
+      {
+        "name": "Maria Papadopoulou",
+        "role": "Cliente Regolare",
+        "content": "Abbonarsi a MEGA Parking è stata una delle migliori decisioni che ho preso. Trovare parcheggio a Pireo è sempre una sfida, ma ora ho un posto dedicato che mi fa risparmiare tempo e riduce lo stress quotidiano."
+      },
+      {
+        "name": "Giovanni Miller",
+        "role": "Imprenditore",
+        "content": "Il piano di parcheggio aziendale di MEGA Parking è stato inestimabile per la nostra attività. I nostri clienti apprezzano la comodità e il nostro staff non spreca più tempo a cercare parcheggio. Il servizio clienti è anche eccezionale!"
+      },
+      {
+        "name": "Maria Costi",
+        "role": "Residente Locale",
+        "content": "Come residente vicino al porto, trovare parcheggio era sempre un incubo. L'abbonamento mensile con MEGA Parking mi dà tranquillità sapendo di avere sempre un posto sicuro dove parcheggiare la mia auto. Le loro strutture sono pulite, ben illuminate e monitorate 24/7."
+      }
+    ]
+  },
+  "euBanner": {
+    "alt": "Banner Finanziamento UE — Clicca per visualizzare le informazioni di finanziamento PDF",
+    "label": "Informazioni Finanziamento UE — Si apre in una nuova finestra",
+    "region": "Informazioni Finanziamento UE"
+  }
+}

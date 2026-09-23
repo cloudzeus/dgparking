@@ -1,0 +1,186 @@
+{
+  "hero": {
+    "badge": "Smart parking management",
+    "title": "Smart parking solutions",
+    "subtitle": "in Piraeus",
+    "description": "Licence plate recognition, controlled access, contracts and real-time monitoring. One platform for the whole car park.",
+    "primaryCta": "Create an account",
+    "secondaryCta": "Customer sign in"
+  },
+  "whyChooseUs": {
+    "title": "Why Choose MEGA Parking?",
+    "description": "Park next to the port of Piraeus, in a facility that is monitored around the clock.",
+    "location": {
+      "title": "Prime Location",
+      "description": "Located near the Port of Piraeus and city center, we're just minutes away from local businesses, attractions, and transportation hubs."
+    },
+    "security": {
+      "title": "Secure & Safe",
+      "description": "Our facility is well-lit and monitored with advanced security systems to ensure your vehicle remains safe and secure at all times."
+    },
+    "space": {
+      "title": "Spacious Parking",
+      "description": "Wide, comfortable parking spaces designed to accommodate vehicles of all sizes, from compact cars to larger SUVs."
+    },
+    "carWash": {
+      "title": "Hand Car Wash",
+      "description": "Our premium hand car wash service provides a personalized touch, ensuring your car gets the best care possible."
+    },
+    "support": {
+      "title": "Customer Support",
+      "description": "Our friendly staff is always available to assist you with any queries or concerns regarding our parking services."
+    }
+  },
+  "features": {
+    "title": "What the platform does",
+    "description": "Everything a car park needs to run without paperwork and without queues.",
+    "lpr": {
+      "title": "Licence plate recognition",
+      "description": "Cameras read the plate on the way in and on the way out, and record every movement with a photo and a timestamp."
+    },
+    "access": {
+      "title": "Controlled access",
+      "description": "Barriers open by themselves for vehicles with an active contract. Visitors pass through and are charged for their time."
+    },
+    "contracts": {
+      "title": "Contracts and subscriptions",
+      "description": "Monthly subscriptions, corporate contracts and several vehicles per customer, with validity dates and limits."
+    },
+    "dashboard": {
+      "title": "Real-time picture",
+      "description": "Which vehicles are inside, how many spaces are left and what happened in the last hour — on one screen."
+    },
+    "erp": {
+      "title": "SoftOne integration",
+      "description": "Customers, items and documents stay in step with the ERP, with nothing entered twice."
+    },
+    "reports": {
+      "title": "Reports and history",
+      "description": "Movements per day, exits without an entry, and the full recognition history for every plate."
+    }
+  },
+  "carWashServices": {
+    "title": "Car Wash Services",
+    "description": "Professional car washing services at our facilities.",
+    "popular": "Popular",
+    "cta": "Schedule Car Wash",
+    "basic": {
+      "title": "Basic Wash",
+      "price": "20€",
+      "features": ["Exterior hand wash", "Tire cleaning", "Windows cleaning"]
+    },
+    "premium": {
+      "title": "Premium Wash",
+      "price": "30€",
+      "features": ["Everything in Basic", "Interior vacuum", "Dashboard cleaning", "Air freshener"]
+    },
+    "deluxe": {
+      "title": "Deluxe Wash",
+      "price": "40€",
+      "features": ["Everything in Premium", "Hand waxing", "Tire shine", "Interior detailing"]
+    }
+  },
+  "business": {
+    "title": "Business Solutions",
+    "description": "Tailored parking solutions for businesses and organizations.",
+    "corporateTitle": "Corporate Parking",
+    "points": [
+      "Dedicated parking spots for your employees",
+      "Flexible monthly contracts",
+      "Discounted rates for bulk reservations",
+      "Special access cards for your team"
+    ],
+    "imageAlt": "Corporate parking illustration",
+    "proposal": {
+      "trigger": "Request Proposal",
+      "title": "Business Proposal Request",
+      "description": "Fill out this form to request a customized parking solution for your business.",
+      "companyName": "Company Name",
+      "companyNamePlaceholder": "Enter company name",
+      "contactName": "Contact Person",
+      "contactNamePlaceholder": "Enter contact name",
+      "email": "Email",
+      "emailPlaceholder": "Enter email",
+      "phone": "Phone Number",
+      "phonePlaceholder": "Enter phone number",
+      "serviceType": "Service Type",
+      "serviceTypePlaceholder": "Select a service type",
+      "serviceTypes": {
+        "monthly": "Monthly Parking",
+        "vip": "VIP Parking",
+        "reserved": "Reserved Spaces",
+        "fleet": "Fleet Management",
+        "events": "Event Parking"
+      },
+      "vehicleCount": "Number of Vehicles",
+      "vehicleCountPlaceholder": "Select vehicle count",
+      "vehicleCounts": {
+        "1-5": "1-5 vehicles",
+        "6-10": "6-10 vehicles",
+        "11-20": "11-20 vehicles",
+        "21-50": "21-50 vehicles",
+        "50+": "More than 50 vehicles"
+      },
+      "accessNeeded": "Access Needed",
+      "accessOptions": {
+        "weekdays": "Weekdays only",
+        "weekends": "Weekends only",
+        "all-week": "All week",
+        "24-7": "24/7 access",
+        "custom": "Custom schedule"
+      },
+      "additionalInfo": "Additional Information",
+      "additionalInfoPlaceholder": "Any specific requirements or questions...",
+      "additionalInfoHelp": "Please provide any additional information that might help us prepare your proposal.",
+      "agreement": "I agree to the terms and conditions",
+      "agreementHelp": "We'll contact you within 48 hours with a customized proposal.",
+      "submit": "Submit Request",
+      "submitting": "Submitting...",
+      "success": "Your proposal request has been submitted successfully!",
+      "error": "Failed to submit form. Please try again.",
+      "errors": {
+        "companyName": "Company name must be at least 2 characters.",
+        "contactName": "Contact name must be at least 3 characters.",
+        "email": "Please enter a valid email address.",
+        "phone": "Phone number must be at least 10 digits.",
+        "serviceType": "Please select a service type.",
+        "vehicleCount": "Please select the number of vehicles.",
+        "accessNeeded": "Please select when access is needed.",
+        "agreement": "You must agree to the terms and conditions."
+      }
+    }
+  },
+  "cta": {
+    "title": "Ready to simplify your parking?",
+    "description": "Create an account and manage your subscription, your vehicles and your movements from one place.",
+    "primary": "Create an account",
+    "secondary": "Contact us"
+  },
+  "testimonials": {
+    "title": "What Our Customers Say",
+    "description": "Thousands of satisfied customers trust MEGA Parking every day.",
+    "rating": "{stars} out of 5 stars",
+    "items": [
+      {
+        "name": "Maria Papadopoulou",
+        "role": "Regular Customer",
+        "content": "Subscribing to MEGA Parking was one of the best decisions I've made. Finding parking in Piraeus is always a challenge, but now I have a dedicated spot that saves me time and reduces my daily stress."
+      },
+      {
+        "name": "John Miller",
+        "role": "Business Owner",
+        "content": "The corporate parking plan from MEGA Parking has been invaluable for our business. Our clients appreciate the convenience, and our staff no longer waste time looking for parking. The customer service is also exceptional!"
+      },
+      {
+        "name": "Maria Kostidou",
+        "role": "Local Resident",
+        "content": "As a resident living near the port, finding parking was always a nightmare. The monthly subscription with MEGA Parking gives me peace of mind knowing I always have a secure place to park my car. Their facilities are clean, well-lit, and monitored 24/7."
+      }
+    ]
+  },
+  "euBanner": {
+    "alt": "EU Funding Banner — Click to view funding information PDF",
+    "label": "EU Funding Information — Opens in new window",
+    "region": "EU Funding Information"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "contact": {
+    "meta": {
+      "title": "Contact Us",
+      "description": "Get in touch with MEGA Parking in Piraeus. Address, phone, email, working hours and contact form."
+    },
+    "hero": {
+      "title": "Contact Us",
+      "description": "Have a question or need assistance? We're here to help!"
+    },
+    "info": {
+      "title": "Contact Information",
+      "addressLabel": "Address",
+      "addressLine1": "Mavromichali 4",
+      "addressLine2": "Piraeus 185 45",
+      "addressLine3": "Greece",
+      "phoneLabel": "Phone",
+      "phone": "210 41 34 508",
+      "emailLabel": "Email",
+      "email": "info@megaparking.gr",
+      "hoursLabel": "Working Hours",
+      "hoursWeekdays": "Monday - Friday: 06:30 - 22:30",
+      "hoursSaturday": "Saturday: 08:00 - 16:00",
+      "hoursSunday": "Sunday: Closed"
+    },
+    "map": {
+      "title": "MEGA Parking location map",
+      "ariaLabel": "Google Maps showing the MEGA Parking location at Mavromichali 4, Piraeus, Greece"
+    },
+    "directions": {
+      "title": "Getting Here",
+      "paragraph1": "We are conveniently located in the center of Piraeus, just a short walk from the port and main shopping areas.",
+      "paragraph2": "Nearby public transport options include the Piraeus Metro Station (Line 1) and various bus routes."
+    },
+    "form": {
+      "title": "Send Us a Message",
+      "nameLabel": "Name",
+      "namePlaceholder": "Your name",
+      "emailLabel": "Email",
+      "emailPlaceholder": "example@email.com",
+      "subjectLabel": "Subject",
+      "subjectPlaceholder": "How can we help you?",
+      "messageLabel": "Message",
+      "messagePlaceholder": "Your message...",
+      "submit": "Send Message",
+      "submitting": "Sending...",
+      "errors": {
+        "name": "Please enter your name.",
+        "email": "Please enter a valid email address.",
+        "subject": "Please enter a subject.",
+        "message": "Please write your message."
+      },
+      "successTitle": "Thank you for your message!",
+      "successDescription": "We have received your message and will get back to you shortly.",
+      "errorTitle": "Failed to send message. Please try again."
+    }
+  }
+}

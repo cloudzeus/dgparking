@@ -1,0 +1,98 @@
+{
+  "prices": {
+    "meta": {
+      "title": "Prezzi Parcheggio",
+      "description": "Prezzi di parcheggio flessibili e trasparenti al Pireo: pacchetti orari, giornalieri, 24 ore e mensili per auto e moto."
+    },
+    "header": {
+      "title": "Prezzi Parcheggio",
+      "description": "Opzioni di prezzo flessibili e trasparenti per soddisfare le tue esigenze"
+    },
+    "packages": {
+      "title": "I Nostri Pacchetti di Parcheggio",
+      "popular": "Popolare",
+      "perDay": "/giorno",
+      "perMonth": "/mese",
+      "hourly": {
+        "title": "Pacchetto Orario",
+        "description": "Perfetto per brevi visite al centro città o all'area del porto",
+        "features": [
+          "Tariffa iniziale: 5€",
+          "1€ per ogni ora aggiuntiva",
+          "Paghi solo quello che usi",
+          "Sicurezza e sorveglianza 24/7"
+        ]
+      },
+      "allDay": {
+        "title": "Pacchetto Giornaliero",
+        "description": "Ideale per riunioni d'affari di un'intera giornata o esplorazione della città",
+        "features": [
+          "Tariffa giornaliera fissa: 12€",
+          "Valido per orari di lavoro (7:00-21:00)",
+          "Entrate e uscite illimitate",
+          "Posti auto premium"
+        ]
+      },
+      "dayNight": {
+        "title": "Pacchetto Giorno e Notte",
+        "description": "Soluzione completa 24 ore con sicurezza notturna",
+        "features": [
+          "Copertura 24 ore",
+          "Parcheggio notturno con sicurezza",
+          "Posti prioritari vicino alle uscite",
+          "Monitoraggio video incluso"
+        ]
+      },
+      "monthlyCar": {
+        "title": "Pacchetto Mensile Auto",
+        "description": "Abbonamento mensile premium con benefici esclusivi",
+        "features": [
+          "Posto auto riservato dedicato",
+          "Accesso 24/7 con controllo remoto tramite app",
+          "15% di sconto sui servizi di lavaggio auto",
+          "Fattura mensile digitale"
+        ]
+      },
+      "monthlyMotorbike": {
+        "title": "Pacchetto Mensile Moto",
+        "description": "Soluzione sicura di parcheggio mensile per moto",
+        "features": [
+          "Area parcheggio moto coperta",
+          "Accesso sicuro 24/7",
+          "Spazi protetti dalle intemperie",
+          "Armadietto gratuito per il casco"
+        ]
+      }
+    },
+    "faq": {
+      "title": "Domande Frequenti",
+      "description": "Trova risposte alle domande comuni sui nostri servizi di parcheggio",
+      "items": [
+        {
+          "question": "Dove si trova il vostro parcheggio?",
+          "answer": "Il nostro parcheggio si trova nel cuore del Pireo, a pochi passi dal porto e dal centro città. È la posizione ideale sia per viaggiatori d'affari che per turisti."
+        },
+        {
+          "question": "Offrite parcheggio a lungo termine?",
+          "answer": "Sì, offriamo opzioni di parcheggio sia a breve che a lungo termine. Che tu abbia bisogno di parcheggiare per poche ore o diverse settimane, abbiamo prezzi flessibili per soddisfare le tue esigenze."
+        },
+        {
+          "question": "Come posso prenotare un posto auto in anticipo?",
+          "answer": "Al momento non offriamo prenotazioni online per i posti auto. Tuttavia, puoi sempre controllare la disponibilità e parcheggiare la tua auto quando arrivi presso la nostra struttura."
+        },
+        {
+          "question": "Il vostro parcheggio è sicuro?",
+          "answer": "Sì, il nostro parcheggio è ben illuminato e monitorato per garantire la sicurezza del tuo veicolo. Puoi parcheggiare con tranquillità, sapendo che la tua auto è in buone mani."
+        },
+        {
+          "question": "Offrite servizi di lavaggio auto?",
+          "answer": "Sì, offriamo un servizio professionale di lavaggio auto a mano. Il nostro team pulirà il tuo veicolo con grande cura, utilizzando prodotti di alta qualità e tecniche di lavaggio a mano per garantire che brilli come nuovo."
+        },
+        {
+          "question": "Quali sono gli orari di apertura?",
+          "answer": "Siamo aperti dal lunedì al venerdì dalle 06:30 alle 22:30 e il sabato dalle 09:00 alle 14:00. Chiusi la domenica."
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "carWash": {
+    "meta": {
+      "title": "Car Wash",
+      "description": "Professional car washing services at our facilities, while your vehicle is parked."
+    },
+    "hero": {
+      "badge": "Car Wash Service",
+      "title": "Schedule a Car Wash",
+      "description": "Professional car washing services at our facilities."
+    },
+    "packages": {
+      "title": "Our Car Wash Services",
+      "description": "Pick the package that suits your vehicle. The wash happens while the car is parked.",
+      "popular": "Popular",
+      "basic": {
+        "title": "Basic Wash",
+        "features": {
+          "exterior": "Exterior wash",
+          "tires": "Tire cleaning",
+          "windows": "Window cleaning"
+        }
+      },
+      "premium": {
+        "title": "Premium Wash",
+        "features": {
+          "basic": "Everything in Basic",
+          "vacuum": "Interior vacuum",
+          "dashboard": "Dashboard cleaning",
+          "freshener": "Air freshener"
+        }
+      },
+      "deluxe": {
+        "title": "Deluxe Wash & Wax",
+        "features": {
+          "premium": "Everything in Premium",
+          "wax": "Hand waxing",
+          "shine": "Tire shine",
+          "detailing": "Interior detailing"
+        }
+      }
+    },
+    "benefits": {
+      "title": "Why Choose Our Car Wash Service?",
+      "time": {
+        "title": "Time-Saving",
+        "description": "Get your car washed while it's parked. No need to wait or make separate trips."
+      },
+      "professional": {
+        "title": "Professional Service",
+        "description": "Experienced staff using high-quality products for the best results."
+      },
+      "eco": {
+        "title": "Environmentally Friendly",
+        "description": "We use eco-friendly cleaning solutions that are safe for your car and the environment."
+      }
+    },
+    "booking": {
+      "trigger": "Request Car Wash",
+      "title": "Car Wash Request",
+      "description": "Fill out this form to schedule a car wash. We'll contact you to confirm.",
+      "submit": "Submit Request",
+      "submitting": "Submitting…",
+      "success": "Your car wash request has been submitted successfully!",
+      "error": "The request could not be sent. Please try again or call us.",
+      "fields": {
+        "name": {
+          "label": "Full Name",
+          "placeholder": "Enter your name",
+          "invalid": "Name must be at least 3 characters."
+        },
+        "email": {
+          "label": "Email",
+          "placeholder": "Enter your email",
+          "invalid": "Please enter a valid email address."
+        },
+        "phone": {
+          "label": "Phone Number",
+          "placeholder": "Enter your phone number",
+          "invalid": "Phone number must be at least 10 digits."
+        },
+        "serviceType": {
+          "label": "Service Type",
+          "placeholder": "Select a service type",
+          "invalid": "Please select a service type."
+        },
+        "date": {
+          "label": "Date",
+          "placeholder": "Pick a date",
+          "invalid": "Please select a date."
+        },
+        "time": {
+          "label": "Time",
+          "placeholder": "Select a time",
+          "invalid": "Please select a time slot."
+        },
+        "vehicleDetails": {
+          "label": "Vehicle Details",
+          "placeholder": "Make, model, color, license plate",
+          "invalid": "Please provide vehicle details."
+        },
+        "agreement": {
+          "label": "I agree to the terms and conditions",
+          "description": "You can cancel up to 2 hours before your appointment.",
+          "invalid": "You must agree to the terms and conditions."
+        }
+      },
+      "services": {
+        "basic": "Basic Wash",
+        "premium": "Premium Wash",
+        "deluxe": "Deluxe Wash & Wax",
+        "interior": "Interior Cleaning",
+        "complete": "Complete Package"
+      }
+    }
+  }
+}

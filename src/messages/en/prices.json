@@ -1,0 +1,98 @@
+{
+  "prices": {
+    "meta": {
+      "title": "Parking Prices",
+      "description": "Flexible and transparent parking prices in Piraeus: hourly, all-day, 24-hour and monthly packages for cars and motorbikes."
+    },
+    "header": {
+      "title": "Parking Prices",
+      "description": "Flexible and transparent pricing options to suit your needs"
+    },
+    "packages": {
+      "title": "Our Parking Packages",
+      "popular": "Popular",
+      "perDay": "/day",
+      "perMonth": "/month",
+      "hourly": {
+        "title": "Hourly Package",
+        "description": "Perfect for quick visits to the city center or port area",
+        "features": [
+          "Initial fee: 5€",
+          "1€ per additional hour",
+          "Pay only for what you use",
+          "24/7 security & surveillance"
+        ]
+      },
+      "allDay": {
+        "title": "All Day Package",
+        "description": "Ideal for day-long business meetings or city exploration",
+        "features": [
+          "Fixed daily rate: 12€",
+          "Valid for business hours (7am-9pm)",
+          "Unlimited entries & exits",
+          "Premium parking spots"
+        ]
+      },
+      "dayNight": {
+        "title": "Day & Night Package",
+        "description": "Complete 24-hour solution with overnight security",
+        "features": [
+          "24-hour coverage",
+          "Overnight parking with security",
+          "Priority locations near exits",
+          "Video monitoring included"
+        ]
+      },
+      "monthlyCar": {
+        "title": "Monthly Car Package",
+        "description": "Premium monthly subscription with exclusive benefits",
+        "features": [
+          "Dedicated reserved parking spot",
+          "24/7 access with remote app control",
+          "15% discount on car wash services",
+          "Digital monthly invoice"
+        ]
+      },
+      "monthlyMotorbike": {
+        "title": "Monthly Motorbike Package",
+        "description": "Secure monthly motorbike parking solution",
+        "features": [
+          "Covered motorbike parking area",
+          "24/7 secured access",
+          "Weather-protected spaces",
+          "Free helmet storage locker"
+        ]
+      }
+    },
+    "faq": {
+      "title": "Frequently Asked Questions",
+      "description": "Find answers to common questions about our parking services",
+      "items": [
+        {
+          "question": "Where is your parking facility located?",
+          "answer": "Our parking facility is located in the heart of Piraeus, just a short walk from the Port and the city center. It's the ideal location for both business and leisure travelers."
+        },
+        {
+          "question": "Do you offer long-term parking?",
+          "answer": "Yes, we offer both short-term and long-term parking options. Whether you need parking for a few hours or several weeks, we have flexible pricing to meet your needs."
+        },
+        {
+          "question": "How can I book a parking space in advance?",
+          "answer": "Currently, we do not offer online booking for parking spaces. However, you can always check availability and park your car when you arrive at our facility."
+        },
+        {
+          "question": "Is your parking area secure?",
+          "answer": "Yes, our parking facility is well-lit and monitored to ensure the safety of your vehicle. You can park with peace of mind, knowing that your car is in good hands."
+        },
+        {
+          "question": "Do you provide car washing services?",
+          "answer": "Yes, we offer a professional hand car wash service. Our team will clean your vehicle with great care, using high-quality products and hand-washing techniques to ensure it shines like new."
+        },
+        {
+          "question": "What are your working hours?",
+          "answer": "We are open Monday to Friday from 06:30 to 22:30 and on Saturdays from 09:00 to 14:00. We are closed on Sundays."
+        }
+      ]
+    }
+  }
+}

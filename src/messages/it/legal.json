@@ -1,0 +1,108 @@
+{
+  "legal": {
+    "cookies": {
+      "title": "Avviso cookie",
+      "description": "Utilizziamo i cookie per migliorare la tua esperienza sul nostro sito web. Continuando a navigare, accetti l'utilizzo dei cookie.",
+      "accept": "Accetta",
+      "close": "Chiudi avviso cookie"
+    },
+    "privacyPolicy": {
+      "title": "Informativa sulla Privacy",
+      "effectiveDate": "Data di entrata in vigore: [Inserire Data]",
+      "intro": "Presso MEGA PARKING, situato in via Mavromichali 4, Pireo, Grecia, rispettiamo la tua privacy e ci impegniamo a proteggere i tuoi dati personali.",
+      "sections": {
+        "collection": {
+          "title": "1. Quali Informazioni Raccogliamo",
+          "content": [
+            "Dati personali (nome, email, numero di telefono, targa del veicolo)",
+            "Informazioni su prenotazioni e pagamenti",
+            "Indirizzo IP e informazioni sul browser/dispositivo"
+          ]
+        },
+        "usage": {
+          "title": "2. Come Utilizziamo le Tue Informazioni",
+          "content": [
+            "Per gestire le prenotazioni e fornire i servizi",
+            "Per contattarti riguardo alla tua prenotazione",
+            "Per il supporto clienti e il miglioramento dei servizi",
+            "Per conformarsi agli obblighi legali"
+          ]
+        },
+        "sharing": {
+          "title": "3. Condivisione dei Dati",
+          "content": [
+            "Non vendiamo né affittiamo i tuoi dati personali.",
+            "I dati possono essere condivisi con terze parti fidate (es. processori di pagamento) solo quando necessario."
+          ]
+        },
+        "security": {
+          "title": "4. Sicurezza dei Dati",
+          "content": [
+            "Utilizziamo tecnologie e protocolli sicuri (es. SSL) per proteggere i tuoi dati personali."
+          ]
+        },
+        "rights": {
+          "title": "5. I Tuoi Diritti",
+          "content": [
+            "Hai il diritto di accedere, correggere o eliminare i tuoi dati personali.",
+            "Contattaci a info@megaparking.gr per qualsiasi richiesta."
+          ]
+        },
+        "cookies": {
+          "title": "6. Cookie",
+          "content": [
+            "Il nostro sito web utilizza i cookie per migliorare l'esperienza utente.",
+            "Puoi gestire i cookie attraverso le impostazioni del browser."
+          ]
+        }
+      }
+    },
+    "termsOfService": {
+      "title": "Termini di Servizio",
+      "effectiveDate": "Data di entrata in vigore: [Inserire Data]",
+      "intro": "Accedendo e utilizzando www.megaparking.gr, accetti i seguenti Termini di Servizio forniti da MEGA PARKING, situato in via Mavromichali 4, Pireo, Grecia.",
+      "sections": {
+        "usage": {
+          "title": "1. Utilizzo dei Servizi",
+          "content": [
+            "I nostri servizi includono prenotazioni online e informazioni sul parcheggio.",
+            "Accetti di fornire dati accurati e di non abusare della piattaforma."
+          ]
+        },
+        "booking": {
+          "title": "2. Prenotazioni e Pagamenti",
+          "content": [
+            "Tutte le prenotazioni sono soggette a disponibilità.",
+            "Il pagamento è dovuto come specificato nella conferma."
+          ]
+        },
+        "cancellations": {
+          "title": "3. Cancellazioni",
+          "content": [
+            "Le politiche di cancellazione sono mostrate durante la prenotazione.",
+            "Contatta il supporto per qualsiasi controversia."
+          ]
+        },
+        "liability": {
+          "title": "4. Limitazione di Responsabilità",
+          "content": [
+            "MEGA PARKING non è responsabile per danni indiretti.",
+            "La responsabilità è limitata all'importo pagato per la prenotazione."
+          ]
+        },
+        "ip": {
+          "title": "5. Proprietà Intellettuale",
+          "content": [
+            "Tutto il contenuto appartiene a MEGA PARKING. È vietato il riutilizzo senza autorizzazione."
+          ]
+        },
+        "law": {
+          "title": "6. Legge Applicabile",
+          "content": [
+            "I termini sono disciplinati dalla legge greca. Le controversie saranno risolte nei tribunali di Pireo."
+          ]
+        }
+      }
+    }
+  }
+}

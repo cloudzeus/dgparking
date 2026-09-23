@@ -3,6 +3,7 @@ import NextLink from "next/link";
 import { getTranslations } from "next-intl/server";
 import { MapPin, Clock, LogIn } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+import { LegalLinks } from "@/components/site/legal-links";
 
 export async function SiteFooter() {
   const t = await getTranslations();
@@ -27,11 +28,14 @@ export async function SiteFooter() {
           <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
             {t("nav.home")}
           </Link>
-          <Link href="/#services" className="text-sm text-muted-foreground hover:text-foreground">
-            {t("nav.services")}
+          <Link href="/prices" className="text-sm text-muted-foreground hover:text-foreground">
+            {t("nav.prices")}
           </Link>
-          <Link href="/#about" className="text-sm text-muted-foreground hover:text-foreground">
-            {t("nav.about")}
+          <Link href="/car-wash" className="text-sm text-muted-foreground hover:text-foreground">
+            {t("nav.carWash")}
+          </Link>
+          <Link href="/contact" className="text-sm text-muted-foreground hover:text-foreground">
+            {t("nav.contact")}
           </Link>
           <NextLink href="/login" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
             <LogIn className="size-3.5" aria-hidden />
@@ -59,9 +63,12 @@ export async function SiteFooter() {
       </div>
 
       <div className="border-t">
-        <p className="mx-auto w-full max-w-7xl px-4 py-4 text-xs text-muted-foreground">
-          © {year} {t("site.name")}. {t("footer.rights")}
-        </p>
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            © {year} {t("site.name")}. {t("footer.rights")}
+          </p>
+          <LegalLinks />
+        </div>
       </div>
     </footer>
   );

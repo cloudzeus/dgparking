@@ -1,0 +1,31 @@
+{
+  "site": {
+    "name": "MEGA Parking",
+    "tagline": "Piraeus",
+    "address": "4 Mavromichali St, Piraeus 185 45",
+    "workingHours": "Working hours",
+    "workingHoursWeekday": "Monday – Friday: 06:30 – 22:30",
+    "workingHoursSaturday": "Saturday: 08:00 – 16:00",
+    "workingHoursSunday": "Sunday: closed"
+  },
+  "nav": {
+    "home": "Home",
+    "services": "Services",
+    "about": "About us",
+    "prices": "Prices",
+    "carWash": "Car wash",
+    "contact": "Contact",
+    "menu": "Menu",
+    "openMenu": "Open menu",
+    "language": "Language",
+    "login": "Sign in",
+    "register": "Register",
+    "customerPortal": "Customer portal"
+  },
+  "footer": {
+    "quickLinks": "Quick links",
+    "services": "Services",
+    "contact": "Contact",
+    "rights": "All rights reserved."
+  }
+}

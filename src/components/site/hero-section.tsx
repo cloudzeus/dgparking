@@ -29,7 +29,8 @@ export async function HeroSection() {
         aria-hidden
       />
 
-      <div className="mx-auto flex w-full max-w-7xl flex-col items-center gap-6 px-4 py-24 text-center text-white sm:py-32">
+      {/* Ύψος όπως στο megaparking.gr — αφήνει χώρο και για το πανό ΕΣΠΑ αριστερά. */}
+      <div className="mx-auto flex min-h-[80vh] w-full max-w-7xl flex-col items-center justify-center gap-6 px-4 py-24 text-center text-white">
         <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-medium tracking-wide">
           {t("badge")}
         </span>

@@ -1,0 +1,108 @@
+{
+  "legal": {
+    "cookies": {
+      "title": "Cookie notice",
+      "description": "We use cookies to enhance your experience on our website. By continuing to browse, you agree to our use of cookies.",
+      "accept": "Accept",
+      "close": "Close cookie notice"
+    },
+    "privacyPolicy": {
+      "title": "Privacy Policy",
+      "effectiveDate": "Effective date: [Insert Date]",
+      "intro": "At MEGA PARKING, located at 4 Mavromichali Street, Piraeus, Greece, we respect your privacy and are committed to protecting your personal data.",
+      "sections": {
+        "collection": {
+          "title": "1. What Information We Collect",
+          "content": [
+            "Personal data (name, email, phone number, vehicle registration)",
+            "Booking and payment information",
+            "IP address and browser/device info"
+          ]
+        },
+        "usage": {
+          "title": "2. How We Use Your Information",
+          "content": [
+            "To manage reservations and provide services",
+            "To contact you regarding your booking",
+            "For customer support and service improvement",
+            "To comply with legal obligations"
+          ]
+        },
+        "sharing": {
+          "title": "3. Sharing of Data",
+          "content": [
+            "We do not sell or rent your personal data.",
+            "Data may be shared with trusted third parties (e.g., payment processors) only when necessary."
+          ]
+        },
+        "security": {
+          "title": "4. Data Security",
+          "content": [
+            "We use secure technologies and protocols (e.g., SSL) to protect your personal data."
+          ]
+        },
+        "rights": {
+          "title": "5. Your Rights",
+          "content": [
+            "You have the right to access, correct, or delete your personal data.",
+            "Contact us at info@megaparking.gr for any requests."
+          ]
+        },
+        "cookies": {
+          "title": "6. Cookies",
+          "content": [
+            "Our website uses cookies to enhance user experience.",
+            "You can manage cookies via browser settings."
+          ]
+        }
+      }
+    },
+    "termsOfService": {
+      "title": "Terms of Service",
+      "effectiveDate": "Effective date: [Insert Date]",
+      "intro": "By accessing and using www.megaparking.gr, you agree to the following Terms of Service provided by MEGA PARKING, located at 4 Mavromichali Street, Piraeus, Greece.",
+      "sections": {
+        "usage": {
+          "title": "1. Use of Services",
+          "content": [
+            "Our services include online reservations and parking information.",
+            "You agree to provide accurate data and not misuse the platform."
+          ]
+        },
+        "booking": {
+          "title": "2. Bookings & Payments",
+          "content": [
+            "All bookings are subject to availability.",
+            "Payment is due as specified in the confirmation."
+          ]
+        },
+        "cancellations": {
+          "title": "3. Cancellations",
+          "content": [
+            "Cancellation policies are shown during booking.",
+            "Please contact support for any disputes."
+          ]
+        },
+        "liability": {
+          "title": "4. Limitation of Liability",
+          "content": [
+            "MEGA PARKING is not liable for indirect damages.",
+            "Liability is limited to the amount paid for the booking."
+          ]
+        },
+        "ip": {
+          "title": "5. Intellectual Property",
+          "content": [
+            "All content belongs to MEGA PARKING. Reuse without permission is prohibited."
+          ]
+        },
+        "law": {
+          "title": "6. Governing Law",
+          "content": [
+            "Terms are governed by Greek law. Disputes will be settled in the courts of Piraeus."
+          ]
+        }
+      }
+    }
+  }
+}

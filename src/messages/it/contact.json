@@ -1,0 +1,58 @@
+{
+  "contact": {
+    "meta": {
+      "title": "Contattaci",
+      "description": "Contatta MEGA Parking a Pireo. Indirizzo, telefono, email, orari di apertura e modulo di contatto."
+    },
+    "hero": {
+      "title": "Contattaci",
+      "description": "Hai una domanda o hai bisogno di assistenza? Siamo qui per aiutarti!"
+    },
+    "info": {
+      "title": "Informazioni di Contatto",
+      "addressLabel": "Indirizzo",
+      "addressLine1": "Via Mavromichali 4",
+      "addressLine2": "Pireo 185 45",
+      "addressLine3": "Grecia",
+      "phoneLabel": "Telefono",
+      "phone": "210 41 34 508",
+      "emailLabel": "Email",
+      "email": "info@megaparking.gr",
+      "hoursLabel": "Orari di Apertura",
+      "hoursWeekdays": "Lunedì - Venerdì: 06:30 - 22:30",
+      "hoursSaturday": "Sabato: 08:00 - 16:00",
+      "hoursSunday": "Domenica: Chiuso"
+    },
+    "map": {
+      "title": "Mappa della posizione di MEGA Parking",
+      "ariaLabel": "Google Maps con la posizione di MEGA Parking in Via Mavromichali 4, Pireo, Grecia"
+    },
+    "directions": {
+      "title": "Come Arrivare",
+      "paragraph1": "Siamo comodamente situati nel centro di Pireo, a pochi passi dal porto e dalle principali aree commerciali.",
+      "paragraph2": "Le opzioni di trasporto pubblico nelle vicinanze includono la Stazione Metropolitana di Pireo (Linea 1) e varie linee di autobus."
+    },
+    "form": {
+      "title": "Invia un Messaggio",
+      "nameLabel": "Nome",
+      "namePlaceholder": "Il tuo nome",
+      "emailLabel": "Email",
+      "emailPlaceholder": "example@email.com",
+      "subjectLabel": "Oggetto",
+      "subjectPlaceholder": "Come possiamo aiutarti?",
+      "messageLabel": "Messaggio",
+      "messagePlaceholder": "Il tuo messaggio...",
+      "submit": "Invia Messaggio",
+      "submitting": "Invio in corso...",
+      "errors": {
+        "name": "Inserisci il tuo nome.",
+        "email": "Inserisci un indirizzo email valido.",
+        "subject": "Inserisci un oggetto.",
+        "message": "Scrivi il tuo messaggio."
+      },
+      "successTitle": "Grazie per il tuo messaggio!",
+      "successDescription": "Abbiamo ricevuto il tuo messaggio e ti risponderemo presto.",
+      "errorTitle": "Impossibile inviare il messaggio. Riprova."
+    }
+  }
+}
