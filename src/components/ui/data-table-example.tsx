@@ -1,7 +1,7 @@
 // Example usage of the DataTable component
 // This demonstrates how to use the reusable DataTable in other parts of the application
 
-import { DataTable, type Column } from "@/components/ui/data-table";
+import { DataTable, type Column } from "@/components/ui/data-table-legacy";
 
 // Example data type
 interface Product {

@@ -17,7 +17,7 @@ import {
 import { FormDialog } from "@/components/ui/form-dialog";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
-import { DataTable, type Column } from "@/components/ui/data-table";
+import { DataTable, type Column } from "@/components/ui/data-table-legacy";
 import { CustomerForm } from "./customer-form";
 import { SyncProgressModal } from "./sync-progress-modal";
 import { deleteCustomer, syncCustomersFromERP } from "@/lib/actions/customers";

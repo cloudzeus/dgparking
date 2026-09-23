@@ -1,6 +1,22 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import * as React from "react";
+import { flushSync } from "react-dom";
+import { usePathname } from "next/navigation";
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  ColumnSizingState,
+  SortingState,
+  VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  useReactTable,
+  ColumnResizeMode,
+} from "@tanstack/react-table";
+
 import {
   Table,
   TableBody,
@@ -9,731 +25,653 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  ChevronUp,
-  ChevronDown,
-  Search,
-  MoreHorizontal,
-  Columns,
-  Plus,
-  ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { format } from "date-fns";
+import { ChevronDown, ChevronRight, Download, Settings, ArrowUpDown, ArrowUp, ArrowDown, ChevronFirst, ChevronLeft, ChevronLast } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
+import type { RowData } from "@tanstack/react-table";
 
-export type SortDirection = "asc" | "desc" | null;
-
-export interface Column<T = any> {
-  key: string;
-  label: string;
-  sortable?: boolean;
-  render?: (value: any, item: T) => React.ReactNode;
-  className?: string;
-  width?: string;
+declare module "@tanstack/react-table" {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    /** Ελληνικό όνομα στήλης για το μενού «Στήλες» όταν το header είναι component. */
+    label?: string;
+    /** Με `fixedLayout`: η στήλη παίρνει ό,τι πλάτος περισσεύει (π.χ. περιγραφή). */
+    flex?: boolean;
+    /** Στοίχιση κεφαλίδας ίδια με το περιεχόμενο (π.χ. "right" για ποσά). */
+    align?: "left" | "right";
+  }
 }
 
-export interface DataTableProps<T = any> {
-  data: T[];
-  columns: Column<T>[];
-  title?: string;
-  subtitle?: string;
+interface DataTableProps<TData, TValue> {
+  columns: ColumnDef<TData, TValue>[];
+  data: TData[];
+  /** When set, replaces the default "Data Table (N items)" header title */
+  title?: React.ReactNode;
   searchPlaceholder?: string;
-  searchFields?: string[];
-  addButtonLabel?: string;
-  onAdd?: () => void;
-  onEdit?: (item: T) => void;
-  onDelete?: (item: T) => void;
-  onToggleStatus?: (item: T) => void;
-  actions?: Array<{
-    label: string;
-    onClick: (item: T) => void;
-    variant?: "default" | "destructive";
-    icon?: React.ReactNode;
-  }> | ((item: T) => Array<{
-    label: string;
-    onClick: (item: T) => void;
-    variant?: "default" | "destructive";
-    icon?: React.ReactNode;
-  }>);
-  defaultVisibleColumns?: string[];
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  pageSize?: number;
+  totalItems?: number;
+  currentPage?: number;
+  totalPages?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  expandableContent?: (item: TData) => React.ReactNode;
+  showColumnSelector?: boolean;
+  showExport?: boolean;
+  onExport?: () => void;
+  loading?: boolean;
   className?: string;
-  customButtons?: React.ReactNode; // Additional buttons to show next to add button
-  storageKey?: string; // Unique key for localStorage persistence (e.g., "users-table", "customers-table")
+  selectedRows?: string[];
+  onRowSelectionChange?: (selectedRows: string[]) => void;
+  showInternetProductsFilter?: boolean;
+  internetProductsOnly?: boolean;
+  onInternetProductsFilterChange?: (checked: boolean) => void;
+  /** Stable row id for expandable rows and selection. Defaults to index. */
+  getRowId?: (row: TData, index: number) => string;
+  columnVisibility?: VisibilityState;
+  onColumnVisibilityChange?: (visibility: VisibilityState) => void;
+  columnVisibilityStorageKey?: string;
+  /**
+   * Σταθερά πλάτη στηλών (table-fixed): οι στήλες κρατούν το `size` τους, οι
+   * `meta.flex` μοιράζονται τον χώρο που μένει, και τα truncate/line-clamp
+   * δουλεύουν. Χωρίς αυτό ο πίνακας απλώνει όσο το μεγαλύτερο κείμενο.
+   */
+  fixedLayout?: boolean;
 }
 
-export function DataTable<T extends Record<string, any>>({
-  data,
+export function DataTable<TData, TValue>({
   columns,
+  data,
   title,
-  subtitle,
-  searchPlaceholder = "Search...",
-  searchFields = [],
-  addButtonLabel,
-  onAdd,
-  onEdit,
-  onDelete,
-  onToggleStatus,
-  actions = [],
-  defaultVisibleColumns,
+  searchPlaceholder = "Αναζήτηση…",
+  searchValue = "",
+  onSearchChange,
+  pageSize = 200,
+  totalItems = 0,
+  currentPage = 1,
+  totalPages = 1,
+  onPageChange,
+  onPageSizeChange,
+  expandableContent,
+  showColumnSelector = true,
+  showExport = true,
+  onExport,
+  loading = false,
   className,
-  customButtons,
-  storageKey,
-}: DataTableProps<T>) {
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  
-  // OPTIMIZATION: Debounce search input to avoid filtering on every keystroke
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-    }, 300); // 300ms debounce delay
-    
-    return () => clearTimeout(timer);
-  }, [search]);
-  
-  // Initialize visible columns with default (no localStorage access during SSR)
-  const getDefaultVisibleColumns = (): Set<string> => {
-    return new Set(defaultVisibleColumns || columns.map(col => col.key));
-  };
-  
-  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(getDefaultVisibleColumns);
-  const [pageSize, setPageSize] = useState<number | "all">(25);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isMounted, setIsMounted] = useState(false);
-  
-  // Load saved column visibility from localStorage after mount (client-side only)
-  useEffect(() => {
-    setIsMounted(true);
-    
-    if (!storageKey || typeof window === "undefined") {
-      return;
-    }
-    
+  selectedRows = [],
+  onRowSelectionChange,
+  showInternetProductsFilter = false,
+  internetProductsOnly = false,
+  onInternetProductsFilterChange,
+  getRowId,
+  columnVisibility: controlledColumnVisibility,
+  onColumnVisibilityChange,
+  columnVisibilityStorageKey,
+  fixedLayout = false,
+}: DataTableProps<TData, TValue>) {
+  const pathname = usePathname();
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = React.useState<Record<string, boolean>>({});
+  const [expandedRows, setExpandedRows] = React.useState<Set<string>>(new Set());
+  /** Avoid infinite parent↔child loops: only notify when selected ids actually change. */
+  const lastNotifiedSelectionKeyRef = React.useRef<string | null>(null);
+  const columnIdentity = React.useMemo(() => {
+    return columns
+      .map((column, index) => {
+        const id = (column as { id?: string }).id;
+        const accessorKey = (column as { accessorKey?: string }).accessorKey;
+        return id || accessorKey || `col-${index}`;
+      })
+      .join("|");
+  }, [columns]);
+
+  const resolvedColumnVisibilityStorageKey = React.useMemo(() => {
+    if (columnVisibilityStorageKey) return columnVisibilityStorageKey;
+    if (!showColumnSelector) return null;
+    return `datatable-column-visibility:${pathname}:${columnIdentity}`;
+  }, [columnVisibilityStorageKey, showColumnSelector, pathname, columnIdentity]);
+
+  React.useEffect(() => {
+    if (!controlledColumnVisibility) return;
+    setColumnVisibility(controlledColumnVisibility);
+  }, [controlledColumnVisibility]);
+
+  React.useEffect(() => {
+    if (controlledColumnVisibility) return;
+    if (!resolvedColumnVisibilityStorageKey) return;
     try {
-      const saved = localStorage.getItem(`dataTable-columns-${storageKey}`);
-      if (saved) {
-        const savedColumns = JSON.parse(saved) as string[];
-        // Validate that saved columns still exist in current columns
-        const validColumns = savedColumns.filter(colKey => 
-          columns.some(col => col.key === colKey)
-        );
-        // If we have valid saved columns, use them; otherwise use default
-        if (validColumns.length > 0) {
-          setVisibleColumns(new Set(validColumns));
-        }
-      }
-    } catch (error) {
-      console.error("Error loading column preferences:", error);
+      const raw = localStorage.getItem(resolvedColumnVisibilityStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (!parsed || typeof parsed !== "object") return;
+      const sanitized = Object.fromEntries(
+        Object.entries(parsed).filter(([, value]) => typeof value === "boolean")
+      ) as VisibilityState;
+      setColumnVisibility(sanitized);
+    } catch {
+      // Ignore malformed local storage values.
     }
-  }, [storageKey, columns]);
-  
-  // Save column visibility to localStorage when it changes
-  useEffect(() => {
-    if (!isMounted || !storageKey || typeof window === "undefined") {
-      return;
-    }
-    
-    if (visibleColumns.size > 0) {
-      try {
-        const columnsArray = Array.from(visibleColumns);
-        localStorage.setItem(`dataTable-columns-${storageKey}`, JSON.stringify(columnsArray));
-      } catch (error) {
-        console.error("Error saving column preferences:", error);
-      }
-    }
-  }, [visibleColumns, storageKey, isMounted]);
-  
-  // Handle new columns being added (merge with saved preferences)
-  useEffect(() => {
-    if (storageKey && columns.length > 0) {
-      const allColumnKeys = new Set(columns.map(col => col.key));
-      const currentVisibleKeys = Array.from(visibleColumns);
-      
-      // Check if there are new columns that aren't in visibleColumns
-      const newColumns = columns
-        .map(col => col.key)
-        .filter(key => !visibleColumns.has(key));
-      
-      // If there are new columns, add them to visible columns (user preference is preserved, new columns are shown)
-      if (newColumns.length > 0) {
-        setVisibleColumns(prev => {
-          const updated = new Set(prev);
-          newColumns.forEach(key => updated.add(key));
-          return updated;
-        });
-      }
-      
-      // Remove columns that no longer exist
-      const removedColumns = currentVisibleKeys.filter(key => !allColumnKeys.has(key));
-      if (removedColumns.length > 0) {
-        setVisibleColumns(prev => {
-          const updated = new Set(prev);
-          removedColumns.forEach(key => updated.delete(key));
-          return updated;
-        });
-      }
-    }
-  }, [columns, storageKey]); // Only run when columns change
+  }, [controlledColumnVisibility, resolvedColumnVisibilityStorageKey]);
 
-  // OPTIMIZATION: Use debounced search and optimize filtering for large datasets
-  const filteredData = useMemo(() => {
-    let result = data;
-
-    // Apply regular search if provided (using debounced value)
-    if (debouncedSearch) {
-      const searchLower = debouncedSearch.toLowerCase();
-      const searchFieldsArray = searchFields.length > 0 ? searchFields : [];
-      
-      // For large datasets, use more efficient filtering
-      if (data.length > 1000) {
-        // Use Set for faster lookups if searching in specific fields
-        result = result.filter((item) => {
-          // Early exit if no search fields
-          if (searchFieldsArray.length === 0) return true;
-          
-          // Check each search field
-          for (const field of searchFieldsArray) {
-            const value = item[field];
-            if (value?.toString().toLowerCase().includes(searchLower)) {
-              return true; // Found match, include this item
-            }
-          }
-          return false; // No match found
-        });
-      } else {
-        // For smaller datasets, use original logic
-        result = result.filter((item) =>
-          searchFieldsArray.some((field) => {
-            const value = item[field];
-            return value?.toString().toLowerCase().includes(searchLower);
-          })
-        );
-      }
-    }
-
-    return result;
-  }, [data, debouncedSearch, searchFields]);
-
-  // Sort data
-  const sortedData = useMemo(() => {
-    if (!sortColumn) return filteredData;
-    if (!sortColumn || !sortDirection) return filteredData;
-
-    return [...filteredData].sort((a, b) => {
-      const aValue = a[sortColumn];
-      const bValue = b[sortColumn];
-
-      // Handle null/undefined values
-      if (aValue == null && bValue == null) return 0;
-      if (aValue == null) return sortDirection === "asc" ? 1 : -1;
-      if (bValue == null) return sortDirection === "asc" ? -1 : 1;
-
-      // Handle string comparison
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        const comparison = aValue.localeCompare(bValue);
-        return sortDirection === "asc" ? comparison : -comparison;
-      }
-
-      // Handle date comparison
-      if (aValue instanceof Date && bValue instanceof Date) {
-        return sortDirection === "asc"
-          ? aValue.getTime() - bValue.getTime()
-          : bValue.getTime() - aValue.getTime();
-      }
-
-      // Handle number comparison
-      if (typeof aValue === "number" && typeof bValue === "number") {
-        return sortDirection === "asc" ? aValue - bValue : bValue - aValue;
-      }
-
-      // Fallback to string comparison
-      const aStr = String(aValue);
-      const bStr = String(bValue);
-      const comparison = aStr.localeCompare(bStr);
-      return sortDirection === "asc" ? comparison : -comparison;
-    });
-  }, [filteredData, sortColumn, sortDirection]);
-
-  const handleSort = (columnKey: string) => {
-    const column = columns.find(col => col.key === columnKey);
-    if (!column?.sortable) return;
-
-    if (sortColumn === columnKey) {
-      // Cycle through sort directions: asc -> desc -> null
-      if (sortDirection === "asc") {
-        setSortDirection("desc");
-      } else if (sortDirection === "desc") {
-        setSortDirection(null);
-        setSortColumn(null);
-      }
-    } else {
-      setSortColumn(columnKey);
-      setSortDirection("asc");
-    }
-  };
-
-  const toggleColumnVisibility = (columnKey: string) => {
-    setVisibleColumns(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(columnKey)) {
-        // Don't allow hiding all columns
-        if (newSet.size > 1) {
-          newSet.delete(columnKey);
-        }
-      } else {
-        newSet.add(columnKey);
-      }
-      return newSet;
-    });
-  };
-
-  // Pagination logic
-  const totalItems = sortedData.length;
-  const totalPages = pageSize === "all" ? 1 : Math.ceil(totalItems / pageSize);
-  
-  // Reset to page 1 when page size changes or search changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [pageSize, search]);
-
-  // Get paginated data
-  const paginatedData = useMemo(() => {
-    if (pageSize === "all") return sortedData;
-    const startIndex = (currentPage - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    return sortedData.slice(startIndex, endIndex);
-  }, [sortedData, currentPage, pageSize]);
-
-  // Calculate page numbers to display
-  const getPageNumbers = () => {
-    if (totalPages <= 7) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    
-    const pages: (number | string)[] = [];
-    if (currentPage <= 3) {
-      pages.push(1, 2, 3, 4, "...", totalPages);
-    } else if (currentPage >= totalPages - 2) {
-      pages.push(1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-    } else {
-      pages.push(1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages);
-    }
-    return pages;
-  };
-
-  const visibleColumnsList = columns.filter(col => visibleColumns.has(col.key));
-
-  const renderCellContent = (item: T, column: Column<T>) => {
-    const value = item[column.key];
-
-    if (column.render) {
-      return column.render(value, item);
-    }
-
-    // Default renderers
-    if (value instanceof Date) {
-      return format(value, "dd/MM/yyyy");
-    }
-
-    if (typeof value === "boolean") {
-      return (
-        <Badge variant={value ? "default" : "secondary"} className="text-[7px] px-1.5 py-0.5">
-          {value ? "ACTIVE" : "INACTIVE"}
-        </Badge>
+  React.useEffect(() => {
+    if (controlledColumnVisibility) return;
+    if (!resolvedColumnVisibilityStorageKey) return;
+    try {
+      localStorage.setItem(
+        resolvedColumnVisibilityStorageKey,
+        JSON.stringify(columnVisibility)
       );
+    } catch {
+      // Ignore storage write failures.
     }
+  }, [controlledColumnVisibility, resolvedColumnVisibilityStorageKey, columnVisibility]);
 
-    return value || "-";
+  const handleColumnVisibilityChange = React.useCallback(
+    (updater: VisibilityState | ((old: VisibilityState) => VisibilityState)) => {
+      setColumnVisibility((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : updater;
+        onColumnVisibilityChange?.(next);
+        return next;
+      });
+    },
+    [onColumnVisibilityChange]
+  );
+
+  /*
+   * Πλάτη στηλών.
+   *
+   * Σε αυτόματο layout ο browser απλώνει κάθε στήλη όσο το κείμενό της και
+   * αγνοεί το πλάτος της λαβής — γι' αυτό το «σύρσιμο» δεν μίκραινε τίποτα.
+   * Στο πρώτο σύρσιμο κρατάμε τα πλάτη που φαίνονται εκείνη τη στιγμή και
+   * περνάμε σε σταθερό layout, ώστε ο πίνακας να μην «πηδήξει». Τα πλάτη
+   * μένουν αποθηκευμένα ανά σελίδα.
+   */
+  const columnSizingStorageKey = `datatable-column-sizing:${pathname}:${columnIdentity}`;
+  const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({});
+  const headerCells = React.useRef(new Map<string, HTMLTableCellElement>());
+
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(columnSizingStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const clean = Object.fromEntries(
+        Object.entries(parsed ?? {}).filter(([, v]) => typeof v === "number" && v >= 40 && v <= 2000),
+      ) as ColumnSizingState;
+      if (Object.keys(clean).length) setColumnSizing(clean);
+    } catch {
+      /* κατεστραμμένη τιμή: αγνοείται */
+    }
+  }, [columnSizingStorageKey]);
+
+  React.useEffect(() => {
+    if (!Object.keys(columnSizing).length) return;
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(columnSizingStorageKey, JSON.stringify(columnSizing));
+      } catch {
+        /* ιδιωτική περιήγηση */
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [columnSizing, columnSizingStorageKey]);
+
+  const useFixedLayout = fixedLayout || Object.keys(columnSizing).length > 0;
+
+  /*
+   * Το ανοιχτό περιεχόμενο γραμμής μένει στο ορατό πλάτος: σε φαρδύ πίνακα με
+   * οριζόντια κύλιση δεν απλώνεται σε όλο το πλάτος του πίνακα αλλά
+   * «κολλάει» αριστερά με πλάτος όσο το πλαίσιο.
+   */
+  const scrollBoxRef = React.useRef<HTMLDivElement>(null);
+  const [scrollBoxWidth, setScrollBoxWidth] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    const el = scrollBoxRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setScrollBoxWidth(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const table = useReactTable({
+    data,
+    columns,
+    getRowId: getRowId as ((row: TData, index: number) => string) | undefined,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    onColumnVisibilityChange: handleColumnVisibilityChange,
+    onRowSelectionChange: setRowSelection,
+    columnResizeMode: "onChange" as ColumnResizeMode,
+    enableColumnResizing: true,
+    onColumnSizingChange: setColumnSizing,
+    enableRowSelection: !!onRowSelectionChange,
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+      columnSizing,
+    },
+  });
+
+  /** Μια στήλη «flex» παίρνει τον χώρο που περισσεύει — μέχρι να της δώσει πλάτος ο χρήστης. */
+  const isFlex = (column: any) => useFixedLayout && column.columnDef.meta?.flex && columnSizing[column.id] == null;
+
+  const startResize = (header: any, event: React.MouseEvent | React.TouchEvent) => {
+    if (!useFixedLayout || isFlex(header.column)) {
+      const snapshot: ColumnSizingState = { ...columnSizing };
+      headerCells.current.forEach((el, id) => {
+        if (el.isConnected) snapshot[id] = Math.round(el.getBoundingClientRect().width);
+      });
+      flushSync(() => setColumnSizing(snapshot));
+    }
+    header.getResizeHandler()(event);
   };
+
+  React.useEffect(() => {
+    if (!onRowSelectionChange) return;
+    const ids = Object.keys(rowSelection).filter((id) => rowSelection[id]);
+    const key = ids.slice().sort().join("\u0001");
+    if (key === lastNotifiedSelectionKeyRef.current) return;
+    lastNotifiedSelectionKeyRef.current = key;
+    onRowSelectionChange(ids);
+  }, [rowSelection, onRowSelectionChange]);
+
+  const toggleRowExpansion = (rowId: string) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(rowId)) {
+      newExpanded.delete(rowId);
+    } else {
+      newExpanded.add(rowId);
+    }
+    setExpandedRows(newExpanded);
+  };
+
+  // Initial load: show skeleton. Page change / refetch: show table with overlay so pagination stays visible.
+  if (loading && totalItems === 0) {
+    return <DataTableSkeleton />;
+  }
 
   return (
-    <Card className={`group relative overflow-hidden border-0 card-shadow-xl bg-card/50 backdrop-blur-sm ${className}`}>
-      <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-cyan-500/5 opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none" />
-      {title && (
-        <CardHeader className="pb-4 relative">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-[13px] uppercase text-muted-foreground font-bold">
-              {title}
-            </CardTitle>
-            {subtitle && (
-              <p className="text-[9px] text-muted-foreground mt-1">
-                {subtitle}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder={searchPlaceholder}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="h-9 pl-9 border-muted-foreground/20 focus:border-violet-500/50 text-[11px]"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              {columns.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild suppressHydrationWarning>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="h-9 relative z-10"
-                      type="button"
-                    >
-                      <Columns className="h-4 w-4 mr-1" />
-                      <span className="text-[11px]">COLUMNS</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuLabel className="text-[11px]">TOGGLE COLUMNS</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {columns.map((column) => (
-                      <DropdownMenuCheckboxItem
-                        key={column.key}
-                        checked={visibleColumns.has(column.key)}
-                        onCheckedChange={() => toggleColumnVisibility(column.key)}
-                        className="text-[11px]"
-                      >
-                        {column.label}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-
-              {/* Page Size Selector */}
-              <Select
-                value={pageSize === "all" ? "all" : String(pageSize)}
-                onValueChange={(value) => {
-                  setPageSize(value === "all" ? "all" : parseInt(value, 10));
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="h-9 w-20 text-[11px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="25" className="text-[11px]">25</SelectItem>
-                  <SelectItem value="50" className="text-[11px]">50</SelectItem>
-                  <SelectItem value="100" className="text-[11px]">100</SelectItem>
-                  <SelectItem value="all" className="text-[11px]">All</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {customButtons}
-            {addButtonLabel && onAdd && (
-              <Button
-                type="button"
-                onClick={() => {
-                  onAdd();
-                }}
-                size="sm"
-                className="h-9 gap-2 px-6 py-3 text-[11px] font-medium shadow-lg hover:shadow-xl transition-all duration-300 relative z-10"
-              >
-                <Plus className="h-3 w-3" />
-                {addButtonLabel}
-              </Button>
-            )}
+    <Card className={cn(className, "relative")}>
+      {loading && totalItems > 0 && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/80 backdrop-blur-[1px]">
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="text-xs text-muted-foreground">Φόρτωση…</span>
           </div>
         </div>
+      )}
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {title ?? <span>{totalItems.toLocaleString("el-GR")} εγγραφές</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            {showInternetProductsFilter && onInternetProductsFilterChange && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="internet-products"
+                  checked={internetProductsOnly}
+                  onCheckedChange={onInternetProductsFilterChange}
+                />
+                <label
+                  htmlFor="internet-products"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Μόνο δημοσιευμένα
+                </label>
+              </div>
+            )}
+            {showExport && onExport && (
+              <Button variant="outline" size="sm" onClick={onExport}>
+                <Download />
+                Εξαγωγή
+              </Button>
+            )}
+            {showColumnSelector && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Settings />
+                    Στήλες
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {table
+                    .getAllColumns()
+                    .filter((column: any) => column.getCanHide())
+                    .map((column: any) => {
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={column.id}
+                          checked={column.getIsVisible()}
+                          onCheckedChange={(value) =>
+                            column.toggleVisibility(!!value)
+                          }
+                        >
+                          {column.columnDef.meta?.label ??
+                            (typeof column.columnDef.header === "string" && column.columnDef.header
+                              ? column.columnDef.header
+                              : column.id)}
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </CardTitle>
       </CardHeader>
-      )}
-
-      {!title && (
-        <div className="px-6 py-3 border-b border-muted-foreground/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {searchPlaceholder && (
-                <div className="relative w-64">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder={searchPlaceholder}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="h-9 pl-9 border-muted-foreground/20 focus:border-violet-500/50 text-[11px]"
-                  />
-                </div>
-              )}
-
-            <div className="flex items-center gap-2">
-              {columns.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild suppressHydrationWarning>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="h-9 relative z-10"
-                      type="button"
-                    >
-                      <Columns className="h-4 w-4 mr-1" />
-                      <span className="text-[11px]">COLUMNS</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuLabel className="text-[11px]">TOGGLE COLUMNS</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {columns.map((column) => (
-                      <DropdownMenuCheckboxItem
-                        key={column.key}
-                        checked={visibleColumns.has(column.key)}
-                        onCheckedChange={() => toggleColumnVisibility(column.key)}
-                        className="text-[11px]"
-                      >
-                        {column.label}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-
-              {/* Page Size Selector */}
-              <Select
-                value={pageSize === "all" ? "all" : String(pageSize)}
-                onValueChange={(value) => {
-                  setPageSize(value === "all" ? "all" : parseInt(value, 10));
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="h-9 w-20 text-[11px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="25" className="text-[11px]">25</SelectItem>
-                  <SelectItem value="50" className="text-[11px]">50</SelectItem>
-                  <SelectItem value="100" className="text-[11px]">100</SelectItem>
-                  <SelectItem value="all" className="text-[11px]">All</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <CardContent>
+        {/* Search Bar */}
+        {onSearchChange && (
+          <div className="mb-4">
+            <Input
+              placeholder={searchPlaceholder}
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="max-w-sm"
+            />
           </div>
+        )}
 
-          <div className="flex items-center gap-2">
-            {customButtons}
-            {addButtonLabel && onAdd && (
-              <Button
-                type="button"
-                onClick={() => {
-                  onAdd();
-                }}
-                size="sm"
-                className="h-9 gap-2 px-6 py-3 text-[11px] font-medium shadow-lg hover:shadow-xl transition-all duration-300 relative z-10"
-              >
-                <Plus className="h-3 w-3" />
-                {addButtonLabel}
-              </Button>
-            )}
-          </div>
-          </div>
-        </div>
-      )}
-
-      <CardContent className={`${title ? 'relative' : 'relative px-6'}`}>
-        <div className="rounded-lg border border-muted-foreground/20 overflow-x-auto">
-          <Table className="min-w-full">
+        {/* Table */}
+        <div ref={scrollBoxRef} className="rounded-md border overflow-x-auto">
+          <Table
+            className={cn(useFixedLayout && "table-fixed")}
+            style={
+              useFixedLayout
+                ? {
+                    width: "100%",
+                    minWidth:
+                      table
+                        .getVisibleLeafColumns()
+                        .reduce((sum: number, c: any) => sum + (isFlex(c) ? 180 : c.getSize()), 0) +
+                      (onRowSelectionChange ? 36 : 0) +
+                      (expandableContent ? 36 : 0),
+                  }
+                : undefined
+            }
+          >
             <TableHeader>
-              <TableRow className="h-6">
-                {visibleColumnsList.map((column) => (
-                  <TableHead
-                    key={column.key}
-                    className={`text-[7px] uppercase font-bold text-muted-foreground ${column.className || ""}`}
-                    style={{ width: column.width }}
-                  >
-                    {column.sortable ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-5 px-1 hover:bg-transparent font-bold"
-                        onClick={() => handleSort(column.key)}
+              {table.getHeaderGroups().map((headerGroup: any) => (
+                <TableRow key={headerGroup.id} className="border-b hover:bg-transparent data-[state=selected]:bg-transparent">
+                  {onRowSelectionChange && (
+                    <TableHead className={useFixedLayout ? "w-9" : "w-12"}>
+                      <Checkbox
+                        checked={
+                          table.getIsAllPageRowsSelected() ||
+                          (table.getIsSomePageRowsSelected() && "indeterminate")
+                        }
+                        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                        aria-label="Επιλογή όλων"
+                      />
+                    </TableHead>
+                  )}
+                  {expandableContent && (
+                    <TableHead className={useFixedLayout ? "w-9" : "w-12"}></TableHead>
+                  )}
+                  {headerGroup.headers.map((header: any) => {
+                    const canSort = header.column.getCanSort();
+                    const sorted = header.column.getIsSorted();
+                    return (
+                      <TableHead
+                        key={header.id}
+                        className="text-xs relative"
+                        ref={(el: HTMLTableCellElement | null) => {
+                          if (el) headerCells.current.set(header.column.id, el);
+                          else headerCells.current.delete(header.column.id);
+                        }}
+                        style={isFlex(header.column) ? undefined : { width: header.getSize() }}
                       >
-                        <span className="text-[7px]">{column.label}</span>
-                        <ArrowUpDown className="ml-1 h-2.5 w-2.5" />
-                        {sortColumn === column.key && sortDirection === "asc" && (
-                          <ChevronUp className="ml-1 h-2.5 w-2.5" />
+                        <div
+                          className={cn(
+                            "flex items-center",
+                            header.column.columnDef.meta?.align === "right" ? "justify-end" : "justify-start",
+                          )}
+                        >
+                          {header.isPlaceholder ? null : canSort ? (
+                            <button
+                              type="button"
+                              onClick={header.column.getToggleSortingHandler()}
+                              title={
+                                sorted === "asc"
+                                  ? "Αύξουσα ταξινόμηση — κλικ για φθίνουσα, ξανά για καθαρισμό"
+                                  : sorted === "desc"
+                                    ? "Κλικ για καθαρισμό ταξινόμησης"
+                                    : "Ταξινόμηση στήλης"
+                              }
+                              className={cn(
+                                "-mx-1.5 inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-1 text-xs font-semibold text-inherit hover:bg-muted/60",
+                                header.column.columnDef.meta?.align === "right" ? "flex-row-reverse text-right" : "text-left",
+                              )}
+                            >
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                              {sorted === "asc" ? (
+                                <ArrowUp className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
+                              ) : sorted === "desc" ? (
+                                <ArrowDown className="h-3 w-3 shrink-0 opacity-90" aria-hidden />
+                              ) : (
+                                <ArrowUpDown className="h-3 w-3 shrink-0 opacity-55" aria-hidden />
+                              )}
+                            </button>
+                          ) : (
+                            <div className="py-1 text-xs font-semibold text-inherit">
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                            </div>
+                          )}
+                        </div>
+                        {header.column.getCanResize() && (
+                        <div
+                          onMouseDown={(e) => startResize(header, e)}
+                          onTouchStart={(e) => startResize(header, e)}
+                          onDoubleClick={() => header.column.resetSize()}
+                          title="Σύρετε για αλλαγή πλάτους · διπλό κλικ για επαναφορά"
+                          aria-hidden
+                          className={cn(
+                            "absolute top-0 -right-1 z-30 h-full w-2.5 cursor-col-resize touch-none select-none transition-colors",
+                            header.column.getIsResizing() ? "bg-primary/60" : "hover:bg-border",
+                          )}
+                        />
                         )}
-                        {sortColumn === column.key && sortDirection === "desc" && (
-                          <ChevronDown className="ml-1 h-2.5 w-2.5" />
-                        )}
-                      </Button>
-                    ) : (
-                      <span className="text-[7px]">{column.label}</span>
-                    )}
-                  </TableHead>
-                ))}
-                {(actions.length > 0 || onEdit || onDelete || onToggleStatus) && (
-                  <TableHead className="text-right text-[7px] uppercase font-bold text-muted-foreground w-16">
-                    ACTIONS
-                  </TableHead>
-                )}
-              </TableRow>
+                      </TableHead>
+                    );
+                  })}
+                </TableRow>
+              ))}
             </TableHeader>
             <TableBody>
-              {sortedData.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={visibleColumnsList.length + (actions.length > 0 || onEdit || onDelete || onToggleStatus ? 1 : 0)}
-                    className="h-12 text-center text-[9px] text-muted-foreground"
+              {table.getRowModel().rows.map((row: any) => (
+                <React.Fragment key={row.id}>
+                  <TableRow
+                    data-state={row.getIsSelected() && "selected"}
+                    className="hover:bg-muted/50"
                   >
-                    No records found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedData.map((item, index) => (
-                  <TableRow key={item.id || index} className="h-6 hover:bg-muted/70 transition-colors cursor-pointer">
-                    {visibleColumnsList.map((column) => (
-                      <TableCell
-                        key={column.key}
-                        className={`text-[9px] ${column.className || ""}`}
-                      >
-                        {renderCellContent(item, column)}
-                      </TableCell>
-                    ))}
-                    {((typeof actions === 'function' ? actions(item).length > 0 : (actions?.length || 0) > 0) || onEdit || onDelete || onToggleStatus) && (
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild suppressHydrationWarning>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                              <MoreHorizontal className="h-3 w-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuLabel className="text-[9px]">ACTIONS</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            {onEdit && (
-                              <DropdownMenuItem
-                                onClick={() => onEdit(item)}
-                                className="text-[9px]"
-                              >
-                                Edit User
-                              </DropdownMenuItem>
-                            )}
-                            {onToggleStatus && (
-                              <DropdownMenuItem
-                                onClick={() => onToggleStatus(item)}
-                                className="text-[9px]"
-                              >
-                                Toggle Status
-                              </DropdownMenuItem>
-                            )}
-                            {(() => {
-                              const recordActions = typeof actions === 'function' ? actions(item) : (actions || []);
-                              return recordActions.map((action, actionIndex) => (
-                                <DropdownMenuItem
-                                  key={actionIndex}
-                                  onClick={() => action.onClick(item)}
-                                  className={`text-[9px] ${action.variant === 'destructive' ? 'text-destructive' : ''}`}
-                                >
-                                  {action.icon}
-                                  {action.label}
-                                </DropdownMenuItem>
-                              ));
-                            })()}
-                            {onDelete && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => onDelete(item)}
-                                  className="text-[9px] text-destructive"
-                                >
-                                  Delete User
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                    {onRowSelectionChange && (
+                      <TableCell className={useFixedLayout ? "w-9" : "w-12"}>
+                        <Checkbox
+                          checked={row.getIsSelected()}
+                          onCheckedChange={(value) => row.toggleSelected(!!value)}
+                          aria-label="Επιλογή γραμμής"
+                        />
                       </TableCell>
                     )}
+                    {expandableContent && (
+                      <TableCell className={useFixedLayout ? "w-9" : "w-12"}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleRowExpansion(row.id)}
+                          className="h-6 w-6 p-0"
+                        >
+                          {expandedRows.has(row.id) ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
+                    )}
+                    {row.getVisibleCells().map((cell: any) => (
+                      <TableCell
+                        key={cell.id}
+                        className={cn("text-xs", useFixedLayout && "overflow-hidden whitespace-normal")}
+                        style={isFlex(cell.column) ? undefined : { width: cell.column.getSize() }}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
                   </TableRow>
-                ))
-              )}
+                  {expandableContent && expandedRows.has(row.id) && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={row.getVisibleCells().length + (onRowSelectionChange ? 2 : 1)}
+                        className="bg-muted/40 p-0 whitespace-normal"
+                      >
+                        <div
+                          className="sticky left-0 p-3"
+                          style={scrollBoxWidth ? { width: scrollBoxWidth - 2 } : undefined}
+                        >
+                          {expandableContent(row.original)}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
+              ))}
             </TableBody>
           </Table>
         </div>
 
-        {/* Pagination Controls */}
-        {pageSize !== "all" && totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4 pt-4 border-t">
-            <div className="text-[9px] text-muted-foreground">
-              Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalItems)} of {totalItems} entries
+        {/* Pagination */}
+        <div className="flex items-center justify-between mt-6">
+          <div className="flex items-center gap-4">
+            <div className="text-xs text-muted-foreground">
+              {((currentPage - 1) * pageSize) + 1}–{Math.min(currentPage * pageSize, totalItems)} από {totalItems.toLocaleString("el-GR")}
             </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 p-0"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-3 w-3" />
-              </Button>
-              
-              {getPageNumbers().map((page, index) => {
-                if (page === "...") {
-                  return (
-                    <span key={`ellipsis-${index}`} className="px-2 text-[9px] text-muted-foreground">
-                      ...
-                    </span>
-                  );
-                }
-                const pageNum = page as number;
-                return (
-                  <Button
-                    key={pageNum}
-                    variant={currentPage === pageNum ? "default" : "outline"}
-                    size="sm"
-                    className={`h-7 w-7 p-0 text-[9px] ${
-                      currentPage === pageNum 
-                        ? "bg-primary text-primary-foreground" 
-                        : ""
-                    }`}
-                    onClick={() => setCurrentPage(pageNum)}
-                  >
-                    {pageNum}
-                  </Button>
-                );
-              })}
-              
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 p-0"
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-              >
-                <ChevronRight className="h-3 w-3" />
-              </Button>
-            </div>
+            {onPageSizeChange && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Ανά σελίδα:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                  className="h-7 rounded-sm border bg-background px-2 text-xs"
+                >
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={200}>200</option>
+                  <option value={500}>500</option>
+                  <option value={1000}>1,000</option>
+                  <option value={2500}>2,500</option>
+                  <option value={5000}>5,000</option>
+                </select>
+              </div>
+            )}
           </div>
-        )}
+          {totalPages > 1 && onPageChange && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(1)}
+                disabled={currentPage <= 1}
+              >
+                <ChevronFirst className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage <= 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(10, totalPages) }, (_, i) => {
+                  const pageNum = Math.max(1, Math.min(totalPages - 9, currentPage - 4)) + i;
+                  if (pageNum > totalPages) return null;
+
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={pageNum === currentPage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => onPageChange(pageNum)}
+                      className="w-8 h-8 p-0"
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(totalPages)}
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronLast className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
 }
+
+function DataTableSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <Skeleton className="h-6 w-48" />
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <div className="grid grid-cols-3 gap-4">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
+          <div className="space-y-2">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+} 

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/ui/page-header";
 import { FormDialog } from "@/components/ui/form-dialog";
 import { FormCard } from "@/components/ui/form-card";
-import { DataTable, type Column } from "@/components/ui/data-table";
+import { DataTable, type Column } from "@/components/ui/data-table-legacy";
 import { Plus, Save } from "lucide-react";
 
 // Example data type

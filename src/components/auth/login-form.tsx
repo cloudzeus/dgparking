@@ -1,36 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useActionState } from "react";
+import { useEffect, useActionState } from "react";
 import Link from "next/link";
-import gsap from "gsap";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Mail, Lock, LogIn } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { LogIn } from "lucide-react";
 import { login, type LoginState } from "@/lib/actions/auth";
 import { toast } from "sonner";
 
 export function LoginForm({ callbackUrl = "/dashboard" }: { callbackUrl?: string }) {
-  const cardRef = useRef<HTMLDivElement>(null);
   const [state, formAction, isPending] = useActionState<LoginState | undefined, FormData>(
     login,
     undefined
   );
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const ctx = gsap.context(() => {
-        gsap.fromTo(
-          cardRef.current,
-          { opacity: 0, y: 30, scale: 0.98 },
-          { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: "power3.out" }
-        );
-      });
-      return () => ctx.revert();
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     if (state?.error) {
@@ -39,68 +24,51 @@ export function LoginForm({ callbackUrl = "/dashboard" }: { callbackUrl?: string
   }, [state]);
 
   return (
-    <Card ref={cardRef} className="border-0 shadow-xl" style={{ opacity: 0 }}>
-      <CardContent className="pt-6">
-        <form action={formAction} className="space-y-4">
+    <Card>
+      <CardContent>
+        <form action={formAction} className="flex flex-col gap-4">
           <input type="hidden" name="callbackUrl" value={callbackUrl} />
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-xs font-medium uppercase">
-              EMAIL ADDRESS
-            </Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Enter your email"
-                required
-                className="h-11 pl-10"
-                disabled={isPending}
-              />
-            </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email">Διεύθυνση email</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              placeholder="ο λογαριασμός σας"
+              required
+              disabled={isPending}
+            />
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password" className="text-xs font-medium uppercase">
-                PASSWORD
-              </Label>
-              <Link
-                href="/forgot-password"
-                className="text-xs text-primary hover:underline"
-              >
-                FORGOT PASSWORD?
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="password">Κωδικός</Label>
+              <Link href="/forgot-password" className="text-xs text-primary hover:underline">
+                Ξεχάσατε τον κωδικό;
               </Link>
             </div>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Enter your password"
-                required
-                className="h-11 pl-10"
-                disabled={isPending}
-              />
-            </div>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="ο κωδικός σας"
+              required
+              disabled={isPending}
+            />
           </div>
 
-          <Button
-            type="submit"
-            className="h-11 w-full gap-2"
-            disabled={isPending}
-          >
+          <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                SIGNING IN...
+                <Spinner data-icon="inline-start" />
+                Γίνεται σύνδεση…
               </>
             ) : (
               <>
-                <LogIn className="h-4 w-4" />
-                SIGN IN
+                <LogIn aria-hidden />
+                Σύνδεση
               </>
             )}
           </Button>
@@ -109,5 +77,3 @@ export function LoginForm({ callbackUrl = "/dashboard" }: { callbackUrl?: string
     </Card>
   );
 }
-
-

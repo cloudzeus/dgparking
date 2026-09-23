@@ -1,13 +1,27 @@
 import type { Metadata } from "next";
+import { Geist_Mono, Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
+
+/* DG design system: Segoe UI Variable στα Windows, Inter (με ελληνικά) αλλού. */
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin", "greek"],
+  display: "swap",
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 /** Prevents static prerender of internal routes (_not-found, _global-error) which fail with useContext during build. */
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "SMART-PARK — Intelligent Parking Management",
-  description: "SMART-PARK: license plate recognition, access control, contracts, and real-time dashboards for parking operations.",
+  title: "SMART-PARK — Έξυπνη διαχείριση στάθμευσης",
+  description:
+    "SMART-PARK: αναγνώριση πινακίδων, έλεγχος πρόσβασης, συμβόλαια και πίνακες ελέγχου σε πραγματικό χρόνο.",
 };
 
 export default function RootLayout({
@@ -16,10 +30,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="antialiased min-h-screen bg-background font-sans">
+    // Οι μεταβλητές γραμματοσειράς στο <html>: τα tokens (--font-sans) τις
+    // διαβάζουν από το :root του dg-theme.css.
+    <html lang="el" className={`${inter.variable} ${geistMono.variable}`} suppressHydrationWarning>
+      <body className="min-h-screen bg-background font-sans antialiased" suppressHydrationWarning>
         {children}
-        <Toaster position="top-right" richColors />
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   );

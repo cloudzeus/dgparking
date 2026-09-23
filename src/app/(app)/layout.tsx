@@ -24,13 +24,11 @@ export default async function AppLayout({
 
   return (
     <SidebarProvider>
-      {/* Gradient Background */}
-      <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]" />
-
       <AppSidebar user={session.user} />
-      <SidebarInset>
+      <SidebarInset className="min-w-0">
         <AppHeader user={session.user} isSoftOneConnected={isSoftOneConnected} />
-        <main className="flex-1 relative p-6">{children}</main>
+        {/* Το κέλυφος δίνει το padding — οι σελίδες δεν βάζουν δικό τους. */}
+        <main className="min-w-0 flex-1 p-4">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

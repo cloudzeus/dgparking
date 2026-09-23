@@ -15,9 +15,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
@@ -28,23 +25,22 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   LayoutDashboard,
   Users,
   Car,
   Settings,
-  Shield,
   UserCog,
-  Building2,
   LogOut,
   ChevronDown,
   User,
-  Edit,
   Database,
   Plug,
   Link2,
@@ -57,8 +53,9 @@ import {
   FileCheck,
 } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getRoleBadgeColor } from "@/lib/role-colors";
+import { roleLabel, roleVariant } from "@/lib/roles";
 
 interface AppSidebarProps {
   user: {
@@ -86,11 +83,11 @@ interface MenuGroup {
 
 const menuGroups: MenuGroup[] = [
   {
-    title: "OVERVIEW",
+    title: "Επισκόπηση",
     icon: LayoutDashboard,
     items: [
       {
-        title: "Dashboard",
+        title: "Πίνακας ελέγχου",
         href: "/dashboard",
         icon: LayoutDashboard,
         roles: ["ADMIN", "MANAGER", "EMPLOYEE", "CLIENT"],
@@ -98,25 +95,13 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
-    title: "MANAGEMENT",
+    title: "Διαχείριση",
     icon: Users,
     items: [
       {
-        title: "Users",
+        title: "Χρήστες",
         href: "/users",
         icon: Users,
-        roles: ["ADMIN", "MANAGER"],
-      },
-      {
-        title: "Parking",
-        href: "/parking",
-        icon: Car,
-        roles: ["ADMIN", "MANAGER", "EMPLOYEE"],
-      },
-      {
-        title: "Locations",
-        href: "/locations",
-        icon: Building2,
         roles: ["ADMIN", "MANAGER"],
       },
       {
@@ -126,25 +111,25 @@ const menuGroups: MenuGroup[] = [
         roles: ["ADMIN", "MANAGER"],
       },
       {
-        title: "Customers",
+        title: "Πελάτες",
         href: "/customers",
         icon: Users,
         roles: ["ADMIN", "MANAGER", "EMPLOYEE"],
       },
       {
-        title: "Contracts",
+        title: "Συμβόλαια",
         href: "/contracts",
         icon: FileText,
         roles: ["ADMIN", "MANAGER", "EMPLOYEE"],
       },
       {
-        title: "License plates",
+        title: "Πινακίδες",
         href: "/items",
-        icon: Database,
+        icon: Car,
         roles: ["ADMIN", "MANAGER", "EMPLOYEE"],
       },
       {
-        title: "Integrations",
+        title: "Διασυνδέσεις",
         href: "/integrations",
         icon: Network,
         roles: ["ADMIN", "MANAGER"],
@@ -152,11 +137,11 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
-    title: "REPORTS",
+    title: "Αναφορές",
     icon: BarChart3,
     items: [
       {
-        title: "OUT Without IN",
+        title: "Έξοδοι χωρίς είσοδο",
         href: "/reports/out-without-in",
         icon: ArrowDownRight,
         roles: ["ADMIN", "MANAGER"],
@@ -164,11 +149,11 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
-    title: "API CONNECTORS",
+    title: "Συνδέσεις API",
     icon: Plug,
     items: [
       {
-        title: "Customers 2 ERP",
+        title: "Πελάτες προς ERP",
         href: "/customers-2-erp",
         icon: Link2,
         roles: ["ADMIN"],
@@ -176,35 +161,35 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
-    title: "ACCOUNT",
+    title: "Λογαριασμός",
     icon: UserCog,
     items: [
       {
-        title: "My Account",
+        title: "Ο λογαριασμός μου",
         href: "/account",
         icon: UserCog,
         roles: ["ADMIN", "MANAGER", "EMPLOYEE", "CLIENT"],
       },
       {
-        title: "License",
+        title: "Άδεια χρήσης",
         href: "/account/license",
         icon: FileCheck,
         roles: ["ADMIN", "MANAGER", "EMPLOYEE", "CLIENT"],
       },
       {
-        title: "Cron Logs",
+        title: "Ιστορικό cron",
         href: "/account/cron-logs",
         icon: Clock,
         roles: ["ADMIN", "MANAGER"],
       },
       {
-        title: "LPR Logs",
+        title: "Ιστορικό αναγνώρισης",
         href: "/lpr-logs",
         icon: Camera,
         roles: ["ADMIN", "MANAGER"],
       },
       {
-        title: "Settings",
+        title: "Ρυθμίσεις",
         href: "/settings",
         icon: Settings,
         roles: ["ADMIN"],
@@ -212,6 +197,12 @@ const menuGroups: MenuGroup[] = [
     ],
   },
 ];
+
+/** Αρχικά για το Avatar όταν δεν υπάρχει φωτογραφία. */
+function initials(user: AppSidebarProps["user"]) {
+  const letters = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.trim();
+  return (letters || user.email[0] || "?").toUpperCase();
+}
 
 export function AppSidebar({ user }: AppSidebarProps) {
   const pathname = usePathname();
@@ -231,18 +222,42 @@ export function AppSidebar({ user }: AppSidebarProps) {
     }))
     .filter((group) => group.items.length > 0);
 
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
+
+  const renderItems = (items: NavItem[]) => (
+    <SidebarMenu>
+      {items.map((item) => {
+        const Icon = item.icon;
+        const isActive = pathname === item.href;
+        return (
+          <SidebarMenuItem key={item.href}>
+            <SidebarMenuButton asChild isActive={isActive} tooltip={item.title} className="h-8">
+              <Link href={item.href}>
+                <Icon className="size-4" />
+                <span className="text-xs">{item.title}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      })}
+    </SidebarMenu>
+  );
 
   return (
-    <Sidebar collapsible="icon" className="border-0">
-      <SidebarHeader className="p-4">
-        <Link href="/dashboard" className="flex items-center gap-2 justify-center group-data-[collapsible=icon]:justify-center">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary">
-            <Car className="h-5 w-5 text-primary-foreground flex-shrink-0" />
-          </div>
+    <Sidebar collapsible="icon" className="border-r">
+      <SidebarHeader className="p-3">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center"
+        >
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary">
+            <Car className="size-4 text-primary-foreground" aria-hidden />
+          </span>
           {!isCollapsed && (
-            <div>
-              <h2 className="text-sm font-bold tracking-tight">KOLLERIS</h2>
-            </div>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold tracking-tight">KOLLERIS</span>
+              <span className="block truncate text-xs text-muted-foreground">Διαχείριση στάθμευσης</span>
+            </span>
           )}
         </Link>
       </SidebarHeader>
@@ -254,80 +269,31 @@ export function AppSidebar({ user }: AppSidebarProps) {
           if (!isMounted) {
             return (
               <SidebarGroup key={group.title}>
-                <SidebarGroupLabel className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-violet-600">
-                  <div className="flex items-center gap-2">
-                    <GroupIcon className="h-3 w-3" />
-                    {group.title}
-                  </div>
+                <SidebarGroupLabel className="gap-2 text-xs font-semibold text-muted-foreground">
+                  <GroupIcon className="size-3.5" aria-hidden />
+                  {group.title}
                 </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {group.items.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = pathname === item.href;
-                      return (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton
-                            asChild
-                            isActive={isActive}
-                            className="h-9"
-                          >
-                            <Link href={item.href}>
-                              <Icon className="h-4 w-4" />
-                              <span className="text-[11px]">{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
+                <SidebarGroupContent>{renderItems(group.items)}</SidebarGroupContent>
               </SidebarGroup>
             );
           }
           return (
-            <Collapsible 
-              key={group.title} 
-              defaultOpen 
-              className="group/collapsible"
-              suppressHydrationWarning
-            >
+            <Collapsible key={group.title} defaultOpen className="group/collapsible" suppressHydrationWarning>
               <SidebarGroup>
                 <CollapsibleTrigger asChild suppressHydrationWarning>
-                  <SidebarGroupLabel 
-                    className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-violet-600 hover:text-violet-700 transition-colors cursor-pointer group"
+                  <SidebarGroupLabel
+                    className="group flex cursor-pointer items-center justify-between text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
                     suppressHydrationWarning
                   >
-                    <div className="flex items-center gap-2">
-                      <GroupIcon className="h-3 w-3" />
+                    <span className="flex items-center gap-2">
+                      <GroupIcon className="size-3.5" aria-hidden />
                       {group.title}
-                    </div>
-                    <ChevronDown className="h-3 w-3 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                    </span>
+                    <ChevronDown className="size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                   </SidebarGroupLabel>
                 </CollapsibleTrigger>
                 <CollapsibleContent suppressHydrationWarning>
-                  <SidebarGroupContent>
-                    <SidebarMenu>
-                      {group.items.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = pathname === item.href;
-                        return (
-                          <SidebarMenuItem key={item.href}>
-                            <SidebarMenuButton
-                              asChild
-                              isActive={isActive}
-                              className="h-9"
-                            >
-                              <Link href={item.href}>
-                                <Icon className="h-4 w-4" />
-                                <span className="text-[11px]">{item.title}</span>
-                              </Link>
-                            </SidebarMenuButton>
-                          </SidebarMenuItem>
-                        );
-                      })}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
+                  <SidebarGroupContent>{renderItems(group.items)}</SidebarGroupContent>
                 </CollapsibleContent>
               </SidebarGroup>
             </Collapsible>
@@ -335,86 +301,70 @@ export function AppSidebar({ user }: AppSidebarProps) {
         })}
       </SidebarContent>
 
-      <SidebarFooter className="p-4" suppressHydrationWarning>
+      <SidebarFooter className="p-2" suppressHydrationWarning>
         {!isMounted ? (
-          // Simple non-interactive version for SSR
           <Button
             variant="ghost"
-            className="h-auto w-full justify-start gap-3 rounded-lg bg-muted/50 p-3"
             disabled
+            className="h-auto w-full justify-start gap-2 p-2 group-data-[collapsible=icon]:justify-center"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-              <Shield className="h-4 w-4 text-primary" />
-            </div>
-            <div className="flex-1 overflow-hidden text-left">
-              <p className="truncate text-xs font-medium">
-                {user.firstName} {user.lastName}
-              </p>
-              <p className="truncate text-[10px] text-muted-foreground">
-                {user.email}
-              </p>
-              <span
-                className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[7px] font-medium mt-1 ${getRoleBadgeColor(
-                  user.role
-                )}`}
-              >
-                {user.role}
-              </span>
-            </div>
-            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            <Avatar className="size-7">
+              <AvatarImage src={user.image ?? undefined} alt="" />
+              <AvatarFallback className="text-xs">{initials(user)}</AvatarFallback>
+            </Avatar>
+            <span className="min-w-0 flex-1 text-left">
+              <span className="block truncate text-xs font-medium">{fullName}</span>
+              <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
+            </span>
           </Button>
         ) : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild suppressHydrationWarning>
               <Button
                 variant="ghost"
-                className="h-auto w-full justify-start gap-3 rounded-lg bg-muted/50 p-3 hover:bg-muted/70 transition-colors"
+                className="h-auto w-full justify-start gap-2 p-2 group-data-[collapsible=icon]:justify-center"
                 suppressHydrationWarning
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                  <Shield className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 overflow-hidden text-left">
-                  <p className="truncate text-xs font-medium">
-                    {user.firstName} {user.lastName}
-                  </p>
-                  <p className="truncate text-[10px] text-muted-foreground">
-                    {user.email}
-                  </p>
-                  <span
-                    className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[7px] font-medium mt-1 ${getRoleBadgeColor(
-                      user.role
-                    )}`}
-                  >
-                    {user.role}
-                  </span>
-                </div>
-                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                <Avatar className="size-7">
+                  <AvatarImage src={user.image ?? undefined} alt="" />
+                  <AvatarFallback className="text-xs">{initials(user)}</AvatarFallback>
+                </Avatar>
+                <span className="min-w-0 flex-1 text-left group-data-[collapsible=icon]:hidden">
+                  <span className="block truncate text-xs font-medium">{fullName}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
+                </span>
+                <ChevronDown className="size-3.5 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56" suppressHydrationWarning>
-              <DropdownMenuLabel className="text-xs">
-                {user.firstName} {user.lastName}
+            <DropdownMenuContent align="end" className="w-60" suppressHydrationWarning>
+              <DropdownMenuLabel className="flex flex-col gap-1">
+                <span className="truncate text-xs font-medium">{fullName}</span>
+                <span className="truncate text-xs font-normal text-muted-foreground">{user.email}</span>
+                <Badge variant={roleVariant(user.role)} className="w-fit">
+                  {roleLabel(user.role)}
+                </Badge>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild className="text-xs">
-                <Link href="/account">
-                  <User className="mr-2 h-3 w-3" />
-                  My Account
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild className="text-xs">
-                <Link href="/account">
-                  <Edit className="mr-2 h-3 w-3" />
-                  Edit Profile
-                </Link>
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuItem asChild className="text-xs">
+                  <Link href="/account">
+                    <User className="size-3.5" />
+                    Ο λογαριασμός μου
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="text-xs">
+                  <Link href="/settings">
+                    <Settings className="size-3.5" />
+                    Ρυθμίσεις
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <form action={logout}>
                 <DropdownMenuItem asChild className="text-xs text-destructive focus:text-destructive">
-                  <button type="submit" className="w-full flex items-center">
-                    <LogOut className="mr-2 h-3 w-3" />
-                    Sign Out
+                  <button type="submit" className="flex w-full items-center">
+                    <LogOut className="size-3.5" />
+                    Αποσύνδεση
                   </button>
                 </DropdownMenuItem>
               </form>
@@ -425,4 +375,3 @@ export function AppSidebar({ user }: AppSidebarProps) {
     </Sidebar>
   );
 }
-

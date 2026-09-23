@@ -1,5 +1,6 @@
 import { LoginForm } from "@/components/auth/login-form";
 import Link from "next/link";
+import { Car } from "lucide-react";
 
 type LoginPageProps = { searchParams: Promise<{ callbackUrl?: string }> };
 
@@ -8,29 +9,24 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const callbackUrl = params?.callbackUrl && params.callbackUrl.startsWith("/") ? params.callbackUrl : "/dashboard";
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            WELCOME BACK
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            Sign in to your account to continue
-          </p>
+      <div className="w-full max-w-sm">
+        <div className="mb-6 flex flex-col items-center gap-2 text-center">
+          <span className="flex size-10 items-center justify-center rounded-md bg-primary">
+            <Car className="size-5 text-primary-foreground" aria-hidden />
+          </span>
+          <h1 className="text-xl font-semibold tracking-tight">Καλώς ήρθατε</h1>
+          <p className="text-sm text-muted-foreground">Συνδεθείτε στον λογαριασμό σας για να συνεχίσετε.</p>
         </div>
 
         <LoginForm callbackUrl={callbackUrl} />
 
-        <div className="mt-6 text-center text-sm">
-          <span className="text-muted-foreground">Don&apos;t have an account? </span>
-          <Link
-            href="/register"
-            className="font-medium text-primary hover:underline"
-          >
-            Register
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          Δεν έχετε λογαριασμό;{" "}
+          <Link href="/register" className="font-medium text-primary hover:underline">
+            Εγγραφή
           </Link>
-        </div>
+        </p>
       </div>
     </div>
   );
 }
-

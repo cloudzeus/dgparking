@@ -18,7 +18,7 @@ import { FormDialog } from "@/components/ui/form-dialog";
 import { FormCard } from "@/components/ui/form-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
-import { DataTable, type Column } from "@/components/ui/data-table";
+import { DataTable, type Column } from "@/components/ui/data-table-legacy";
 import { UserForm } from "./user-form";
 import { deleteUser, toggleUserStatus } from "@/lib/actions/users";
 import { getRoleBadgeStyles } from "@/lib/role-colors";

@@ -25,41 +25,57 @@ interface AppHeaderProps {
   isSoftOneConnected?: boolean;
 }
 
+/** Ελληνικός τίτλος ανά διαδρομή — ίδιος με το μενού. */
+const ROUTE_TITLES: Record<string, string> = {
+  "/dashboard": "Πίνακας ελέγχου",
+  "/users": "Χρήστες",
+  "/softone": "SoftOne ERP",
+  "/customers": "Πελάτες",
+  "/contracts": "Συμβόλαια",
+  "/items": "Πινακίδες",
+  "/integrations": "Διασυνδέσεις",
+  "/reports/out-without-in": "Έξοδοι χωρίς είσοδο",
+  "/customers-2-erp": "Πελάτες προς ERP",
+  "/account": "Ο λογαριασμός μου",
+  "/account/license": "Άδεια χρήσης",
+  "/account/cron-logs": "Ιστορικό cron",
+  "/lpr-logs": "Ιστορικό αναγνώρισης",
+  "/settings": "Ρυθμίσεις",
+};
+
 export function AppHeader({ user, isSoftOneConnected = false }: AppHeaderProps) {
-  const pathname = usePathname();
-  
-  const getPageTitle = () => {
-    const segments = (pathname ?? "").split("/").filter(Boolean);
-    if (segments.length === 0) return "DASHBOARD";
-    return segments[segments.length - 1].toUpperCase().replace(/-/g, " ");
-  };
+  const pathname = usePathname() ?? "";
+
+  const title =
+    ROUTE_TITLES[pathname] ??
+    // Υποδιαδρομές (π.χ. /integrations/123/records) κρατούν τον τίτλο του γονέα.
+    Object.entries(ROUTE_TITLES).find(([href]) => href !== "/" && pathname.startsWith(`${href}/`))?.[1] ??
+    "Πίνακας ελέγχου";
+
+  const greetingName = user.firstName || user.email;
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
+    <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-background px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-2 h-4" />
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbPage className="text-xs font-medium">
-              {getPageTitle()}
-            </BreadcrumbPage>
+            <BreadcrumbPage className="text-xs font-medium">{title}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex min-w-0 items-center gap-3">
         {isSoftOneConnected && (
-          <Badge className="bg-green-500/10 text-green-600 border-green-500/20 text-[8px] font-bold gap-1">
-            <Database className="h-3 w-3" />
-            SOFTONE CONNECTED
+          <Badge variant="success" title="Ενεργή σύνδεση με το SoftOne">
+            <Database aria-hidden />
+            Σύνδεση SoftOne
           </Badge>
         )}
-        <span className="text-xs text-muted-foreground">
-          Welcome, <span className="font-medium text-foreground">{user.firstName || user.email}</span>
+        <span className="hidden min-w-0 truncate text-xs text-muted-foreground sm:block">
+          Καλώς ήρθες, <span className="font-medium text-foreground">{greetingName}</span>
         </span>
       </div>
     </header>
   );
 }
-
-
