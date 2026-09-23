@@ -3,13 +3,18 @@ import { getTranslations } from "next-intl/server";
 
 const ESPA_PDF = "https://kolleris.b-cdn.net/megaparking/espa.pdf";
 
-/** Το πανό ΕΣΠΑ/ΕΕ, καρφιτσωμένο αριστερά (κρύβεται στα κινητά). */
+/**
+ * Το πανό ΕΣΠΑ/ΕΕ, καρφιτσωμένο κάτω αριστερά (κρύβεται στα κινητά).
+ *
+ * Στο megaparkingsite κάθεται στο μέσο της αριστερής πλευράς, όπου σκεπάζει
+ * κείμενο και κουμπιά. Κάτω αριστερά μένει ορατό χωρίς να πιάνει τα κλικ.
+ */
 export async function EuBanner() {
   const t = await getTranslations("euBanner");
 
   return (
     <div
-      className="fixed left-0 top-1/2 z-40 hidden -translate-y-1/2 md:block"
+      className="fixed bottom-4 left-0 z-40 hidden md:block"
       role="complementary"
       aria-label={t("region")}
     >
