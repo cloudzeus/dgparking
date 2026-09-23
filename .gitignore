@@ -44,3 +44,6 @@ next-env.d.ts
 
 # LPR webhook logs
 /logs
+
+# session planning scratch
+.planning/
