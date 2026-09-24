@@ -176,7 +176,24 @@ async function runExpiryNotices(trigger: string) {
   }
 }
 
+/**
+ * ΞΕΚΙΝΑ ΑΠΕΝΕΡΓΟΠΟΙΗΜΕΝΟ.
+ *
+ * Οι ειδοποιήσεις λήξης φεύγουν σε πραγματικούς πελάτες, και επειδή όλες οι
+ * συμβάσεις λήγουν την ίδια ημέρα, η πρώτη εκτέλεση θα στείλει δεκάδες email
+ * ταυτόχρονα. Μένει κλειστό μέχρι να εγκριθεί το πρώτο δείγμα.
+ *
+ * Ενεργοποίηση: `EXPIRY_NOTICES_ENABLED=true` στις μεταβλητές περιβάλλοντος —
+ * χωρίς νέα έκδοση. Η χειροκίνητη εκτέλεση παραμένει πάντα διαθέσιμη.
+ */
 export function scheduleExpiryNotices() {
+  if (process.env.EXPIRY_NOTICES_ENABLED !== "true") {
+    console.log(
+      `[CRON] ${EXPIRY_JOB_ID}: ΑΠΕΝΕΡΓΟΠΟΙΗΜΕΝΟ — όρισε EXPIRY_NOTICES_ENABLED=true για να ξεκινήσει.`
+    );
+    return;
+  }
+
   const existing = cronJobs.get(EXPIRY_JOB_ID);
   if (existing) {
     existing.stop();
