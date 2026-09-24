@@ -18,8 +18,58 @@ import { prisma } from "@/lib/prisma";
 import { getPortalCustomer } from "@/lib/portal-data";
 import { isContractActive } from "@/lib/contract-active";
 import { nextContractPeriod, proposedContractName, formatPeriod } from "@/lib/contract-period";
+import {
+  MAX_PLATES_PER_SLOT,
+  MAX_CHANGES_PER_SLOT,
+  CHANGE_COOLDOWN_HOURS,
+} from "@/lib/contract-limits";
 
 export type RequestResult = { success?: boolean; error?: string };
+
+const isEmptyMtrl = (m: string | null) => {
+  const v = String(m ?? "").trim();
+  return v === "" || v === "0";
+};
+
+/**
+ * Ελέγχει αν ο πελάτης δικαιούται να κάνει κι άλλη αλλαγή σε αυτή τη σύμβαση.
+ * Μετράει ΟΛΑ τα αιτήματα αλλαγής πινακίδων, εκκρεμή και εγκεκριμένα: ένα
+ * εκκρεμές αίτημα δεσμεύει ήδη μια αλλαγή, αλλιώς θα μπορούσε να υποβάλει
+ * δεκάδες πριν εγκριθεί το πρώτο.
+ */
+async function checkChangeAllowance(inst: number, slots: number | null) {
+  const quota = (slots ?? 1) * MAX_CHANGES_PER_SLOT;
+  const changes = await prisma.contractChangeRequest.findMany({
+    where: {
+      inst,
+      type: { in: ["ADD_PLATE", "REMOVE_PLATE"] },
+      status: { in: ["PENDING", "APPROVED", "APPLIED"] },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+
+  if (changes.length >= quota) {
+    return {
+      error:
+        `Έχετε εξαντλήσει τις αλλαγές για αυτή τη σύμβαση (${changes.length} από ${quota}). ` +
+        `Επιτρέπονται ${MAX_CHANGES_PER_SLOT} αλλαγές ανά θέση. Επικοινωνήστε μαζί μας αν χρειάζεστε περισσότερες.`,
+    };
+  }
+
+  const last = changes[0]?.createdAt;
+  if (last) {
+    const hoursSince = (Date.now() - last.getTime()) / 3_600_000;
+    if (hoursSince < CHANGE_COOLDOWN_HOURS) {
+      const remaining = Math.ceil(CHANGE_COOLDOWN_HOURS - hoursSince);
+      return {
+        error:
+          `Οι αλλαγές δεν γίνονται συνεχόμενα. Η επόμενη είναι διαθέσιμη σε ${remaining} ώρες.`,
+      };
+    }
+  }
+  return { used: changes.length, quota };
+}
 
 /** Κανονικοποίηση πινακίδας στη μορφή που κρατά το ERP (λατινικά, κεφαλαία). */
 function normalizePlate(input: string): string {
@@ -74,6 +124,35 @@ export async function requestAddPlate(inst: number, plateInput: string): Promise
   });
   if (duplicate) return { error: `Υπάρχει ήδη εκκρεμές αίτημα για την πινακίδα ${plate}.` };
 
+  // ΟΡΙΟ ΧΩΡΗΤΙΚΟΤΗΤΑΣ: έως 3 πινακίδες ανά θέση.
+  //
+  // Τρεις ενεργές συμβάσεις ξεπερνούν ήδη το όριο από παλιά. Δεν τις πειράζουμε
+  // — οι υπάρχουσες πινακίδες συνεχίζουν να λειτουργούν — αλλά δεν δεχόμαστε
+  // νέες μέχρι να πέσουν κάτω από το όριο.
+  const lines = await prisma.iNSTLINES.findMany({
+    where: { INST: inst },
+    select: { MTRL: true },
+  });
+  const declared = lines.filter((l) => !isEmptyMtrl(l.MTRL)).length;
+  const pendingAdds = await prisma.contractChangeRequest.count({
+    where: { inst, type: "ADD_PLATE", status: { in: ["PENDING", "APPROVED"] } },
+  });
+  const slots = owned.contract.NUM01 != null ? Number(owned.contract.NUM01) : null;
+  const maxPlates = (slots ?? 1) * MAX_PLATES_PER_SLOT;
+
+  if (declared + pendingAdds >= maxPlates) {
+    return {
+      error:
+        `Η σύμβαση έχει ${declared} δηλωμένες πινακίδες` +
+        (pendingAdds ? ` και ${pendingAdds} σε αναμονή` : "") +
+        `, με όριο ${maxPlates} (${MAX_PLATES_PER_SLOT} ανά θέση για ${slots ?? 1} θέσεις). ` +
+        "Αφαιρέστε μια πινακίδα πρώτα.",
+    };
+  }
+
+  const allowance = await checkChangeAllowance(inst, slots);
+  if ("error" in allowance) return { error: allowance.error };
+
   await prisma.contractChangeRequest.create({
     data: { userId: owned.userId, inst, type: "ADD_PLATE", plate },
   });
@@ -90,6 +169,10 @@ export async function requestRemovePlate(inst: number, plateInput: string): Prom
     where: { inst, plate, type: "REMOVE_PLATE", status: "PENDING" },
   });
   if (duplicate) return { error: `Υπάρχει ήδη εκκρεμές αίτημα αφαίρεσης για την ${plate}.` };
+
+  const slots = owned.contract.NUM01 != null ? Number(owned.contract.NUM01) : null;
+  const allowance = await checkChangeAllowance(inst, slots);
+  if ("error" in allowance) return { error: allowance.error };
 
   await prisma.contractChangeRequest.create({
     data: { userId: owned.userId, inst, type: "REMOVE_PLATE", plate },

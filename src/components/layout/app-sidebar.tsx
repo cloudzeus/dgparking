@@ -57,6 +57,7 @@ import {
   Newspaper,
   Images,
   UserCheck,
+  ClipboardCheck,
 } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
 import { Badge } from "@/components/ui/badge";
@@ -135,7 +136,13 @@ const menuGroups: MenuGroup[] = [
         roles: ["ADMIN", "MANAGER", "EMPLOYEE"],
       },
       {
-        title: "Αιτήματα πελατών",
+        title: "Αιτήματα συμβάσεων",
+        href: "/contract-requests",
+        icon: ClipboardCheck,
+        roles: ["ADMIN", "MANAGER"],
+      },
+      {
+        title: "Αιτήματα πρόσβασης",
         href: "/portal-access",
         icon: UserCheck,
         roles: ["ADMIN", "MANAGER"],
