@@ -17,6 +17,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getPortalCustomer } from "@/lib/portal-data";
 import { isContractActive } from "@/lib/contract-active";
+import { nextContractPeriod, proposedContractName, formatPeriod } from "@/lib/contract-period";
 
 export type RequestResult = { success?: boolean; error?: string };
 
@@ -97,6 +98,16 @@ export async function requestRemovePlate(inst: number, plateInput: string): Prom
   return { success: true };
 }
 
+/**
+ * Αίτημα ανανέωσης.
+ *
+ * ΔΕΝ παρατείνει την υπάρχουσα σύμβαση: ζητά τη ΔΗΜΙΟΥΡΓΙΑ ΝΕΑΣ για τον επόμενο
+ * μήνα, με αντιγραφή των πινακίδων. Έτσι δουλεύει το ERP στην πράξη — μία
+ * σύμβαση ανά μήνα, με τον μήνα στην επωνυμία.
+ *
+ * Η περίοδος υπολογίζεται εδώ και αποθηκεύεται μαζί με το αίτημα, ώστε ο
+ * εγκρίνων να βλέπει ακριβώς τι θα δημιουργηθεί αντί να το συμπεραίνει.
+ */
 export async function requestRenewal(inst: number, slots: number): Promise<RequestResult> {
   const owned = await requireOwnedContract(inst);
   if ("error" in owned) return { error: owned.error };
@@ -105,16 +116,49 @@ export async function requestRenewal(inst: number, slots: number): Promise<Reque
     return { error: "Ο αριθμός θέσεων πρέπει να είναι από 1 έως 200." };
   }
 
-  const pendingRenewal = await prisma.contractChangeRequest.findFirst({
-    where: { inst, type: "RENEW", status: "PENDING" },
+  const contract = await prisma.iNST.findUnique({
+    where: { INST: inst },
+    select: { NAME: true, WDATEFROM: true, WDATETO: true },
   });
-  if (pendingRenewal) return { error: "Υπάρχει ήδη εκκρεμές αίτημα ανανέωσης για αυτή τη σύμβαση." };
+  const period = nextContractPeriod(contract?.WDATEFROM ?? null, contract?.WDATETO ?? null);
+
+  // Δύο αιτήματα για την ΙΔΙΑ νέα περίοδο δεν έχουν νόημα· για διαφορετική
+  // περίοδο έχουν, γι' αυτό ο έλεγχος κλειδώνει στην ημερομηνία έναρξης.
+  const pendingRenewal = await prisma.contractChangeRequest.findFirst({
+    where: { inst, type: "RENEW", status: "PENDING", newStartDate: period.from },
+  });
+  if (pendingRenewal) {
+    return { error: `Υπάρχει ήδη εκκρεμές αίτημα ανανέωσης για ${formatPeriod(period)}.` };
+  }
 
   await prisma.contractChangeRequest.create({
-    data: { userId: owned.userId, inst, type: "RENEW", slots },
+    data: {
+      userId: owned.userId,
+      inst,
+      type: "RENEW",
+      slots,
+      newStartDate: period.from,
+      newEndDate: period.to,
+      newName: proposedContractName(contract?.NAME ?? owned.customer.name, period),
+    },
   });
   revalidatePath("/client");
   return { success: true };
+}
+
+/** Τι θα δημιουργηθεί αν ζητηθεί ανανέωση — για προεπισκόπηση στο portal. */
+export async function renewalPreview(inst: number) {
+  const owned = await requireOwnedContract(inst);
+  if ("error" in owned) return null;
+  const contract = await prisma.iNST.findUnique({
+    where: { INST: inst },
+    select: { NAME: true, WDATEFROM: true, WDATETO: true },
+  });
+  const period = nextContractPeriod(contract?.WDATEFROM ?? null, contract?.WDATETO ?? null);
+  return {
+    label: formatPeriod(period),
+    name: proposedContractName(contract?.NAME ?? owned.customer.name, period),
+  };
 }
 
 /** Ο πελάτης ανακαλεί δικό του αίτημα, όσο δεν έχει κριθεί. */

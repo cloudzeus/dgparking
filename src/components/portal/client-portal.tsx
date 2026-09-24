@@ -53,6 +53,9 @@ export type ContractDTO = {
   daysLeft: number | null;
   plates: string[];
   carsInside: number;
+  /** Η περίοδος της ΝΕΑΣ σύμβασης που θα δημιουργηθεί αν ζητηθεί ανανέωση. */
+  nextPeriod: string;
+  nextName: string;
 };
 
 export type InvoiceDTO = { code: string; date: string; amount: number; url: string | null };
@@ -71,7 +74,7 @@ export type RequestDTO = {
 const REQUEST_LABEL = {
   ADD_PLATE: "Προσθήκη πινακίδας",
   REMOVE_PLATE: "Αφαίρεση πινακίδας",
-  RENEW: "Ανανέωση σύμβασης",
+  RENEW: "Νέα σύμβαση (ανανέωση)",
 } as const;
 
 const STATUS_META = {
@@ -183,9 +186,20 @@ export function ClientPortal({
                     </Alert>
                   )}
 
-                  <div className="flex flex-wrap items-end gap-2 border-t pt-4">
+                  <div className="space-y-2 border-t pt-4">
+                    <p className="text-sm text-muted-foreground">
+                      Η ανανέωση δημιουργεί <strong className="text-foreground">νέα σύμβαση</strong> για
+                      την επόμενη περίοδο, με αντιγραφή των {c.plates.length} πινακίδων σας:
+                    </p>
+                    <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                      <div className="font-medium">{c.nextName}</div>
+                      <div className="tabular-nums text-muted-foreground">{c.nextPeriod}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-end gap-2">
                     <div className="space-y-1.5">
-                      <Label htmlFor={`slots-${c.inst}`}>Ανανέωση με θέσεις</Label>
+                      <Label htmlFor={`slots-${c.inst}`}>Θέσεις νέας σύμβασης</Label>
                       <Input
                         id={`slots-${c.inst}`}
                         type="number"
@@ -211,7 +225,7 @@ export function ClientPortal({
                       }
                     >
                       {pending ? <Spinner data-icon="inline-start" /> : <CalendarClock />}
-                      Αίτημα ανανέωσης
+                      Αίτημα νέας σύμβασης
                     </Button>
                   </div>
                 </CardContent>

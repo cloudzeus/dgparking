@@ -9,6 +9,7 @@ import {
   type PortalInvoice,
 } from "@/lib/portal-data";
 import { ClientPortal, type ContractDTO, type InvoiceDTO, type RequestDTO } from "@/components/portal/client-portal";
+import { nextContractPeriod, proposedContractName, formatPeriod } from "@/lib/contract-period";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -44,17 +45,22 @@ export default async function ClientPortalPage() {
     console.error("[PORTAL] Αποτυχία ανάκτησης τιμολογίων:", e);
   }
 
-  const contractRows: ContractDTO[] = contracts.map((c) => ({
-    inst: c.inst,
-    name: c.name,
-    slots: c.slots,
-    startsOn: fmtDate(c.startsOn),
-    endsOn: fmtDate(c.endsOn),
-    isActive: c.isActive,
-    daysLeft: c.daysLeft,
-    plates: c.plates,
-    carsInside: c.carsInside,
-  }));
+  const contractRows: ContractDTO[] = contracts.map((c) => {
+    const period = nextContractPeriod(c.startsOn, c.endsOn);
+    return {
+      inst: c.inst,
+      name: c.name,
+      slots: c.slots,
+      startsOn: fmtDate(c.startsOn),
+      endsOn: fmtDate(c.endsOn),
+      isActive: c.isActive,
+      daysLeft: c.daysLeft,
+      plates: c.plates,
+      carsInside: c.carsInside,
+      nextPeriod: formatPeriod(period),
+      nextName: proposedContractName(c.name ?? customer.name, period),
+    };
+  });
 
   const invoiceRows: InvoiceDTO[] = invoices.map((i) => ({
     code: i.code,

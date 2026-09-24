@@ -1221,9 +1221,14 @@ model ContractChangeRequest {
   inst        Int
   type        ChangeRequestType
   plate       String?             @db.VarChar(50)
-  /// Για ανανέωση: νέος αριθμός θέσεων και νέα ημερομηνία λήξης.
-  slots       Int?
-  newEndDate  DateTime?           @map("new_end_date")
+  /// Για ανανέωση: ο αριθμός θέσεων και η ΠΕΡΙΟΔΟΣ της νέας σύμβασης.
+  /// Η ανανέωση δημιουργεί ΝΕΑ σύμβαση για τον επόμενο μήνα — δεν παρατείνει
+  /// την υπάρχουσα — γι' αυτό χρειάζονται και οι δύο ημερομηνίες.
+  slots        Int?
+  newStartDate DateTime?          @map("new_start_date")
+  newEndDate   DateTime?          @map("new_end_date")
+  /// Η προτεινόμενη επωνυμία της νέας σύμβασης.
+  newName      String?            @map("new_name") @db.VarChar(255)
   status      ChangeRequestStatus @default(PENDING)
   createdAt   DateTime            @default(now()) @map("created_at")
   decidedAt   DateTime?           @map("decided_at")
