@@ -38,6 +38,7 @@ import {
   type Suggestion,
 } from "@/lib/actions/exempt-plates";
 import { EXEMPT_CATEGORIES } from "@/lib/exempt-plates";
+import { normalizePlate, isValidPlate, wasTransliterated } from "@/lib/plate";
 import { toast } from "sonner";
 import { AlertCircle, Plus, Search, ShieldOff, Sparkles, X } from "lucide-react";
 
@@ -60,9 +61,18 @@ export function ExemptPlatesClient({ plates }: { plates: ExemptPlateDTO[] }) {
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
+  // Η πινακίδα αποθηκεύεται πάντα με τον κανόνα του SoftOne (λατινικά). Το
+  // δείχνουμε ΚΑΘΩΣ πληκτρολογεί: αλλιώς γράφει «ΙΚΑ4707», αποθηκεύεται
+  // «IKA4707» και νομίζει ότι κάτι πήγε στραβά.
+  const normalized = normalizePlate(plate);
+  const transliterated = wasTransliterated(plate);
+  const plateValid = plate.trim().length === 0 || isValidPlate(plate);
+
   const active = plates.filter((p) => p.isActive);
+  // Η αναζήτηση περνά από τον ίδιο κανόνα: πληκτρολογώντας «ΙΚΑ» πρέπει να
+  // βρίσκει την αποθηκευμένη «IKA4707».
   const visible = plates.filter(
-    (p) => !query.trim() || p.plate.includes(query.trim().toUpperCase())
+    (p) => !query.trim() || p.plate.includes(normalizePlate(query))
   );
 
   const submit = () => {
@@ -71,7 +81,7 @@ export function ExemptPlatesClient({ plates }: { plates: ExemptPlateDTO[] }) {
       const r = await addExemptPlate(plate, category, note);
       if (r.error) toast.error(r.error);
       else {
-        toast.success(`Η ${plate.toUpperCase()} καταχωρήθηκε.`);
+        toast.success(`Η ${normalized} καταχωρήθηκε.`);
         setPlate("");
         setNote("");
       }
@@ -118,7 +128,8 @@ export function ExemptPlatesClient({ plates }: { plates: ExemptPlateDTO[] }) {
                 onChange={(e) => setPlate(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && submit()}
                 placeholder="π.χ. ΙΚΑ4707"
-                className="w-40 font-mono uppercase"
+                className={`w-40 font-mono uppercase ${!plateValid ? "border-destructive" : ""}`}
+                aria-invalid={!plateValid}
                 disabled={pending}
               />
             </div>
@@ -148,11 +159,32 @@ export function ExemptPlatesClient({ plates }: { plates: ExemptPlateDTO[] }) {
                 disabled={pending}
               />
             </div>
-            <Button onClick={submit} disabled={pending || !plate.trim()}>
+            <Button onClick={submit} disabled={pending || !plate.trim() || !plateValid}>
               {pending ? <Spinner data-icon="inline-start" /> : <Plus />}
               Καταχώρηση
             </Button>
           </div>
+
+          {plate.trim().length > 0 && (
+            <p className="mt-3 text-sm">
+              {!plateValid ? (
+                <span className="text-destructive">
+                  Μη έγκυρη πινακίδα — επιτρέπονται 4 έως 12 γράμματα και ψηφία.
+                </span>
+              ) : transliterated ? (
+                <span className="text-muted-foreground">
+                  Θα αποθηκευτεί ως{" "}
+                  <strong className="font-mono text-foreground">{normalized}</strong> — με τον
+                  ίδιο κανόνα μεταγραφής που χρησιμοποιεί το SoftOne.
+                </span>
+              ) : (
+                <span className="text-muted-foreground">
+                  Θα αποθηκευτεί ως{" "}
+                  <strong className="font-mono text-foreground">{normalized}</strong>.
+                </span>
+              )}
+            </p>
+          )}
         </CardContent>
       </Card>
 

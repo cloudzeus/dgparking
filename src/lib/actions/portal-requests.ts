@@ -17,6 +17,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getPortalCustomer } from "@/lib/portal-data";
 import { isContractActive } from "@/lib/contract-active";
+import { normalizePlate } from "@/lib/plate";
 import { nextContractPeriod, proposedContractName, formatPeriod } from "@/lib/contract-period";
 import {
   MAX_PLATES_PER_SLOT,
@@ -69,22 +70,6 @@ async function checkChangeAllowance(inst: number, slots: number | null) {
     }
   }
   return { used: changes.length, quota };
-}
-
-/** Κανονικοποίηση πινακίδας στη μορφή που κρατά το ERP (λατινικά, κεφαλαία). */
-function normalizePlate(input: string): string {
-  return (input ?? "")
-    .toUpperCase()
-    .replace(/[\s.\-_]/g, "")
-    // Ο ίδιος χάρτης με το `renameCarPlate` του ERP, ώστε οι πινακίδες να
-    // ταιριάζουν. Προσοχή: Ρ και R καταλήγουν και τα δύο σε P.
-    .replace(/Α/g, "A").replace(/Β/g, "B").replace(/Γ/g, "G").replace(/Δ/g, "D")
-    .replace(/Ε/g, "E").replace(/Ζ/g, "Z").replace(/Η/g, "H").replace(/Θ/g, "U")
-    .replace(/Ι/g, "I").replace(/Κ/g, "K").replace(/Λ/g, "L").replace(/Μ/g, "M")
-    .replace(/Ν/g, "N").replace(/Ξ/g, "J").replace(/Ο/g, "O").replace(/Π/g, "P")
-    .replace(/Ρ/g, "P").replace(/Σ/g, "S").replace(/Τ/g, "T").replace(/Υ/g, "Y")
-    .replace(/Φ/g, "F").replace(/Χ/g, "X").replace(/Ψ/g, "C").replace(/Ω/g, "V")
-    .replace(/R/g, "P");
 }
 
 /** Επιστρέφει τον χρήστη και τη σύμβαση, αφού επαληθεύσει ότι του ανήκει. */

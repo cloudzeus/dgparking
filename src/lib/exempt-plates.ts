@@ -13,6 +13,9 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { normalizePlate } from "@/lib/plate";
+
+export { normalizePlate };
 
 export const EXEMPT_CATEGORIES = [
   "Προσωπικό",
@@ -24,20 +27,6 @@ export const EXEMPT_CATEGORIES = [
 ] as const;
 
 export type ExemptCategory = (typeof EXEMPT_CATEGORIES)[number];
-
-/** Ο ίδιος χάρτης μεταγραφής με το `renameCarPlate` του ERP. */
-export function normalizePlate(input: string): string {
-  return (input ?? "")
-    .toUpperCase()
-    .replace(/[\s.\-_]/g, "")
-    .replace(/Α/g, "A").replace(/Β/g, "B").replace(/Γ/g, "G").replace(/Δ/g, "D")
-    .replace(/Ε/g, "E").replace(/Ζ/g, "Z").replace(/Η/g, "H").replace(/Θ/g, "U")
-    .replace(/Ι/g, "I").replace(/Κ/g, "K").replace(/Λ/g, "L").replace(/Μ/g, "M")
-    .replace(/Ν/g, "N").replace(/Ξ/g, "J").replace(/Ο/g, "O").replace(/Π/g, "P")
-    .replace(/Ρ/g, "P").replace(/Σ/g, "S").replace(/Τ/g, "T").replace(/Υ/g, "Y")
-    .replace(/Φ/g, "F").replace(/Χ/g, "X").replace(/Ψ/g, "C").replace(/Ω/g, "V")
-    .replace(/R/g, "P");
-}
 
 /**
  * Οι πινακίδες που απαλλάσσονται σε δεδομένη στιγμή.
