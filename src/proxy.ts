@@ -11,9 +11,17 @@ const roleRoutes: Record<string, string[]> = {
   "/admin": ["ADMIN"],
   "/manager": ["ADMIN", "MANAGER"],
   "/employee": ["ADMIN", "MANAGER", "EMPLOYEE"],
-  "/client": ["ADMIN", "MANAGER", "EMPLOYEE", "CLIENT"],
-  "/dashboard": ["ADMIN", "MANAGER", "EMPLOYEE", "CLIENT"],
+  // Το portal πελατών είναι ΜΟΝΟ για πελάτες — το προσωπικό έχει τη διαχείριση.
+  "/client": ["CLIENT"],
+  // Ο πελάτης ΔΕΝ βλέπει τη διαχείριση. Παλιότερα το `/dashboard` επέτρεπε και
+  // CLIENT, οπότε ένας πελάτης έβλεπε κινήσεις, συμβάσεις και στοιχεία άλλων.
+  "/dashboard": ["ADMIN", "MANAGER", "EMPLOYEE"],
 };
+
+/** Πού στέλνουμε κάποιον που δεν έχει δικαίωμα στη διαδρομή που ζήτησε. */
+function homeFor(role: string | undefined): string {
+  return role === "CLIENT" ? "/client" : "/dashboard";
+}
 
 /**
  * Δημόσιο site (MEGA Parking): `/`, `/el`, `/en`, `/it` — το next-intl διαλέγει
@@ -79,7 +87,7 @@ const authProxy = auth((req) => {
   for (const [route, allowedRoles] of Object.entries(roleRoutes)) {
     if (nextUrl.pathname.startsWith(route)) {
       if (!userRole || !allowedRoles.includes(userRole)) {
-        return NextResponse.redirect(new URL("/dashboard", nextUrl));
+        return NextResponse.redirect(new URL(homeFor(userRole), nextUrl));
       }
       break;
     }
