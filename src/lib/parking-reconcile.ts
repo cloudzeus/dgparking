@@ -273,6 +273,16 @@ function classify(
       };
     }
 
+    // ΑΠΑΛΛΑΓΜΕΝΗ ΠΙΝΑΚΙΔΑ. Δεν χρεώνεται, και στην πράξη δεν καταγράφεται
+    // στο ψηφιακό πελατολόγιο. Η απουσία της είναι το αναμενόμενο.
+    if (ours!.isExempt) {
+      return {
+        ...base,
+        status: "MATCH",
+        explanation: "Απαλλαγμένη πινακίδα — δεν χρεώνεται ούτε καταγράφεται στο ψηφιακό πελατολόγιο.",
+      };
+    }
+
     return {
       ...base,
       status: "MISSING_IN_ERP",
@@ -294,6 +304,17 @@ function classify(
   }
 
   if (ourAmount != null && erpAmount != null && Math.abs(ourAmount - erpAmount) >= 0.005) {
+    // Απαλλαγμένη που χρεώθηκε: η απόκλιση είναι στο ERP, όχι σε εμάς.
+    if (ours.isExempt && erpAmount > 0) {
+      return {
+        ...base,
+        status: "AMOUNT_DIFF",
+        explanation:
+          `Η ${plate} είναι καταχωρημένη ως απαλλαγμένη αλλά χρεώθηκε ${erpAmount} € ` +
+          `στην εγγραφή #${erp.soaction}. Πιθανή λανθασμένη χρέωση.`,
+      };
+    }
+
     return {
       ...base,
       status: "AMOUNT_DIFF",

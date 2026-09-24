@@ -51,6 +51,8 @@ export type ChargeInput = {
   exit: Date;
   /** Αν η στάθμευση καλύπτεται από σύμβαση (SOACTION.INST > 0) δεν χρεώνεται. */
   hasContract?: boolean;
+  /** Απαλλαγμένη πινακίδα (προσωπικό, ιδιοκτήτες) — δεν χρεώνεται ποτέ. */
+  isExempt?: boolean;
 };
 
 export type ChargeResult = {
@@ -76,7 +78,15 @@ export function calculateCharge(
   input: ChargeInput,
   tariff: Tariff = DEFAULT_TARIFF
 ): ChargeResult {
-  const { entry, exit, hasContract = false } = input;
+  const { entry, exit, hasContract = false, isExempt = false } = input;
+
+  if (isExempt) {
+    return {
+      amount: 0,
+      billedHours: 0,
+      breakdown: [{ day: 0, hours: 0, rate: 0, reason: "απαλλαγμένη πινακίδα" }],
+    };
+  }
 
   if (hasContract) {
     return { amount: 0, billedHours: 0, breakdown: [] };

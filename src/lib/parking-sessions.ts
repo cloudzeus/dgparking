@@ -12,6 +12,7 @@
 import { prisma } from "@/lib/prisma";
 import { activeContractWhere } from "@/lib/contract-active";
 import { isReadablePlate, wallClockNow } from "@/lib/parking-time";
+import { getExemptPlates } from "@/lib/exempt-plates";
 import {
   calculateCharge,
   DEFAULT_TARIFF,
@@ -27,6 +28,8 @@ export type ParkingSession = {
   durationMinutes: number | null;
   /** Η ΕΝΕΡΓΗ σύμβαση που καλύπτει την πινακίδα, αν υπάρχει. */
   contractInst: number | null;
+  /** Η πινακίδα είναι καταχωρημένη ως απαλλαγμένη. */
+  isExempt: boolean;
   /** null όσο είναι μέσα — η χρέωση οριστικοποιείται στην έξοδο. */
   charge: ChargeResult | null;
   /** Δύο διαδοχικά IN χωρίς OUT: χάθηκε η έξοδος από την κάμερα. */
@@ -143,6 +146,7 @@ function blank(
       !flags.orphanExit &&
       (exit.getTime() - entry.getTime()) / 60000 <= MIN_STAY_MINUTES,
     contractInst: null,
+    isExempt: false,
     charge: null,
     missingExit: flags.missingExit ?? false,
     orphanExit: flags.orphanExit ?? false,
@@ -155,22 +159,24 @@ export async function getParkingSessions(
   to: Date,
   tariff: Tariff = DEFAULT_TARIFF
 ): Promise<ParkingSession[]> {
-  const [events, plateToInst] = await Promise.all([
+  const [events, plateToInst, exempt] = await Promise.all([
     prisma.lprRecognitionEvent.findMany({
       where: { recognitionTime: { gte: from, lte: to } },
       select: { licensePlate: true, direction: true, recognitionTime: true },
       orderBy: { recognitionTime: "asc" },
     }),
     getActiveContractPlates(),
+    getExemptPlates(to),
   ]);
 
   const sessions = buildSessions(events);
   for (const s of sessions) {
     const inst = plateToInst.get(s.plate) ?? null;
     s.contractInst = inst;
+    s.isExempt = exempt.has(s.plate);
     if (s.exit && !s.orphanExit) {
       s.charge = calculateCharge(
-        { entry: s.entry, exit: s.exit, hasContract: inst != null },
+        { entry: s.entry, exit: s.exit, hasContract: inst != null, isExempt: s.isExempt },
         tariff
       );
     }

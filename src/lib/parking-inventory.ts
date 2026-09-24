@@ -17,6 +17,7 @@ import { wallClockNow } from "@/lib/parking-time";
 import { fetchErpStays } from "@/lib/parking-reconcile";
 import { getActiveContractPlates, MIN_STAY_MINUTES } from "@/lib/parking-sessions";
 import { calculateCharge } from "@/lib/parking-tariff";
+import { isExempt } from "@/lib/exempt-plates";
 import type { InventorySource } from "@prisma/client";
 
 /** Πόσο πίσω ψάχνουμε ανοιχτές εγγραφές του ERP κατά το seed. */
@@ -122,6 +123,9 @@ export async function applyCameraPass(
       entry: current.enteredAt,
       exit: at,
       hasContract: current.contractInst != null,
+      // Η απαλλαγή ελέγχεται με την ώρα της ΕΞΟΔΟΥ, όχι με το «τώρα»: μια
+      // απαλλαγή που καταχωρήθηκε αργότερα δεν ισχύει αναδρομικά.
+      isExempt: await isExempt(key, at),
     });
 
     await prisma.$transaction([
