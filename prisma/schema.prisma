@@ -1277,3 +1277,29 @@ model CustomerEmail {
   @@index([email])
   @@map("customer_emails")
 }
+
+/// Πινακίδες που δεν χρεώνονται — προσωπικό, ιδιοκτήτες, συνεργάτες.
+///
+/// Μέχρι τώρα η απαλλαγή ήταν απόφαση της στιγμής στην μπάρα: το ERP κρατά
+/// μόνο `GVAL=0` χωρίς να λέει γιατί. Αποτέλεσμα, το ίδιο όχημα άλλοτε
+/// χρεωνόταν και άλλοτε όχι, και κανείς δεν μπορούσε να ελέγξει ποιο από τα
+/// δύο ήταν το λάθος. Εδώ η απαλλαγή γίνεται καταγεγραμμένος κανόνας.
+model ExemptPlate {
+  id        String    @id @default(cuid())
+  /// Κανονικοποιημένη πινακίδα, όπως την κρατά το ERP (λατινικά, κεφαλαία).
+  plate     String    @unique @db.VarChar(50)
+  /// Κατηγορία απαλλαγής — για αναφορές και για να μη γίνει σκουπιδότοπος.
+  category  String    @db.VarChar(40)
+  /// Ποιος είναι ο κάτοχος ή γιατί απαλλάσσεται.
+  note      String?   @db.Text
+  isActive  Boolean   @default(true) @map("is_active")
+  /// Από πότε ισχύει η απαλλαγή. Παλαιότερες στάσεις παραμένουν χρεώσιμες.
+  validFrom DateTime  @default(now()) @map("valid_from")
+  validUntil DateTime? @map("valid_until")
+  createdById String? @map("created_by_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@map("exempt_plates")
+}

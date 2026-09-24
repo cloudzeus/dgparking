@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { activeContractWhere } from "@/lib/contract-active";
 import { DeviationSummary } from "@/components/dashboard/deviation-summary";
+import { fetchErpStays } from "@/lib/parking-reconcile";
+import { wallClockNow } from "@/lib/parking-time";
 import { getContractInfoByPlate } from "@/lib/contract-cars";
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
 
@@ -256,6 +258,21 @@ export default async function DashboardPage() {
   for (const row of insideNow) platesWithIn.add(row.plate);
   for (const row of closedStays) platesWithIn.add(row.plate);
 
+  // Ποιες πινακίδες υπάρχουν στο ψηφιακό πελατολόγιο του ERP.
+  //
+  // Αν ένα όχημα πέρασε από τις κάμερες αλλά δεν έχει εγγραφή εκεί, δεν θα
+  // τιμολογηθεί ποτέ — και δεν έχει σημασία αν έχει συμβόλαιο ή όχι, η
+  // καταγραφή λείπει και στις δύο περιπτώσεις. Αποτυχία της κλήσης ΔΕΝ ρίχνει
+  // το dashboard: απλώς δεν εμφανίζεται το σήμα.
+  let platesInErp: string[] = [];
+  try {
+    const nowWall = wallClockNow();
+    const erpStays = await fetchErpStays(new Date(nowWall.getTime() - 2 * 24 * 3600 * 1000), nowWall);
+    platesInErp = [...new Set(erpStays.map((s) => s.plate))];
+  } catch (error) {
+    console.error("[DASHBOARD] Το ψηφιακό πελατολόγιο δεν διαβάστηκε:", error);
+  }
+
   // Deduplicate by license plate: keep only the most recent event per plate (valid plate >= 2 chars)
   const plateToLatest = new Map<string, (typeof lastTwoDays)[0]>();
   for (const event of lastTwoDays) {
@@ -343,6 +360,7 @@ export default async function DashboardPage() {
       platesInItems={platesInItems}
       contractInfoByPlate={contractInfoByPlate}
         platesWithIn={Array.from(platesWithIn)}
+        platesInErp={platesInErp}
       />
     </div>
   );

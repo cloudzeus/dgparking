@@ -26,6 +26,7 @@ import {
   Search,
   User,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -236,9 +237,11 @@ interface DashboardClientProps {
   contractInfoByPlate?: Record<string, ContractInfo>;
   /** Plates that have at least one IN event (from full history). Used so "NO IN CAPTURED" is only shown when plate truly never had IN. */
   platesWithIn?: string[];
+  /** Πινακίδες που υπάρχουν στο ψηφιακό πελατολόγιο του ERP. */
+  platesInErp?: string[];
 }
 
-export function DashboardClient({ user, stats, recentEvents, materialLicensePlates, platesInItems = new Set(), contractInfoByPlate = {}, platesWithIn: platesWithInProp = [] }: DashboardClientProps) {
+export function DashboardClient({ user, stats, recentEvents, materialLicensePlates, platesInItems = new Set(), contractInfoByPlate = {}, platesWithIn: platesWithInProp = [], platesInErp = [] }: DashboardClientProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Debug: Log material license plates on mount
@@ -330,6 +333,12 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
     }
   });
   const [platesWithInSet, setPlatesWithInSet] = useState<Set<string>>(() => new Set(platesWithInProp));
+  // Πινακίδες με εγγραφή στο ψηφιακό πελατολόγιο. Κενό σύνολο σημαίνει ότι η
+  // ανάγνωση του ERP απέτυχε — τότε δεν δείχνουμε σήμα, αντί να σημάνουμε τα πάντα.
+  const platesInErpSet = useMemo(
+    () => new Set(platesInErp.map((p) => p.trim().toUpperCase())),
+    [platesInErp]
+  );
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -990,6 +999,11 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
               const isVisitorOverLimit = slotType === "visitor";
               const isInItems = normalizedPlate.length > 0 && platesInItems.has(normalizedPlate);
               const isOutOnly = !platesWithInSet.has(normalizedPlate);
+              // Κενό σύνολο = η ανάγνωση του ERP απέτυχε· δεν σημαίνουμε τα πάντα.
+              const missingInErp =
+                platesInErpSet.size > 0 &&
+                normalizedPlate.length > 0 &&
+                !platesInErpSet.has(normalizedPlate);
 
               // When vehicle has left (OUT), find the time they came in (matching IN before this OUT)
               let entryTime: Date | null = null;
@@ -1011,6 +1025,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
                   isFromPastDate={isFromPastDate}
                   isStillInside={isStillInside || false}
                   isOutOnly={isOutOnly}
+                  missingInErp={missingInErp}
                   entryTime={entryTime}
                   contractNum01={contractNum01}
                   contractCarsIn={contractCarsIn}
@@ -1059,7 +1074,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   );
 }
 
-function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false, isVisitorOverLimit = false, isSelected = false, onToggleSelect, onMarkAsLeft, onReevaluate }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean; /** true when car is inside but over contract limit → pays regular visitor fee */ isVisitorOverLimit?: boolean; isSelected?: boolean; onToggleSelect?: () => void; onMarkAsLeft?: (licensePlate: string, leftAt: Date) => Promise<void>; onReevaluate?: (eventId: string, newLicensePlate: string) => Promise<void> }) {
+function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, missingInErp = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false, isVisitorOverLimit = false, isSelected = false, onToggleSelect, onMarkAsLeft, onReevaluate }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; /** Δεν υπάρχει εγγραφή στο ψηφιακό πελατολόγιο του ERP. */ missingInErp?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean; /** true when car is inside but over contract limit → pays regular visitor fee */ isVisitorOverLimit?: boolean; isSelected?: boolean; onToggleSelect?: () => void; onMarkAsLeft?: (licensePlate: string, leftAt: Date) => Promise<void>; onReevaluate?: (eventId: string, newLicensePlate: string) => Promise<void> }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [isLeftModalOpen, setIsLeftModalOpen] = useState(false);
@@ -1521,6 +1536,15 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
 
               {/* Γραμμή 2: ετικέτες — ERP, κατεύθυνση, συμβόλαιο, κατάσταση */}
               <div className="flex flex-wrap items-center gap-1.5">
+              {missingInErp && (
+                <Badge
+                  variant="danger"
+                  title="Το όχημα πέρασε από τις κάμερες αλλά δεν υπάρχει εγγραφή στο ψηφιακό πελατολόγιο — δεν θα τιμολογηθεί"
+                >
+                  <AlertTriangle aria-hidden />
+                  Εκτός ψηφ. πελατολογίου
+                </Badge>
+              )}
               {isInItems && (
                 <Badge variant="neutral" title="Η πινακίδα υπάρχει ως είδος στο ERP">
                   ERP

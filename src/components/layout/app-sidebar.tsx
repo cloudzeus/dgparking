@@ -59,6 +59,7 @@ import {
   UserCheck,
   ClipboardCheck,
   Eye,
+  ShieldOff,
 } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
 import { Badge } from "@/components/ui/badge";
@@ -129,6 +130,12 @@ const menuGroups: MenuGroup[] = [
         href: "/contracts",
         icon: FileText,
         roles: ["ADMIN", "MANAGER", "EMPLOYEE"],
+      },
+      {
+        title: "Απαλλαγμένες πινακίδες",
+        href: "/exempt-plates",
+        icon: ShieldOff,
+        roles: ["ADMIN", "MANAGER"],
       },
       {
         title: "Αντιπαραβολή",
