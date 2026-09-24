@@ -31,6 +31,8 @@ export type MatchStatus =
   | "MATCH"
   | "AMOUNT_DIFF"
   | "TIME_DIFF"
+  /** Η μία πλευρά έχει καταγράψει έξοδο και η άλλη όχι. */
+  | "EXIT_DIFF"
   | "MISSING_IN_ERP"
   | "MISSING_IN_CAMERAS";
 
@@ -175,11 +177,12 @@ export function reconcile(ours: ParkingSession[], erp: ErpStay[]): ReconRow[] {
   }
 
   const rank: Record<MatchStatus, number> = {
-    MISSING_IN_ERP: 0,
-    MISSING_IN_CAMERAS: 1,
-    AMOUNT_DIFF: 2,
-    TIME_DIFF: 3,
-    MATCH: 4,
+    AMOUNT_DIFF: 0,
+    EXIT_DIFF: 1,
+    MISSING_IN_ERP: 2,
+    MISSING_IN_CAMERAS: 3,
+    TIME_DIFF: 4,
+    MATCH: 5,
   };
   rows.sort((a, b) => {
     const r = rank[a.status] - rank[b.status];
@@ -234,6 +237,27 @@ function classify(ours: ParkingSession | null, erp: ErpStay | null): ReconRow {
     };
   }
 
+  // ΕΞΟΔΟΙ — ελέγχονται ΠΡΙΝ τις ώρες.
+  //
+  // Το `exitDrift` είναι null όταν λείπει η έξοδος από τη ΜΙΑ πλευρά, οπότε ο
+  // έλεγχος ώρας δεν έπιανε τίποτα: όχημα που οι κάμερες το είδαν να φεύγει
+  // ενώ το ERP το είχε ακόμα ανοιχτό εμφανιζόταν ως «ταυτίζεται». Αυτή είναι
+  // από τις σημαντικότερες αποκλίσεις — σημαίνει στάθμευση που δεν έκλεισε
+  // ποτέ στο βιβλίο, άρα και τιμολόγηση που δεν έγινε.
+  const weHaveExit = ours.exit != null;
+  const erpHasExit = erp.exit != null;
+  if (weHaveExit !== erpHasExit) {
+    return {
+      ...base,
+      status: "EXIT_DIFF",
+      explanation: weHaveExit
+        ? `Η κάμερα κατέγραψε έξοδο στις ${fmt(ours.exit)} αλλά η εγγραφή #${erp.soaction} παραμένει ΑΝΟΙΧΤΗ στο ψηφιακό πελατολόγιο` +
+          (ourAmount ? ` · μη τιμολογημένη χρέωση ${ourAmount} €` : " · χωρίς χρέωση (σύμβαση)") +
+          "."
+        : `Το ψηφιακό πελατολόγιο έκλεισε τη στάθμευση στις ${fmt(erp.exit)} αλλά οι κάμερες δεν είδαν ποτέ το όχημα να φεύγει.`,
+    };
+  }
+
   const drifted =
     (entryDrift != null && Math.abs(entryDrift) > TIME_TOLERANCE_MIN) ||
     (exitDrift != null && Math.abs(exitDrift) > TIME_TOLERANCE_MIN);
@@ -259,6 +283,7 @@ export type ReconSummary = {
   match: number;
   amountDiff: number;
   timeDiff: number;
+  exitDiff: number;
   missingInErp: number;
   missingInCameras: number;
   /** Συνολική διαφορά τζίρου (δικά μας ποσά − ποσά ERP). */
@@ -271,6 +296,7 @@ export function summarize(rows: ReconRow[]): ReconSummary {
     match: 0,
     amountDiff: 0,
     timeDiff: 0,
+    exitDiff: 0,
     missingInErp: 0,
     missingInCameras: 0,
     amountDelta: 0,
@@ -279,6 +305,7 @@ export function summarize(rows: ReconRow[]): ReconSummary {
     if (r.status === "MATCH") s.match++;
     else if (r.status === "AMOUNT_DIFF") s.amountDiff++;
     else if (r.status === "TIME_DIFF") s.timeDiff++;
+    else if (r.status === "EXIT_DIFF") s.exitDiff++;
     else if (r.status === "MISSING_IN_ERP") s.missingInErp++;
     else s.missingInCameras++;
     s.amountDelta += (r.ourAmount ?? 0) - (r.erpAmount ?? 0);

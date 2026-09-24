@@ -30,6 +30,7 @@ import {
   Euro,
   FileX,
   LogIn,
+  LogOut,
   Search,
 } from "lucide-react";
 
@@ -37,6 +38,7 @@ export type ReconStatus =
   | "MATCH"
   | "AMOUNT_DIFF"
   | "TIME_DIFF"
+  | "EXIT_DIFF"
   | "MISSING_IN_ERP"
   | "MISSING_IN_CAMERAS";
 
@@ -82,6 +84,7 @@ export type ReconSummaryDTO = {
   timeDiff: number;
   missingInErp: number;
   missingInCameras: number;
+  exitDiff: number;
   amountDelta: number;
 };
 
@@ -92,6 +95,7 @@ const STATUS_META: Record<
   MATCH: { label: "Ταυτίζεται", variant: "outline", className: "border-chart-2/40 bg-chart-2/10 text-chart-2" },
   AMOUNT_DIFF: { label: "Διαφορά ποσού", variant: "outline", className: "border-chart-5/40 bg-chart-5/10 text-chart-5" },
   TIME_DIFF: { label: "Διαφορά ώρας", variant: "outline", className: "border-chart-3/40 bg-chart-3/10 text-chart-3" },
+  EXIT_DIFF: { label: "Διαφορά εξόδου", variant: "outline", className: "border-chart-5/40 bg-chart-5/10 text-chart-5" },
   MISSING_IN_ERP: { label: "Λείπει από ERP", variant: "outline", className: "border-chart-5/40 bg-chart-5/10 text-chart-5" },
   MISSING_IN_CAMERAS: { label: "Λείπει από κάμερες", variant: "outline", className: "border-chart-4/40 bg-chart-4/10 text-chart-4" },
 };
@@ -166,7 +170,7 @@ export function ReconciliationClient({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
         <KpiTile
           label="Ταυτίζονται"
           value={summary.match}
@@ -183,6 +187,15 @@ export function ReconciliationClient({
           tone="red"
           onClick={() => toggle("AMOUNT_DIFF")}
           active={filter === "AMOUNT_DIFF"}
+        />
+        <KpiTile
+          label="Διαφορά εξόδου"
+          value={summary.exitDiff}
+          hint="Έφυγε αλλά δεν έκλεισε"
+          icon={LogOut}
+          tone="red"
+          onClick={() => toggle("EXIT_DIFF")}
+          active={filter === "EXIT_DIFF"}
         />
         <KpiTile
           label="Διαφορά ώρας"
