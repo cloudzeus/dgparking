@@ -13,7 +13,8 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { wallClockNow } from "@/lib/parking-time";
+import { wallClockNow, isReadablePlate } from "@/lib/parking-time";
+import { normalizePlate } from "@/lib/plate";
 import { fetchErpStays } from "@/lib/parking-reconcile";
 import { getActiveContractPlates, MIN_STAY_MINUTES } from "@/lib/parking-sessions";
 import { calculateCharge } from "@/lib/parking-tariff";
@@ -81,8 +82,18 @@ export async function applyCameraPass(
   at: Date
 ): Promise<{ action: "added" | "removed" | "ignored"; reason?: string }> {
   try {
-    const key = plate.trim().toUpperCase();
+    // Η κανονικοποίηση είναι η ίδια με του ERP — αλλιώς η ίδια πινακίδα
+    // γράφεται με δύο τρόπους και δεν ταιριάζει ποτέ στην αντιπαραβολή.
+    const key = normalizePlate(plate);
     if (!key) return { action: "ignored", reason: "κενή πινακίδα" };
+
+    // Χωρίς αναγνώσιμη πινακίδα δεν υπάρχει εγγραφή στο ψηφιακό πελατολόγιο:
+    // το ERP δεν δέχεται στάθμευση χωρίς πινακίδα. Μια λήψη «NO PLATES» (συχνά
+    // πεζός μπροστά στην κάμερα) δεν είναι όχημα — αν μπει στην απογραφή,
+    // παράγει στάση και χρέωση που δεν μπορεί ποτέ να αντιπαραβληθεί.
+    if (!isReadablePlate(key)) {
+      return { action: "ignored", reason: "μη αναγνώσιμη πινακίδα" };
+    }
 
     if (direction === "IN") {
       const existing = await prisma.parkingInventory.findUnique({ where: { plate: key } });

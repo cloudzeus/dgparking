@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { normalizePlate } from "@/lib/plate";
+import { isReadablePlate } from "@/lib/parking-time";
 
 /**
  * PATCH /api/dashboard/recognition-event/[id]
@@ -125,14 +127,47 @@ export async function DELETE(
     await prisma.lprImage.deleteMany({ where: { eventType: "recognition", eventId: id } });
     await prisma.lprRecognitionEvent.delete({ where: { id } });
 
+    // ΚΑΙ ΤΑ ΠΑΡΑΓΩΓΑ. Το συμβάν δεν ζει μόνο του: κάθε πέρασμα ενημερώνει την
+    // απογραφή και, στην έξοδο, γράφει στάση με χρέωση. Αυτοί οι πίνακες είναι
+    // πλέον η πηγή της αντιπαραβολής, οπότε αν μείνουν, το διαγραμμένο συμβάν
+    // εξακολουθεί να εμφανίζεται — χρεωμένο — και ας μην υπάρχει πια.
+    const plate = normalizePlate(event.licensePlate);
+    // Μια λήψη χωρίς αναγνώσιμη πινακίδα δεν αντιστοιχεί σε όχημα: το ψηφιακό
+    // πελατολόγιο δεν δέχεται στάθμευση χωρίς πινακίδα, άρα ΚΑΘΕ παράγωγο
+    // τέτοιας πινακίδας είναι σκουπίδι και φεύγει ολόκληρο.
+    const junk = !isReadablePlate(plate);
+    // Για αναγνώσιμη πινακίδα σβήνουμε μόνο ό,τι παρήγαγε ΑΥΤΟ το πέρασμα —
+    // αλλιώς η διαγραφή μιας λήψης θα έσβηνε άσχετο ιστορικό του οχήματος.
+    const t = event.recognitionTime;
+    const near = { gte: new Date(t.getTime() - 60_000), lte: new Date(t.getTime() + 60_000) };
+
+    const [invGone, stayGone] = await Promise.all([
+      prisma.parkingInventory.deleteMany({
+        where: junk ? { plate } : { plate, source: "CAMERA", enteredAt: near },
+      }),
+      prisma.parkingStay.deleteMany({
+        where: junk
+          ? { plate }
+          : { plate, OR: [{ enteredAt: near }, { exitedAt: near }] },
+      }),
+    ]);
+
     console.log(
       `[EVENT-DELETE] ${session.user.email}: «${event.licensePlate}» ${event.direction} ` +
-        `${event.recognitionTime.toISOString()} — ${images.length} εικόνες, ${cdnDeleted} από CDN`
+        `${event.recognitionTime.toISOString()} — ${images.length} εικόνες, ${cdnDeleted} από CDN, ` +
+        `${invGone.count} από απογραφή, ${stayGone.count} στάσεις${junk ? " (μη αναγνώσιμη — πλήρης εκκαθάριση)" : ""}`
     );
 
     return NextResponse.json({
       success: true,
-      deleted: { id, plate: event.licensePlate, images: images.length, cdnDeleted },
+      deleted: {
+        id,
+        plate: event.licensePlate,
+        images: images.length,
+        cdnDeleted,
+        inventory: invGone.count,
+        stays: stayGone.count,
+      },
     });
   } catch (error) {
     console.error("[EVENT-DELETE] Απέτυχε:", error);

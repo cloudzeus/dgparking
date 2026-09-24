@@ -3,7 +3,8 @@ import { unstable_noStore } from "next/cache";
 import { auth } from "@/lib/auth";
 import { reconcilePeriod, fetchOpenErpStays } from "@/lib/parking-reconcile";
 import { formatWallClock, wallClockNow } from "@/lib/parking-time";
-import { ReconciliationClient, type ReconRowDTO, type GateRowDTO } from "@/components/reconciliation/reconciliation-client";
+import { ReconciliationClient, type ReconRowDTO, type GateRowDTO, type GateStatus } from "@/components/reconciliation/reconciliation-client";
+import { prisma } from "@/lib/prisma";
 import { getInventory } from "@/lib/parking-inventory";
 import { PageHeader } from "@/components/admin/page";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -75,9 +76,57 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
     const invByPlate = new Map(inventory.map((i) => [i.plate, i]));
     const plates = new Set([...invByPlate.keys(), ...erpOpen.keys()]);
 
+    // Για όσα το ERP κρατά ανοιχτά ενώ εμείς όχι, η απάντηση είναι συνήθως
+    // «τα είδαμε να φεύγουν» — και βρίσκεται στις ολοκληρωμένες σταθμεύσεις.
+    const onlyInErp = [...plates].filter((p) => !invByPlate.has(p));
+    const recentExits = onlyInErp.length
+      ? await prisma.parkingStay.findMany({
+          where: { plate: { in: onlyInErp } },
+          orderBy: { exitedAt: "desc" },
+          select: { plate: true, exitedAt: true },
+        })
+      : [];
+    const lastExit = new Map<string, Date>();
+    for (const s of recentExits) if (!lastExit.has(s.plate)) lastExit.set(s.plate, s.exitedAt);
+
+    const now = wallClockNow();
+    const minsSince = (d: Date) => Math.max(0, Math.round((now.getTime() - d.getTime()) / 60000));
+
     gateRows = [...plates].map((plate): GateRowDTO => {
       const inv = invByPlate.get(plate) ?? null;
       const erp = erpOpen.get(plate) ?? null;
+      const exit = lastExit.get(plate) ?? null;
+
+      let status: GateStatus = "MATCH";
+      let note = "";
+      let pendingMinutes: number | null = null;
+
+      if (inv && erp) {
+        note = "Και οι δύο πλευρές το έχουν μέσα.";
+      } else if (inv) {
+        // Η προέλευση της εγγραφής μας κρίνει ποιος καθυστερεί. Πέρασμα από
+        // κάμερα = είδαμε την είσοδο και το ERP δεν την έχει γράψει ακόμα.
+        // Σπορά από το ERP = το ERP την έκλεισε χωρίς να δούμε έξοδο.
+        pendingMinutes = minsSince(inv.enteredAt);
+        if (inv.source === "CAMERA") {
+          status = "ERP_PENDING_ENTRY";
+          note = `Μπήκε ${formatWallClock(inv.enteredAt)} από κάμερα — το ERP δεν το έχει καταχωρήσει ακόμα.`;
+        } else {
+          status = "INVENTORY_STALE";
+          note = "Το ERP δεν το έχει πια ανοιχτό, αλλά εμείς δεν είδαμε έξοδο — πιθανή χαμένη λήψη.";
+        }
+      } else if (erp) {
+        if (exit && erp.entry && exit >= erp.entry) {
+          status = "ERP_PENDING_EXIT";
+          pendingMinutes = minsSince(exit);
+          note = `Βγήκε ${formatWallClock(exit)} — το ERP δεν έχει κλείσει ακόμα την εγγραφή.`;
+        } else {
+          status = "UNSEEN";
+          pendingMinutes = erp.entry ? minsSince(erp.entry) : null;
+          note = "Ανοιχτό στο ERP χωρίς κανένα πέρασμα από κάμερα.";
+        }
+      }
+
       return {
         plate,
         inInventory: inv != null,
@@ -87,6 +136,9 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
         contract: inv?.contractInst ?? erp?.inst ?? null,
         source: inv?.source ?? null,
         erpRef: erp?.soaction ?? null,
+        status,
+        note,
+        pendingMinutes,
       };
     });
   } catch (e) {

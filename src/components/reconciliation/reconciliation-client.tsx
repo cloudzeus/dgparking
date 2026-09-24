@@ -82,6 +82,21 @@ function pendingLabel(minutes: number | null): string | null {
 }
 
 /** Γραμμή βιβλίου πόρτας: η μόνιμη απογραφή μας έναντι των ανοιχτών του ERP. */
+/**
+ * Η κατάσταση μιας γραμμής του βιβλίου πόρτας.
+ *
+ * Το «εμφανίζεται μόνο στη μία πλευρά» από μόνο του δεν λέει τίποτα: στη
+ * συντριπτική πλειοψηφία σημαίνει απλώς ότι η μία πλευρά δεν έχει προλάβει
+ * να καταχωρήσει. Ξεχωρίζουμε την καθυστέρηση από την πραγματική διαφωνία,
+ * γιατί μόνο η δεύτερη χρειάζεται ενέργεια.
+ */
+export type GateStatus =
+  | "MATCH"
+  | "ERP_PENDING_ENTRY" // μπήκε από κάμερα, το ERP δεν το άνοιξε ακόμα
+  | "ERP_PENDING_EXIT" // το είδαμε να βγαίνει, το ERP δεν το έκλεισε ακόμα
+  | "INVENTORY_STALE" // το ERP το έκλεισε, εμείς δεν είδαμε έξοδο
+  | "UNSEEN"; // ανοιχτό στο ERP, ποτέ δεν το είδαμε
+
 export type GateRowDTO = {
   plate: string;
   inInventory: boolean;
@@ -91,6 +106,25 @@ export type GateRowDTO = {
   contract: number | null;
   source: "ERP_SEED" | "CAMERA" | null;
   erpRef: number | null;
+  status: GateStatus;
+  note: string;
+  /** Λεπτά από τότε που η μία πλευρά περιμένει την άλλη. */
+  pendingMinutes: number | null;
+};
+
+/**
+ * Πώς διαβάζεται κάθε κατάσταση του βιβλίου πόρτας. Η εκκρεμότητα δείχνεται
+ * ουδέτερα, γιατί λύνεται μόνη της· μόνο τα δύο τελευταία θέλουν άνθρωπο.
+ */
+const GATE_META: Record<
+  GateStatus,
+  { label: string; variant: "default" | "secondary" | "outline" | "destructive"; className?: string }
+> = {
+  MATCH: { label: "Συμφωνούν", variant: "outline", className: "text-chart-2 border-chart-2/40" },
+  ERP_PENDING_ENTRY: { label: "Εκκρεμεί είσοδος", variant: "secondary" },
+  ERP_PENDING_EXIT: { label: "Εκκρεμεί κλείσιμο", variant: "secondary" },
+  INVENTORY_STALE: { label: "Χαμένη έξοδος", variant: "outline", className: "text-chart-5 border-chart-5/40" },
+  UNSEEN: { label: "Δεν το είδαμε", variant: "outline", className: "text-chart-4 border-chart-4/40" },
 };
 
 export type ReconSummaryDTO = {
@@ -162,7 +196,14 @@ export function ReconciliationClient({
     const q = query.trim().toUpperCase();
     return q ? gateRows.filter((r) => r.plate.includes(q)) : gateRows;
   }, [gateRows, query]);
-  const insideBoth = gateBook.filter((r) => r.inInventory && r.inErp).length;
+  const insideBoth = gateBook.filter((r) => r.status === "MATCH").length;
+  // Η εκκρεμότητα δεν είναι διαφωνία: η μία πλευρά απλώς δεν πρόλαβε. Την
+  // μετράμε χωριστά ώστε ο αριθμός που τραβά το μάτι να είναι μόνο τα
+  // πραγματικά προβλήματα.
+  const insidePending = gateBook.filter(
+    (r) => r.status === "ERP_PENDING_ENTRY" || r.status === "ERP_PENDING_EXIT"
+  ).length;
+  const insideProblem = gateBook.length - insideBoth - insidePending;
 
   const toggle = (s: ReconStatus) => setFilter((cur) => (cur === s ? null : s));
 
@@ -413,9 +454,11 @@ export function ReconciliationClient({
             <CardHeader className="border-b">
               <CardTitle>Ποια οχήματα είναι μέσα</CardTitle>
               <CardDescription>
-                {insideBoth} συμφωνούν · {gateBook.length - insideBoth} εμφανίζονται μόνο στη
-                μία πλευρά. Η απογραφή μας ξεκίνησε από το ψηφιακό πελατολόγιο και
-                ενημερώνεται από τα περάσματα των καμερών.
+                {insideBoth} συμφωνούν
+                {insidePending > 0 && ` · ${insidePending} εκκρεμεί καταχώρηση στο ERP`}
+                {insideProblem > 0 && ` · ${insideProblem} χρειάζονται έλεγχο`}. Η απογραφή μας
+                ξεκίνησε από το ψηφιακό πελατολόγιο και ενημερώνεται από τα περάσματα των
+                καμερών· όταν μια πλευρά λείπει, η στήλη «Σημείωση» εξηγεί ποια καθυστερεί.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -436,6 +479,7 @@ export function ReconciliationClient({
                         <TableHead className="text-center text-chart-4">SoftOne</TableHead>
                         <TableHead>Είσοδος (εμείς)</TableHead>
                         <TableHead>Είσοδος (ERP)</TableHead>
+                        <TableHead>Κατάσταση</TableHead>
                         <TableHead>Σημείωση</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -472,15 +516,21 @@ export function ReconciliationClient({
                               <span className="ml-1.5 text-xs text-muted-foreground">#{r.erpRef}</span>
                             )}
                           </TableCell>
+                          <TableCell>
+                            {(() => {
+                              const g = GATE_META[r.status];
+                              return (
+                                <Badge variant={g.variant} className={g.className}>
+                                  {g.label}
+                                </Badge>
+                              );
+                            })()}
+                          </TableCell>
                           <TableCell className="text-xs text-muted-foreground">
-                            {r.inInventory && !r.inErp && (
-                              <span className="inline-flex items-center gap-1 text-chart-5">
-                                <AlertTriangle className="size-3" /> δεν είναι στο βιβλίο του ERP
-                              </span>
-                            )}
-                            {!r.inInventory && r.inErp && (
-                              <span className="inline-flex items-center gap-1 text-chart-4">
-                                <AlertTriangle className="size-3" /> ανοιχτή στο ERP, εκτός απογραφής
+                            {r.note}
+                            {r.pendingMinutes != null && r.status !== "MATCH" && (
+                              <span className="ml-1 whitespace-nowrap font-medium">
+                                ({pendingLabel(r.pendingMinutes)})
                               </span>
                             )}
                           </TableCell>
