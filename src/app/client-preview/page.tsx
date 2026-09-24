@@ -6,7 +6,7 @@ import { getPortalGateBook } from "@/lib/portal-gatebook";
 import { activeContractWhere } from "@/lib/contract-active";
 import { nextContractPeriod, proposedContractName, formatPeriod } from "@/lib/contract-period";
 import { ClientPortal, type ContractDTO, type InvoiceDTO, type RequestDTO } from "@/components/portal/client-portal";
-import { PageHeader } from "@/components/admin/page";
+import { PortalShell } from "@/components/portal/portal-shell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Eye } from "lucide-react";
 
@@ -135,34 +135,36 @@ export default async function ClientPreviewPage() {
     },
   ];
 
-  return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Προεπισκόπηση portal πελατών"
-        description="Έτσι βλέπει ο πελάτης τη σύμβασή του. Κανένα κουμπί δεν εκτελεί ενέργεια."
-        icon={Eye}
-      />
-      <Alert>
-        <Eye />
-        <AlertTitle>Προεπισκόπηση με πραγματικά δεδομένα σύμβασης</AlertTitle>
-        <AlertDescription>
-          Σύμβαση {contract.INST} · {plates.length} πινακίδες. Τα τιμολόγια και τα αιτήματα είναι
-          δείγματα. Οι ενέργειες είναι απενεργοποιημένες.
-        </AlertDescription>
-      </Alert>
+  const name = customer?.NAME ?? contract.NAME ?? "Πελάτης";
 
-      <div className="rounded-xl border bg-muted/30 p-4">
-        <ClientPortal
-          customerName={customer?.NAME ?? contract.NAME ?? "Πελάτης"}
-          afm={customer?.AFM ?? null}
-          contracts={contracts}
-          invoices={invoices}
-          invoiceError={null}
-          gateBook={gateBook}
-          requests={requests}
-          readOnly
-        />
-      </div>
-    </div>
+  return (
+    <PortalShell
+      customerName={name}
+      // Η προεπισκόπηση τρέχει με τη συνεδρία του προσωπικού· ένα κουμπί
+      // αποσύνδεσης εδώ θα πετούσε έξω τον διαχειριστή που την εξετάζει.
+      showLogout={false}
+      banner={
+        <Alert className="mb-4">
+          <Eye />
+          <AlertTitle>Προεπισκόπηση — ακριβώς η οθόνη του πελάτη</AlertTitle>
+          <AlertDescription>
+            Σύμβαση {contract.INST} · {plates.length} πινακίδες, με πραγματικά δεδομένα και
+            πραγματικές κινήσεις. Τα τιμολόγια και τα αιτήματα είναι δείγματα και καμία
+            ενέργεια δεν εκτελείται.
+          </AlertDescription>
+        </Alert>
+      }
+    >
+      <ClientPortal
+        customerName={name}
+        afm={customer?.AFM ?? null}
+        contracts={contracts}
+        invoices={invoices}
+        invoiceError={null}
+        gateBook={gateBook}
+        requests={requests}
+        readOnly
+      />
+    </PortalShell>
   );
 }
