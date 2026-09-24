@@ -23,7 +23,9 @@ import {
 import type { ParkingDeviation } from "@prisma/client";
 
 /** Είδη που δικαιολογούν άμεσο email. */
-const IMMEDIATE: DeviationKind[] = ["AMOUNT_DIFF", "TIME_DIFF"];
+// Η μη κλεισμένη έξοδος μπαίνει κι αυτή στις άμεσες: σημαίνει στάθμευση που
+// δεν τιμολογήθηκε, δηλαδή ίδιο οικονομικό βάρος με τη διαφορά ποσού.
+const IMMEDIATE: DeviationKind[] = ["AMOUNT_DIFF", "TIME_DIFF", "EXIT_DIFF"];
 /** Πόσες περιπτώσεις αναλύονται μέσα στη σύνοψη. */
 const HIGHLIGHT_LIMIT = 10;
 /** Φρένο ασφαλείας: ποτέ περισσότερα από τόσα άμεσα email σε μία εκτέλεση. */
@@ -104,6 +106,7 @@ export async function sendDailyDigest(hours = 24) {
   const counts = {
     AMOUNT_DIFF: 0,
     TIME_DIFF: 0,
+    EXIT_DIFF: 0,
     MISSING_IN_ERP: 0,
     MISSING_IN_CAMERAS: 0,
   } as DigestCounts;

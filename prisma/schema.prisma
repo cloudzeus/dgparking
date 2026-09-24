@@ -1065,6 +1065,8 @@ model NewsTranslation {
 enum ParkingDeviationKind {
   AMOUNT_DIFF
   TIME_DIFF
+  /// Η μία πλευρά κατέγραψε έξοδο και η άλλη όχι.
+  EXIT_DIFF
   MISSING_IN_ERP
   MISSING_IN_CAMERAS
 }

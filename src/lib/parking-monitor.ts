@@ -89,6 +89,7 @@ export async function getLatestBaseline() {
 const KIND: Record<Exclude<MatchStatus, "MATCH">, ParkingDeviationKind> = {
   AMOUNT_DIFF: "AMOUNT_DIFF",
   TIME_DIFF: "TIME_DIFF",
+  EXIT_DIFF: "EXIT_DIFF",
   MISSING_IN_ERP: "MISSING_IN_ERP",
   MISSING_IN_CAMERAS: "MISSING_IN_CAMERAS",
 };

@@ -13,12 +13,14 @@ import {
 export type DeviationKind =
   | "AMOUNT_DIFF"
   | "TIME_DIFF"
+  | "EXIT_DIFF"
   | "MISSING_IN_ERP"
   | "MISSING_IN_CAMERAS";
 
 export const DEVIATION_LABELS: Record<DeviationKind, string> = {
   AMOUNT_DIFF: "Διαφορά ποσού",
   TIME_DIFF: "Διαφορά ώρας",
+  EXIT_DIFF: "Έξοδος που δεν έκλεισε",
   MISSING_IN_ERP: "Λείπει από το ψηφιακό πελατολόγιο",
   MISSING_IN_CAMERAS: "Λείπει από τις κάμερες",
 };
