@@ -1,143 +1,145 @@
 {
-  "meta": {
-    "title": "Parcheggio per eventi — MEGA Parking Pireo",
-    "description": "Prenota un numero preciso di posti auto per il tuo evento, a due passi dal porto del Pireo. Posti garantiti, un prezzo concordato, nessuna sorpresa."
-  },
-  "hero": {
-    "eyebrow": "Parcheggio per eventi",
-    "title": "I vostri ospiti non devono cercare parcheggio",
-    "subtitle": "Riserviamo il numero esatto di posti che vi serve, per le ore che vi servono.",
-    "body": "Un matrimonio, una presentazione aziendale, un concerto, l'arrivo di una crociera. Qualunque cosa organizziate, la prima cosa che gli ospiti ricordano è quanto è stato facile arrivare — e l'ultima, quanto è stato facile andarsene.",
-    "cta": "Richiedi un preventivo",
-    "secondary": "Vedi le tariffe",
-    "note": "Rispondiamo entro un giorno lavorativo. La richiesta è gratuita."
-  },
-  "stats": {
-    "eyebrow": "Perché qui",
-    "capacity": {
-      "value": "180",
-      "label": "posti totali"
+  "events": {
+    "meta": {
+      "title": "Parcheggio per eventi — MEGA Parking Pireo",
+      "description": "Prenota un numero preciso di posti auto per il tuo evento, a due passi dal porto del Pireo. Posti garantiti, un prezzo concordato, nessuna sorpresa."
     },
-    "port": {
-      "value": "5′",
-      "label": "dal porto"
+    "hero": {
+      "eyebrow": "Parcheggio per eventi",
+      "title": "I vostri ospiti non devono cercare parcheggio",
+      "subtitle": "Riserviamo il numero esatto di posti che vi serve, per le ore che vi servono.",
+      "body": "Un matrimonio, una presentazione aziendale, un concerto, l'arrivo di una crociera. Qualunque cosa organizziate, la prima cosa che gli ospiti ricordano è quanto è stato facile arrivare — e l'ultima, quanto è stato facile andarsene.",
+      "cta": "Richiedi un preventivo",
+      "secondary": "Vedi le tariffe",
+      "note": "Rispondiamo entro un giorno lavorativo. La richiesta è gratuita."
     },
-    "hours": {
-      "value": "24/7",
-      "label": "sorveglianza e telecamere"
+    "stats": {
+      "eyebrow": "Perché qui",
+      "capacity": {
+        "value": "180",
+        "label": "posti totali"
+      },
+      "port": {
+        "value": "5′",
+        "label": "dal porto"
+      },
+      "hours": {
+        "value": "24/7",
+        "label": "sorveglianza e telecamere"
+      },
+      "response": {
+        "value": "1",
+        "label": "giorno lavorativo per la risposta"
+      }
     },
-    "response": {
-      "value": "1",
-      "label": "giorno lavorativo per la risposta"
+    "benefits": {
+      "eyebrow": "Cosa include",
+      "title": "Spazio riservato, non sperato",
+      "description": "Una prenotazione non è la promessa che «probabilmente ci sarà posto». I posti vengono esclusi dalla circolazione normale e vi aspettano.",
+      "reserved": {
+        "title": "Posti esclusivi",
+        "description": "Il numero concordato viene delimitato e segnalato prima dell'arrivo del primo ospite."
+      },
+      "price": {
+        "title": "Un prezzo, noto in anticipo",
+        "description": "Il totale è concordato nel preventivo. I vostri ospiti non pagano nulla all'uscita."
+      },
+      "access": {
+        "title": "Vi accoglie una persona",
+        "description": "All'ingresso c'è sempre personale che indirizza i veicoli ai posti riservati. La targa viene registrata automaticamente, senza biglietti."
+      },
+      "staff": {
+        "title": "Personale in loco",
+        "description": "Per arrivi numerosi, un nostro incaricato indirizza i veicoli ai posti riservati."
+      },
+      "security": {
+        "title": "Struttura sorvegliata",
+        "description": "Telecamere all'ingresso, all'uscita e su ogni piano, 24 ore su 24."
+      },
+      "invoice": {
+        "title": "Una sola fattura",
+        "description": "Una fattura alla fine, intestata alla vostra azienda — non decine di ricevute."
+      }
+    },
+    "how": {
+      "eyebrow": "Come funziona",
+      "title": "Tre passaggi",
+      "step1": {
+        "title": "Inviate la richiesta",
+        "description": "Data, orari e numero di posti. Due minuti, dal modulo di questa pagina."
+      },
+      "step2": {
+        "title": "Ricevete il preventivo",
+        "description": "Verifichiamo la disponibilità e rispondiamo entro un giorno lavorativo con il prezzo totale."
+      },
+      "step3": {
+        "title": "I posti sono riservati",
+        "description": "Alla vostra conferma, lo spazio viene bloccato a vostro nome per gli orari indicati."
+      }
+    },
+    "cases": {
+      "eyebrow": "Adatto a",
+      "title": "Ogni arrivo che non può permettersi ritardi",
+      "wedding": "Matrimoni e battesimi",
+      "corporate": "Eventi aziendali e congressi",
+      "cruise": "Arrivi di crociere e viaggi di gruppo",
+      "concert": "Concerti e spettacoli teatrali",
+      "filming": "Riprese e produzioni",
+      "fleet": "Parcheggio temporaneo di flotte"
+    },
+    "faq": {
+      "eyebrow": "Domande frequenti",
+      "title": "Prima di chiedere",
+      "q1": {
+        "q": "Con quanto anticipo devo prenotare?",
+        "a": "Prima è, meglio è, ma accettiamo richieste anche per il giorno successivo se c'è disponibilità. Per più di 40 posti è preferibile una settimana."
+      },
+      "q2": {
+        "q": "E se arrivassero meno auto?",
+        "a": "Vengono addebitati i posti prenotati, perché sono stati sottratti alla circolazione normale. Per questo concordiamo insieme un numero realistico prima di confermare."
+      },
+      "q3": {
+        "q": "E se servissero più posti all'ultimo momento?",
+        "a": "Chiamateci. Se c'è spazio lo aggiungiamo — semplicemente non possiamo garantirlo senza preavviso."
+      },
+      "q4": {
+        "q": "Gli ospiti pagano all'uscita?",
+        "a": "No. Il costo è concordato in anticipo e fatturato a voi. Gli ospiti escono e basta."
+      },
+      "q5": {
+        "q": "È previsto il parcheggio per disabili?",
+        "a": "Sì. Segnalatelo nelle note della richiesta e riserveremo posti vicino all'uscita pedonale."
+      }
+    },
+    "cta": {
+      "title": "Diteci quanti posti e quando",
+      "description": "Compilate il modulo e riceverete un preventivo entro un giorno lavorativo. Vi invieremo anche una copia della richiesta.",
+      "button": "Richiedi un preventivo"
+    },
+    "form": {
+      "title": "Richiesta per evento",
+      "description": "Indicateci l'essenziale. L'invio non vi impegna a nulla.",
+      "name": "Nome e cognome",
+      "namePlaceholder": "es. Maria Papadopoulou",
+      "company": "Azienda (facoltativo)",
+      "companyPlaceholder": "es. Esempio S.r.l.",
+      "email": "Email",
+      "phone": "Telefono",
+      "eventDate": "Data dell'evento",
+      "timeFrom": "Dalle",
+      "timeTo": "Alle",
+      "spaces": "Numero di posti",
+      "eventType": "Tipo di evento (facoltativo)",
+      "eventTypePlaceholder": "es. matrimonio, congresso, concerto",
+      "notes": "Note (facoltativo)",
+      "notesPlaceholder": "Pullman, posti per disabili, orario di arrivo…",
+      "consent": "Acconsento all'uso dei miei dati per rispondere a questa richiesta.",
+      "submit": "Invia richiesta",
+      "sending": "Invio…",
+      "successTitle": "Richiesta inviata",
+      "successBody": "Vi abbiamo inviato una copia via email. Vi contatteremo entro un giorno lavorativo.",
+      "overnightHint": "L'ora di fine è precedente a quella di inizio — considereremo che l'evento prosegua dopo la mezzanotte.",
+      "error": "Qualcosa è andato storto. Riprovate o chiamateci."
     }
-  },
-  "benefits": {
-    "eyebrow": "Cosa include",
-    "title": "Spazio riservato, non sperato",
-    "description": "Una prenotazione non è la promessa che «probabilmente ci sarà posto». I posti vengono esclusi dalla circolazione normale e vi aspettano.",
-    "reserved": {
-      "title": "Posti esclusivi",
-      "description": "Il numero concordato viene delimitato e segnalato prima dell'arrivo del primo ospite."
-    },
-    "price": {
-      "title": "Un prezzo, noto in anticipo",
-      "description": "Il totale è concordato nel preventivo. I vostri ospiti non pagano nulla all'uscita."
-    },
-    "access": {
-      "title": "Vi accoglie una persona",
-      "description": "All'ingresso c'è sempre personale che indirizza i veicoli ai posti riservati. La targa viene registrata automaticamente, senza biglietti."
-    },
-    "staff": {
-      "title": "Personale in loco",
-      "description": "Per arrivi numerosi, un nostro incaricato indirizza i veicoli ai posti riservati."
-    },
-    "security": {
-      "title": "Struttura sorvegliata",
-      "description": "Telecamere all'ingresso, all'uscita e su ogni piano, 24 ore su 24."
-    },
-    "invoice": {
-      "title": "Una sola fattura",
-      "description": "Una fattura alla fine, intestata alla vostra azienda — non decine di ricevute."
-    }
-  },
-  "how": {
-    "eyebrow": "Come funziona",
-    "title": "Tre passaggi",
-    "step1": {
-      "title": "Inviate la richiesta",
-      "description": "Data, orari e numero di posti. Due minuti, dal modulo di questa pagina."
-    },
-    "step2": {
-      "title": "Ricevete il preventivo",
-      "description": "Verifichiamo la disponibilità e rispondiamo entro un giorno lavorativo con il prezzo totale."
-    },
-    "step3": {
-      "title": "I posti sono riservati",
-      "description": "Alla vostra conferma, lo spazio viene bloccato a vostro nome per gli orari indicati."
-    }
-  },
-  "cases": {
-    "eyebrow": "Adatto a",
-    "title": "Ogni arrivo che non può permettersi ritardi",
-    "wedding": "Matrimoni e battesimi",
-    "corporate": "Eventi aziendali e congressi",
-    "cruise": "Arrivi di crociere e viaggi di gruppo",
-    "concert": "Concerti e spettacoli teatrali",
-    "filming": "Riprese e produzioni",
-    "fleet": "Parcheggio temporaneo di flotte"
-  },
-  "faq": {
-    "eyebrow": "Domande frequenti",
-    "title": "Prima di chiedere",
-    "q1": {
-      "q": "Con quanto anticipo devo prenotare?",
-      "a": "Prima è, meglio è, ma accettiamo richieste anche per il giorno successivo se c'è disponibilità. Per più di 40 posti è preferibile una settimana."
-    },
-    "q2": {
-      "q": "E se arrivassero meno auto?",
-      "a": "Vengono addebitati i posti prenotati, perché sono stati sottratti alla circolazione normale. Per questo concordiamo insieme un numero realistico prima di confermare."
-    },
-    "q3": {
-      "q": "E se servissero più posti all'ultimo momento?",
-      "a": "Chiamateci. Se c'è spazio lo aggiungiamo — semplicemente non possiamo garantirlo senza preavviso."
-    },
-    "q4": {
-      "q": "Gli ospiti pagano all'uscita?",
-      "a": "No. Il costo è concordato in anticipo e fatturato a voi. Gli ospiti escono e basta."
-    },
-    "q5": {
-      "q": "È previsto il parcheggio per disabili?",
-      "a": "Sì. Segnalatelo nelle note della richiesta e riserveremo posti vicino all'uscita pedonale."
-    }
-  },
-  "cta": {
-    "title": "Diteci quanti posti e quando",
-    "description": "Compilate il modulo e riceverete un preventivo entro un giorno lavorativo. Vi invieremo anche una copia della richiesta.",
-    "button": "Richiedi un preventivo"
-  },
-  "form": {
-    "title": "Richiesta per evento",
-    "description": "Indicateci l'essenziale. L'invio non vi impegna a nulla.",
-    "name": "Nome e cognome",
-    "namePlaceholder": "es. Maria Papadopoulou",
-    "company": "Azienda (facoltativo)",
-    "companyPlaceholder": "es. Esempio S.r.l.",
-    "email": "Email",
-    "phone": "Telefono",
-    "eventDate": "Data dell'evento",
-    "timeFrom": "Dalle",
-    "timeTo": "Alle",
-    "spaces": "Numero di posti",
-    "eventType": "Tipo di evento (facoltativo)",
-    "eventTypePlaceholder": "es. matrimonio, congresso, concerto",
-    "notes": "Note (facoltativo)",
-    "notesPlaceholder": "Pullman, posti per disabili, orario di arrivo…",
-    "consent": "Acconsento all'uso dei miei dati per rispondere a questa richiesta.",
-    "submit": "Invia richiesta",
-    "sending": "Invio…",
-    "successTitle": "Richiesta inviata",
-    "successBody": "Vi abbiamo inviato una copia via email. Vi contatteremo entro un giorno lavorativo.",
-    "overnightHint": "L'ora di fine è precedente a quella di inizio — considereremo che l'evento prosegua dopo la mezzanotte.",
-    "error": "Qualcosa è andato storto. Riprovate o chiamateci."
   }
 }
