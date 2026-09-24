@@ -479,9 +479,17 @@ function render(
     }
 
     // ── Αρίθμηση σελίδων ──────────────────────────────────────────────────
+    //
+    // ΠΡΟΣΟΧΗ: το υποσέλιδο γράφεται ΚΑΤΩ από το κάτω περιθώριο. Το pdfkit,
+    // όταν δει κείμενο πέρα από το περιθώριο, προσθέτει αυτόματα νέα σελίδα
+    // και το γράφει εκεί — έτσι κάθε αρίθμηση δημιουργούσε μια κενή σελίδα,
+    // και η αναφορά έβγαινε 42 σελίδες με τις μισές άδειες. Μηδενίζοντας το
+    // περιθώριο για όσο γράφουμε, το κείμενο μένει στη σελίδα του.
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(range.start + i);
+      const keep = doc.page.margins.bottom;
+      doc.page.margins.bottom = 0;
       doc
         .font("r")
         .fontSize(7.5)
@@ -489,9 +497,10 @@ function render(
         .text(
           `MEGA Parking · ${stats.date} · σελίδα ${i + 1} από ${range.count}`,
           40,
-          doc.page.height - 32,
-          { width: W, align: "center" }
+          doc.page.height - 30,
+          { width: W, align: "center", lineBreak: false }
         );
+      doc.page.margins.bottom = keep;
     }
 
     doc.end();
