@@ -135,8 +135,12 @@ export async function detectDeviations() {
     ).map((e) => e.plate)
   );
 
+  // Οι ασυμφωνίες που εκκρεμούν λιγότερο από το όριο ανοχής ΔΕΝ καταγράφονται:
+  // ο υπάλληλος στην μπάρα συχνά καταχωρεί με καθυστέρηση λίγων λεπτών, και
+  // αυτές λύνονται μόνες τους. Αν εξακολουθούν να εκκρεμούν στην επόμενη
+  // σάρωση, θα περάσουν το όριο και θα καταγραφούν κανονικά.
   const candidates = rows.filter(
-    (r) => r.status !== "MATCH" && !baselinePlates.has(r.plate)
+    (r) => r.status !== "MATCH" && !r.isRecent && !baselinePlates.has(r.plate)
   );
 
   const created: { signature: string; plate: string; kind: ParkingDeviationKind; explanation: string }[] = [];
@@ -169,7 +173,15 @@ export async function detectDeviations() {
     created.push({ signature, plate: row.plate, kind, explanation: row.explanation });
   }
 
-  return { baseline, summary, examined: rows.length, created, since: baseline.takenAt };
+  return {
+    baseline,
+    summary,
+    examined: rows.length,
+    created,
+    since: baseline.takenAt,
+    /** Πόσες αγνοήθηκαν επειδή εκκρεμούν λίγο ακόμα. */
+    tooRecent: rows.filter((r) => r.status !== "MATCH" && r.isRecent).length,
+  };
 }
 
 /** Αποκλίσεις που δεν έχουν ακόμα σταλεί με email. */

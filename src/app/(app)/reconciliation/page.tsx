@@ -59,6 +59,8 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
       erpInvoice: r.erp?.invoiceFindoc ?? 0,
       entryDrift: r.entryDriftMinutes,
       exitDrift: r.exitDriftMinutes,
+      pendingMinutes: r.pendingMinutes,
+      isRecent: r.isRecent,
       sortKey: (r.ours?.entry ?? r.erp?.entry ?? new Date(0)).toISOString(),
     }));
     // Το βιβλίο πόρτας δεν προκύπτει πια από τα συμβάντα των καμερών αλλά από

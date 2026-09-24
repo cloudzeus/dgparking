@@ -44,6 +44,13 @@ export type ReconRow = {
   /** Διαφορά εισόδου/εξόδου σε λεπτά (εμείς − ERP). */
   entryDriftMinutes: number | null;
   exitDriftMinutes: number | null;
+  /**
+   * Πόση ώρα εκκρεμεί η ασυμφωνία. `null` όταν δεν πρόκειται για εκκρεμότητα
+   * (π.χ. διαφορά ποσού σε κλεισμένη και από τις δύο πλευρές στάθμευση).
+   */
+  pendingMinutes: number | null;
+  /** Εκκρεμεί λιγότερο από το όριο ανοχής — πιθανή καθυστέρηση, όχι πρόβλημα. */
+  isRecent: boolean;
   ourAmount: number | null;
   erpAmount: number | null;
   /** Γιατί χαρακτηρίστηκε έτσι — μπαίνει αυτούσιο στο email απόκλισης. */
@@ -52,6 +59,15 @@ export type ReconRow = {
 
 /** Πόσα λεπτά διαφορά ανεχόμαστε πριν το θεωρήσουμε απόκλιση ώρας. */
 const TIME_TOLERANCE_MIN = 10;
+/**
+ * Πόση ώρα επιτρέπεται να εκκρεμεί μια ασυμφωνία πριν μετρήσει ως απόκλιση.
+ *
+ * Ο υπάλληλος στην μπάρα δεν καταχωρεί την ίδια στιγμή που περνά το όχημα·
+ * ένα καθυστερημένο κλείσιμο δεκαπέντε λεπτών είναι φυσιολογική ροή εργασίας.
+ * Μετά από αυτό, η εγγραφή μάλλον ξεχάστηκε. Χωρίς αυτό το όριο η παρακολούθηση
+ * θα γέμιζε με ασυμφωνίες που λύνονται μόνες τους σε λίγα λεπτά.
+ */
+export const PENDING_TOLERANCE_MIN = 15;
 /** Παράθυρο για να θεωρηθεί ότι δύο εγγραφές αφορούν την ίδια στάθμευση. */
 const PAIRING_WINDOW_MIN = 180;
 
@@ -142,7 +158,11 @@ const driftMin = (a: Date | null, b: Date | null) =>
  * Ζευγαρώνει τις δύο εικόνες ανά πινακίδα, επιλέγοντας για κάθε δική μας στάση
  * την πλησιέστερη χρονικά εγγραφή του ERP μέσα στο παράθυρο ζευγαρώματος.
  */
-export function reconcile(ours: ParkingSession[], erp: ErpStay[]): ReconRow[] {
+export function reconcile(
+  ours: ParkingSession[],
+  erp: ErpStay[],
+  now: Date = wallClockNow()
+): ReconRow[] {
   const erpByPlate = new Map<string, ErpStay[]>();
   for (const s of erp) {
     if (!erpByPlate.has(s.plate)) erpByPlate.set(s.plate, []);
@@ -168,12 +188,12 @@ export function reconcile(ours: ParkingSession[], erp: ErpStay[]): ReconRow[] {
       }
     }
     if (best) usedErp.add(best.soaction);
-    rows.push(classify(session, best));
+    rows.push(classify(session, best, now));
   }
 
   for (const stay of erp) {
     if (usedErp.has(stay.soaction)) continue;
-    rows.push(classify(null, stay));
+    rows.push(classify(null, stay, now));
   }
 
   const rank: Record<MatchStatus, number> = {
@@ -194,14 +214,45 @@ export function reconcile(ours: ParkingSession[], erp: ErpStay[]): ReconRow[] {
   return rows;
 }
 
-function classify(ours: ParkingSession | null, erp: ErpStay | null): ReconRow {
+function classify(
+  ours: ParkingSession | null,
+  erp: ErpStay | null,
+  now: Date
+): ReconRow {
   const plate = ours?.plate ?? erp?.plate ?? "";
   const ourAmount = ours?.charge ? ours.charge.amount : null;
   const erpAmount = erp ? erp.amount : null;
   const entryDrift = ours && erp ? driftMin(ours.entry, erp.entry) : null;
   const exitDrift = ours && erp ? driftMin(ours.exit, erp.exit) : null;
 
-  const base = { plate, ours, erp, entryDriftMinutes: entryDrift, exitDriftMinutes: exitDrift, ourAmount, erpAmount };
+  // Από πότε εκκρεμεί η ασυμφωνία: από τη στιγμή που η μία πλευρά κατέγραψε
+  // κάτι που η άλλη δεν έχει ακόμα.
+  const pendingSince =
+    ours && erp
+      ? ours.exit && !erp.exit
+        ? ours.exit // εμείς είδαμε έξοδο, το ERP δεν έκλεισε
+        : !ours.exit && erp.exit
+          ? erp.exit
+          : null
+      : ours
+        ? (ours.exit ?? ours.entry) // δεν υπάρχει καθόλου στο ERP
+        : (erp!.exit ?? erp!.entry); // δεν το είδαν οι κάμερες
+  const pendingMinutes = pendingSince
+    ? Math.max(0, Math.round((now.getTime() - pendingSince.getTime()) / 60000))
+    : null;
+  const isRecent = pendingMinutes !== null && pendingMinutes < PENDING_TOLERANCE_MIN;
+
+  const base = {
+    plate,
+    ours,
+    erp,
+    entryDriftMinutes: entryDrift,
+    exitDriftMinutes: exitDrift,
+    ourAmount,
+    erpAmount,
+    pendingMinutes,
+    isRecent,
+  };
 
   if (!erp) {
     return {
@@ -286,6 +337,8 @@ export type ReconSummary = {
   exitDiff: number;
   missingInErp: number;
   missingInCameras: number;
+  /** Ασυμφωνίες κάτω από το όριο ανοχής — δεν μετρούν ως αποκλίσεις. */
+  recent: number;
   /** Συνολική διαφορά τζίρου (δικά μας ποσά − ποσά ERP). */
   amountDelta: number;
 };
@@ -299,9 +352,11 @@ export function summarize(rows: ReconRow[]): ReconSummary {
     exitDiff: 0,
     missingInErp: 0,
     missingInCameras: 0,
+    recent: 0,
     amountDelta: 0,
   };
   for (const r of rows) {
+    if (r.status !== "MATCH" && r.isRecent) s.recent++;
     if (r.status === "MATCH") s.match++;
     else if (r.status === "AMOUNT_DIFF") s.amountDiff++;
     else if (r.status === "TIME_DIFF") s.timeDiff++;

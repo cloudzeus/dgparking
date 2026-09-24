@@ -13,6 +13,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/mailgun";
+import { automatedEmailsEnabled, automatedEmailsBlockedMessage } from "@/lib/notifications-gate";
 import {
   parkingDeviationAlertEmail,
   parkingDeviationDigestEmail,
@@ -56,6 +57,11 @@ function reviewUrl(): string | undefined {
  * Οι υπόλοιπες μένουν στην ουρά και φεύγουν με τη σύνοψη.
  */
 export async function sendImmediateAlerts() {
+  if (!automatedEmailsEnabled()) {
+    console.log(automatedEmailsBlockedMessage("άμεσες ειδοποιήσεις αποκλίσεων"));
+    return { candidates: 0, sent: 0, failed: [], blocked: true as const };
+  }
+
   const pending = await prisma.parkingDeviation.findMany({
     where: { notifiedAt: null, resolvedAt: null, kind: { in: IMMEDIATE } },
     orderBy: { firstSeenAt: "asc" },
@@ -87,7 +93,7 @@ export async function sendImmediateAlerts() {
     });
   }
 
-  return { candidates: pending.length, sent: sent.length, failed };
+  return { candidates: pending.length, sent: sent.length, failed, blocked: false as const };
 }
 
 /**
@@ -96,6 +102,17 @@ export async function sendImmediateAlerts() {
  * έχουν ήδη μετρηθεί στους αριθμούς.
  */
 export async function sendDailyDigest(hours = 24) {
+  if (!automatedEmailsEnabled()) {
+    console.log(automatedEmailsBlockedMessage("ημερήσια σύνοψη αποκλίσεων"));
+    return {
+      total: 0,
+      counts: { AMOUNT_DIFF: 0, TIME_DIFF: 0, EXIT_DIFF: 0, MISSING_IN_ERP: 0, MISSING_IN_CAMERAS: 0 } as DigestCounts,
+      amountDelta: 0,
+      sent: false,
+      skipped: true as const,
+    };
+  }
+
   const since = new Date(Date.now() - hours * 3600 * 1000);
 
   const deviations = await prisma.parkingDeviation.findMany({

@@ -62,8 +62,24 @@ export type ReconRowDTO = {
   erpInvoice: number;
   entryDrift: number | null;
   exitDrift: number | null;
+  /** Πόση ώρα εκκρεμεί η ασυμφωνία, σε λεπτά. */
+  pendingMinutes: number | null;
+  /** Εκκρεμεί λιγότερο από το όριο ανοχής — πιθανή καθυστέρηση καταχώρησης. */
+  isRecent: boolean;
   sortKey: string;
 };
+
+/** Ίδιο όριο με το backend: κάτω από αυτό δεν θεωρείται πρόβλημα. */
+const PENDING_TOLERANCE_MIN = 15;
+
+/** Διάρκεια εκκρεμότητας σε ανθρώπινη μορφή. */
+function pendingLabel(minutes: number | null): string | null {
+  if (minutes === null) return null;
+  if (minutes < 60) return `${minutes}′`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h < 24 ? `${h}ω ${m}′` : `${Math.floor(h / 24)} ημ. ${h % 24}ω`;
+}
 
 /** Γραμμή βιβλίου πόρτας: η μόνιμη απογραφή μας έναντι των ανοιχτών του ERP. */
 export type GateRowDTO = {
@@ -85,6 +101,7 @@ export type ReconSummaryDTO = {
   missingInErp: number;
   missingInCameras: number;
   exitDiff: number;
+  recent: number;
   amountDelta: number;
 };
 
@@ -249,6 +266,8 @@ export function ReconciliationClient({
               <CardDescription>
                 Αριστερά ο υπολογισμός μας από τις κάμερες, δεξιά η εγγραφή του ψηφιακού
                 πελατολογίου. {filter ? `Φίλτρο: ${STATUS_META[filter].label}.` : "Οι αποκλίσεις εμφανίζονται πρώτες."}
+                {summary.recent > 0 &&
+                  ` ${summary.recent} εκκρεμούν λιγότερο από ${PENDING_TOLERANCE_MIN}΄ και δεν μετρούν ως αποκλίσεις.`}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -270,6 +289,7 @@ export function ReconciliationClient({
                         <TableHead colSpan={3} className="border-l text-center text-chart-4">
                           SoftOne (ψηφιακό πελατολόγιο)
                         </TableHead>
+                        <TableHead rowSpan={2} className="border-l align-bottom">Εκκρεμεί</TableHead>
                         <TableHead rowSpan={2} className="border-l align-bottom">Κατάσταση</TableHead>
                       </TableRow>
                       <TableRow>
@@ -351,10 +371,26 @@ export function ReconciliationClient({
                               {euro(r.erpAmount)}
                             </TableCell>
 
+                            <TableCell className="border-l whitespace-nowrap tabular-nums">
+                              {r.status === "MATCH" || r.pendingMinutes === null ? (
+                                <span className="text-muted-foreground">—</span>
+                              ) : r.isRecent ? (
+                                <span className="text-muted-foreground" title={`Κάτω από ${PENDING_TOLERANCE_MIN} λεπτά — πιθανή καθυστέρηση καταχώρησης`}>
+                                  {pendingLabel(r.pendingMinutes)}
+                                </span>
+                              ) : (
+                                <span className="font-medium text-chart-5">
+                                  {pendingLabel(r.pendingMinutes)}
+                                </span>
+                              )}
+                            </TableCell>
                             <TableCell className="border-l">
                               <Badge variant={meta.variant} className={meta.className} title={r.explanation}>
                                 {meta.label}
                               </Badge>
+                              {r.isRecent && r.status !== "MATCH" && (
+                                <div className="mt-0.5 text-xs text-muted-foreground">πρόσφατο</div>
+                              )}
                             </TableCell>
                           </TableRow>
                         );

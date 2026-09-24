@@ -12,6 +12,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/mailgun";
+import { automatedEmailsEnabled, automatedEmailsBlockedMessage } from "@/lib/notifications-gate";
 import { contractExpiryEmail } from "@/emails/templates/contract-expiry";
 import { getExpiringContracts } from "@/lib/portal-data";
 
@@ -32,6 +33,11 @@ export type ExpiryRunResult = {
 };
 
 export async function sendExpiryNotices(daysAhead = NOTICE_DAYS): Promise<ExpiryRunResult> {
+  if (!automatedEmailsEnabled()) {
+    console.log(automatedEmailsBlockedMessage("ειδοποιήσεις λήξης συμβάσεων"));
+    return { examined: 0, sent: 0, skippedAlreadySent: 0, skippedNoEmail: [], failed: [] };
+  }
+
   const contracts = await getExpiringContracts(daysAhead);
   const result: ExpiryRunResult = {
     examined: contracts.length,

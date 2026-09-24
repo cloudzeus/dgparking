@@ -100,10 +100,12 @@ async function runDeviationScan(trigger: string) {
   deviationsRunning = true;
   const startedAt = Date.now();
   try {
-    const { created } = await detectDeviations();
+    const { created, tooRecent } = await detectDeviations();
     const { sent, failed } = await sendImmediateAlerts();
     console.log(
-      `[CRON] ${DEVIATIONS_JOB_ID}: ${created.length} νέες αποκλίσεις, ${sent} άμεσα email` +
+      `[CRON] ${DEVIATIONS_JOB_ID}: ${created.length} νέες αποκλίσεις` +
+        (tooRecent ? ` (${tooRecent} εκκρεμούν λίγο ακόμα — αγνοήθηκαν)` : "") +
+        `, ${sent} άμεσα email` +
         (failed.length ? `, ${failed.length} αποτυχίες` : "") +
         ` σε ${Date.now() - startedAt} ms (${trigger})`
     );
