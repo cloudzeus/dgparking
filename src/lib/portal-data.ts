@@ -10,7 +10,7 @@
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
 import { authenticateSoftOneAPI, getSoftOneTableData } from "@/lib/softone-api";
-import { activeContractWhere, isContractActive } from "@/lib/contract-active";
+import { isContractActive, startOfToday } from "@/lib/contract-active";
 
 export type PortalCustomer = {
   trdr: string;
@@ -211,8 +211,13 @@ export async function getExpiringContracts(daysAhead: number) {
   to.setDate(to.getDate() + daysAhead);
   to.setHours(23, 59, 59, 999);
 
+  // ΠΡΟΣΟΧΗ: το `WDATETO` πρέπει να έχει ΚΑΙ ΤΑ ΔΥΟ όρια στο ΙΔΙΟ αντικείμενο.
+  // Γράφοντας `...activeContractWhere(), WDATETO: { lte: to }` το δεύτερο
+  // ΑΝΤΙΚΑΘΙΣΤΑ το κάτω όριο του πρώτου, οπότε το φίλτρο γινόταν «όλες όσες
+  // λήγουν πριν από σε μία εβδομάδα» — δηλαδή και κάθε ληγμένη σύμβαση της
+  // ιστορίας. Θα στέλναμε «η σύμβασή σας λήγει» σε πελάτες που έφυγαν μήνες πριν.
   return prisma.iNST.findMany({
-    where: { ...activeContractWhere(), WDATETO: { lte: to }, lines: { some: {} } },
+    where: { WDATETO: { gte: startOfToday(), lte: to }, lines: { some: {} } },
     select: { INST: true, NAME: true, TRDR: true, WDATETO: true, NUM01: true },
     orderBy: { WDATETO: "asc" },
   });

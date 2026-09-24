@@ -17,6 +17,7 @@ import { prisma } from "@/lib/prisma";
 import { refreshContractCars } from "@/lib/contract-cars";
 import { detectDeviations } from "@/lib/parking-monitor";
 import { sendImmediateAlerts, sendDailyDigest } from "@/lib/parking-notify";
+import { sendExpiryNotices } from "@/lib/contract-expiry";
 
 let cronJobs: Map<string, ReturnType<typeof cron.schedule>> = new Map();
 let isInitialized = false;
@@ -146,6 +147,52 @@ export function scheduleDeviationMonitoring() {
   }
 }
 
+/* ── Ειδοποιήσεις λήξης συμβάσεων ────────────────────────────────────────── */
+
+export const EXPIRY_JOB_ID = "internal:contract-expiry";
+/**
+ * Μία φορά την ημέρα, πρωί. Δεν έχει νόημα συχνότερα: η ειδοποίηση στέλνεται
+ * ΜΙΑ φορά ανά σύμβαση και ημερομηνία λήξης, οπότε οι επιπλέον εκτελέσεις θα
+ * έβρισκαν μόνο ήδη σταλμένες.
+ */
+const EXPIRY_CRON = "0 9 * * *";
+
+async function runExpiryNotices(trigger: string) {
+  try {
+    const r = await sendExpiryNotices();
+    console.log(
+      `[CRON] ${EXPIRY_JOB_ID}: ${r.examined} συμβάσεις προς λήξη, ${r.sent} email στάλθηκαν, ` +
+        `${r.skippedAlreadySent} είχαν ήδη ειδοποιηθεί, ${r.skippedNoEmail.length} χωρίς email` +
+        (r.failed.length ? `, ${r.failed.length} απέτυχαν` : "") +
+        ` (${trigger})`
+    );
+    // Οι συμβάσεις χωρίς email είναι σιωπηλή αποτυχία για τον πελάτη — δεν θα
+    // μάθει ποτέ ότι λήγει. Καταγράφονται ονομαστικά για να συμπληρωθούν.
+    for (const c of r.skippedNoEmail) {
+      console.warn(`[CRON] ${EXPIRY_JOB_ID}: χωρίς email — INST ${c.inst} «${c.name ?? ""}»`);
+    }
+  } catch (error) {
+    console.error(`[CRON] ${EXPIRY_JOB_ID}: απέτυχε`, error);
+  }
+}
+
+export function scheduleExpiryNotices() {
+  const existing = cronJobs.get(EXPIRY_JOB_ID);
+  if (existing) {
+    existing.stop();
+    cronJobs.delete(EXPIRY_JOB_ID);
+  }
+  const task = cron.schedule(EXPIRY_CRON, () => { void runExpiryNotices("προγραμματισμένη"); }, {
+    timezone: "Europe/Athens",
+  });
+  cronJobs.set(EXPIRY_JOB_ID, task);
+  console.log(`[CRON] ${EXPIRY_JOB_ID}: προγραμματίστηκε (${EXPIRY_CRON})`);
+}
+
+export async function runExpiryNoticesNow() {
+  await runExpiryNotices("χειροκίνητη");
+}
+
 /** Χειροκίνητη εκτέλεση (σελίδα ρυθμίσεων / script). */
 export async function runDeviationScanNow() {
   await runDeviationScan("χειροκίνητη");
@@ -214,6 +261,7 @@ export async function initializeCronJobs() {
     // Εσωτερικές εργασίες, ανεξάρτητες από τις ενσωματώσεις SoftOne.
     scheduleContractCarsRefresh();
     scheduleDeviationMonitoring();
+    scheduleExpiryNotices();
 
     isInitialized = true;
     console.log(`[CRON] All cron jobs initialized successfully - scheduled ${scheduledCount}/${integrations.length} integrations`);
