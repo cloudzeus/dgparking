@@ -1,0 +1,143 @@
+{
+  "meta": {
+    "title": "Event parking — MEGA Parking Piraeus",
+    "description": "Reserve a set number of parking spaces for your event, steps from Piraeus port. Guaranteed spaces, one agreed price, no surprises."
+  },
+  "hero": {
+    "eyebrow": "Event parking",
+    "title": "Your guests shouldn't have to hunt for a space",
+    "subtitle": "We hold the exact number of spaces you need, for the hours you need them.",
+    "body": "A wedding, a corporate launch, a concert, a cruise arrival. Whatever you are hosting, the first thing guests remember is how easily they arrived — and the last thing, how easily they left.",
+    "cta": "Request a quote",
+    "secondary": "See our rates",
+    "note": "We reply within one business day. Asking costs nothing."
+  },
+  "stats": {
+    "eyebrow": "Why here",
+    "capacity": {
+      "value": "180",
+      "label": "total spaces"
+    },
+    "port": {
+      "value": "5′",
+      "label": "from the port"
+    },
+    "hours": {
+      "value": "24/7",
+      "label": "security and cameras"
+    },
+    "response": {
+      "value": "1",
+      "label": "business day to reply"
+    }
+  },
+  "benefits": {
+    "eyebrow": "What you get",
+    "title": "Space that is held, not hoped for",
+    "description": "A booking is not a promise that there will probably be room. The spaces are taken out of general circulation and kept waiting for you.",
+    "reserved": {
+      "title": "Exclusive spaces",
+      "description": "The agreed number is blocked off and marked before your first guest arrives."
+    },
+    "price": {
+      "title": "One price, known in advance",
+      "description": "You agree the total in the quote. Your guests pay nothing on the way out."
+    },
+    "access": {
+      "title": "Fast entry",
+      "description": "Plate recognition at the barrier. No tickets, no queue at the machine."
+    },
+    "staff": {
+      "title": "Staff on site",
+      "description": "For large arrivals, a member of our team directs vehicles to the reserved bays."
+    },
+    "security": {
+      "title": "Guarded facility",
+      "description": "Cameras at the entrance, the exit and on every level, around the clock."
+    },
+    "invoice": {
+      "title": "A single invoice",
+      "description": "One invoice at the end, in your company name — not dozens of receipts."
+    }
+  },
+  "how": {
+    "eyebrow": "How it works",
+    "title": "Three steps",
+    "step1": {
+      "title": "Send the request",
+      "description": "Date, hours and number of spaces. Two minutes, from the form on this page."
+    },
+    "step2": {
+      "title": "Receive a quote",
+      "description": "We check availability and reply within one business day with a total price."
+    },
+    "step3": {
+      "title": "The spaces are held",
+      "description": "Once you confirm, the space is locked in your name for the hours you set."
+    }
+  },
+  "cases": {
+    "eyebrow": "Suited to",
+    "title": "Every arrival that cannot afford a delay",
+    "wedding": "Weddings and christenings",
+    "corporate": "Corporate events and conferences",
+    "cruise": "Cruise arrivals and group travel",
+    "concert": "Concerts and theatre performances",
+    "filming": "Film shoots and productions",
+    "fleet": "Temporary fleet parking"
+  },
+  "faq": {
+    "eyebrow": "Questions",
+    "title": "Before you ask",
+    "q1": {
+      "q": "How far in advance should I book?",
+      "a": "The earlier the better, but we accept requests for the next day when there is availability. For more than 40 spaces, a week ahead is safer."
+    },
+    "q2": {
+      "q": "What if fewer cars turn up?",
+      "a": "You are charged for the spaces you reserved, because those were withdrawn from general use. That is why we agree a realistic number with you before confirming."
+    },
+    "q3": {
+      "q": "What if I need more spaces at the last minute?",
+      "a": "Call us. If there is room we will add it — we simply cannot guarantee it without notice."
+    },
+    "q4": {
+      "q": "Do guests pay on the way out?",
+      "a": "No. The cost is agreed in advance and invoiced to you. Your guests simply drive away."
+    },
+    "q5": {
+      "q": "Is there accessible parking?",
+      "a": "Yes. Mention it in the notes of your request and we will reserve spaces close to the pedestrian exit."
+    }
+  },
+  "cta": {
+    "title": "Tell us how many spaces, and when",
+    "description": "Fill in the form and you will have a quote within one business day. We will send you a copy of your request as well.",
+    "button": "Request a quote"
+  },
+  "form": {
+    "title": "Event request",
+    "description": "Give us the essentials. Sending this commits you to nothing.",
+    "name": "Full name",
+    "namePlaceholder": "e.g. Maria Papadopoulou",
+    "company": "Company (optional)",
+    "companyPlaceholder": "e.g. Example Ltd",
+    "email": "Email",
+    "phone": "Phone",
+    "eventDate": "Event date",
+    "timeFrom": "From",
+    "timeTo": "To",
+    "spaces": "Number of spaces",
+    "eventType": "Type of event (optional)",
+    "eventTypePlaceholder": "e.g. wedding, conference, concert",
+    "notes": "Notes (optional)",
+    "notesPlaceholder": "Coaches, accessible parking, guest arrival time…",
+    "consent": "I agree that my details may be used to answer this request.",
+    "submit": "Send request",
+    "sending": "Sending…",
+    "successTitle": "Request sent",
+    "successBody": "We have emailed you a copy. We will be in touch within one business day.",
+    "overnightHint": "The end time is earlier than the start time — we will treat the event as running past midnight.",
+    "error": "Something went wrong. Please try again or call us."
+  }
+}

@@ -20,7 +20,8 @@
     "language": "Lingua",
     "login": "Accedi",
     "register": "Registrati",
-    "customerPortal": "Area clienti"
+    "customerPortal": "Area clienti",
+    "events": "Eventi"
   },
   "footer": {
     "quickLinks": "Link rapidi",

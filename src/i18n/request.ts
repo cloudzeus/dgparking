@@ -14,6 +14,7 @@ const NAMESPACES = [
   "legal",
   "gdpr",
   "news",
+  "events",
 ] as const;
 
 export default getRequestConfig(async ({ requestLocale }) => {

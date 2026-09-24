@@ -23,6 +23,7 @@ export function SiteHeader({
   const routes = [
     { href: "/", label: t("home") },
     { href: "/prices", label: t("prices") },
+    { href: "/events", label: t("events") },
     { href: "/news", label: t("news") },
     { href: "/contact", label: t("contact") },
   ];

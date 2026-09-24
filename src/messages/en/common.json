@@ -20,7 +20,8 @@
     "language": "Language",
     "login": "Sign in",
     "register": "Register",
-    "customerPortal": "Customer portal"
+    "customerPortal": "Customer portal",
+    "events": "Events"
   },
   "footer": {
     "quickLinks": "Quick links",

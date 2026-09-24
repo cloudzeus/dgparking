@@ -63,6 +63,8 @@ const authProxy = auth((req) => {
   const isSiteFormRoute =
     nextUrl.pathname.startsWith("/api/send-contact") ||
     nextUrl.pathname.startsWith("/api/send-proposal") ||
+    // Αίτημα στάθμευσης για εκδήλωση: το στέλνει επισκέπτης, χωρίς λογαριασμό.
+    nextUrl.pathname.startsWith("/api/send-event-rfp") ||
     // Συγκατάθεση cookie, αιτήματα δικαιωμάτων και ο σύνδεσμος επιβεβαίωσής
     // τους: τα ασκεί ο επισκέπτης, χωρίς λογαριασμό (ΓΚΠΔ άρ. 12 §2).
     nextUrl.pathname.startsWith("/api/gdpr");
