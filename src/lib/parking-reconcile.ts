@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
 import { authenticateSoftOneAPI, getSoftOneTableData } from "@/lib/softone-api";
 import { getParkingSessions, type ParkingSession } from "@/lib/parking-sessions";
+import { FREE_MINUTES } from "@/lib/parking-tariff";
 import { formatWallClock, isReadablePlate, parseErpWallClock, wallClockNow } from "@/lib/parking-time";
 
 /** Μια εγγραφή του ψηφιακού πελατολογίου, όπως τη δίνει το ERP. */
@@ -255,6 +256,23 @@ function classify(
   };
 
   if (!erp) {
+    // ΣΥΝΤΟΜΗ ΣΤΑΣΗ ΕΝΤΟΣ ΔΩΡΕΑΝ ΧΡΟΝΟΥ.
+    //
+    // Δεν χρεώνεται, και στην πράξη δεν καταγράφεται ούτε στο ψηφιακό
+    // πελατολόγιο. Η απουσία της από το ERP είναι το αναμενόμενο, όχι
+    // απόκλιση — αλλιώς κάθε σύντομη στάση θα εμφανιζόταν ως διαφυγών τζίρος.
+    if (
+      ours!.exit &&
+      ours!.durationMinutes !== null &&
+      ours!.durationMinutes <= FREE_MINUTES
+    ) {
+      return {
+        ...base,
+        status: "MATCH",
+        explanation: `Σύντομη στάση ${ours!.durationMinutes}′ — εντός δωρεάν χρόνου ${FREE_MINUTES}′, δεν χρεώνεται ούτε καταγράφεται.`,
+      };
+    }
+
     return {
       ...base,
       status: "MISSING_IN_ERP",

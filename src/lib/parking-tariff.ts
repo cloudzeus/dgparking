@@ -21,13 +21,29 @@ export type Tariff = {
   sameDayRate: number;
   /** Χρέωση όταν ξεπεραστεί η κλίμακα και αλλάζει ημερολογιακή ημέρα. */
   overnightRate: number;
+  /** Λεπτά χωρίς χρέωση στην αρχή. */
+  freeMinutes: number;
 };
+
+/**
+ * Δωρεάν χρόνος στην αρχή της στάθμευσης.
+ *
+ * Το ERP δεν το έχει στον τύπο του `calcPrice` — είναι πρακτική της πόρτας:
+ * σύντομες στάσεις δεν χρεώνονται και συχνά δεν καταγράφονται καν στο ψηφιακό
+ * πελατολόγιο. Στα δεδομένα 60 ημερών, 48 από τις 63 στάσεις κάτω των 15
+ * λεπτών δεν χρεώθηκαν.
+ *
+ * Χωρίς αυτό, κάθε σύντομη στάση εμφανιζόταν ως χρέωση 5 € που «λείπει από το
+ * ERP» — ψεύτικη απόκλιση και ψεύτικος διαφυγών τζίρος.
+ */
+export const FREE_MINUTES = 15;
 
 export const DEFAULT_TARIFF: Tariff = {
   firstHourSurcharge: 4,
   hourlyCeiling: 10,
   sameDayRate: 12,
   overnightRate: 15,
+  freeMinutes: FREE_MINUTES,
 };
 
 export type ChargeInput = {
@@ -69,6 +85,25 @@ export function calculateCharge(
   const ms = exit.getTime() - entry.getTime();
   if (!Number.isFinite(ms) || ms <= 0) {
     return { amount: 0, billedHours: 0, breakdown: [] };
+  }
+
+  // ΔΩΡΕΑΝ ΧΡΟΝΟΣ. Πρέπει να ελεγχθεί ΠΡΙΝ τη στρογγυλοποίηση ωρών: ο τύπος
+  // ανεβάζει κάθε ξεκινημένη ώρα σε ολόκληρη, οπότε μια στάση οκτώ λεπτών θα
+  // χρεωνόταν 5 €.
+  const minutes = ms / 60_000;
+  if (minutes <= tariff.freeMinutes) {
+    return {
+      amount: 0,
+      billedHours: 0,
+      breakdown: [
+        {
+          day: 0,
+          hours: 0,
+          rate: 0,
+          reason: `εντός δωρεάν χρόνου (${Math.round(minutes)}′ από ${tariff.freeMinutes}′)`,
+        },
+      ],
+    };
   }
 
   const billedHours = Math.ceil(ms / 3_600_000);
