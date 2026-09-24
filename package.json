@@ -27,7 +27,8 @@
     "newsletter:import": "tsx scripts/import-customers-to-newsletter.ts",
     "report:daily": "tsx scripts/daily-report.ts",
     "campaign:events": "tsx scripts/create-events-campaign.ts",
-    "campaign:portal": "tsx scripts/create-portal-campaign.ts"
+    "campaign:portal": "tsx scripts/create-portal-campaign.ts",
+    "encryption:rotate": "tsx scripts/rotate-encryption-key.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
