@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isReadablePlate, wallClockNow } from "@/lib/parking-time";
 
 /**
  * GET /api/dashboard/hourly-stats
@@ -12,13 +13,17 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get("date");
     
-    // Use provided date or today
-    const targetDate = dateParam ? new Date(dateParam) : new Date();
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(7, 0, 0, 0); // 07:00
-    
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(21, 0, 0, 0); // 21:00
+    // ΩΡΑ: το `recognitionTime` είναι «ρολόι τοίχου» Αθήνας γραμμένο στα πεδία
+    // UTC (βλ. lib/parking-time.ts). Τα όρια πρέπει να φτιαχτούν με Date.UTC,
+    // αλλιώς το παράθυρο μετατοπίζεται κατά το offset — με setHours(7) έβγαινε
+    // 04:00–18:00 και κοβόταν όλο το απόγευμα.
+    const targetDate = dateParam ? new Date(`${dateParam}T00:00:00Z`) : wallClockNow();
+    const y = targetDate.getUTCFullYear();
+    const m = targetDate.getUTCMonth();
+    const d = targetDate.getUTCDate();
+
+    const startOfDay = new Date(Date.UTC(y, m, d, 7, 0, 0, 0));   // 07:00 τοπική
+    const endOfDay = new Date(Date.UTC(y, m, d, 21, 30, 0, 0));   // 21:30 τοπική
 
     // Build base where clause - only events with valid license plates
     const whereValidPlate = {
@@ -38,6 +43,7 @@ export async function GET(request: Request) {
         recognitionTime: true,
         direction: true,
         plateType: true,
+        licensePlate: true,
       },
     });
 
@@ -93,9 +99,12 @@ export async function GET(request: Request) {
 
     // Process events and group by 30-minute intervals
     for (const event of events) {
+      // Οι αναγνωρίσεις χωρίς πινακίδα δεν είναι κίνηση οχημάτων.
+      if (!isReadablePlate(event.licensePlate)) continue;
+
       const eventTime = new Date(event.recognitionTime);
-      const hour = eventTime.getHours();
-      const minutes = eventTime.getMinutes();
+      const hour = eventTime.getUTCHours();
+      const minutes = eventTime.getUTCMinutes();
 
       // Only process hours between 07:00 and 21:30
       if (hour >= 7 && (hour < 21 || (hour === 21 && minutes <= 30))) {
@@ -125,7 +134,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       data: hourlyData,
-      date: targetDate.toISOString().split("T")[0],
+      date: startOfDay.toISOString().split("T")[0],
     });
   } catch (error) {
     console.error("[DASHBOARD-HOURLY-STATS] Error fetching hourly stats:", error);
