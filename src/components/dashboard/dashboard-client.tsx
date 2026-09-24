@@ -560,8 +560,15 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
       }
 
       try {
-        const since = lastUpdateTime.toISOString();
-        const response = await fetch(`/api/dashboard/new-events?since=${encodeURIComponent(since)}&limit=10`);
+        // ΕΠΙΚΑΛΥΨΗ 60 ΔΕΥΤΕΡΟΛΕΠΤΩΝ.
+        //
+        // Οι εικόνες ανεβαίνουν στο CDN ΜΕΤΑ την αποθήκευση του συμβάντος —
+        // μετρήθηκε καθυστέρηση ~1,8 δευτερολέπτων. Με ερώτημα αυστηρά «ό,τι
+        // είναι νεότερο από το τελευταίο που είδα», ένα συμβάν που έφτασε μέσα
+        // σε αυτό το παράθυρο έμπαινε στην κάρτα ΧΩΡΙΣ φωτογραφία και δεν
+        // επέστρεφε ποτέ ξανά, οπότε η φωτογραφία δεν εμφανιζόταν ποτέ.
+        const since = new Date(lastUpdateTime.getTime() - 60_000).toISOString();
+        const response = await fetch(`/api/dashboard/new-events?since=${encodeURIComponent(since)}&limit=20`);
         
         if (!response.ok) {
           const msg = await response.text().catch(() => response.statusText);
@@ -577,6 +584,20 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           
           const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
           setEvents(prev => {
+            // Πρώτα συμπληρώνουμε εικόνες σε κάρτες που μπήκαν πριν προλάβουν
+            // να ανέβουν. Χωρίς αυτό, το φίλτρο «μόνο νέα» παρακάτω τις άφηνε
+            // για πάντα χωρίς φωτογραφία.
+            const freshById = new Map(
+              (data.events as RecognitionEventWithRelations[]).map((e) => [e.id, e])
+            );
+            prev = prev.map((e) => {
+              const fresh = freshById.get(e.id);
+              if (!fresh) return e;
+              const hasNow = Array.isArray(fresh.images) && fresh.images.length > 0;
+              const hadBefore = Array.isArray(e.images) && e.images.length > 0;
+              return hasNow && !hadBefore ? { ...e, images: fresh.images } : e;
+            });
+
             const existingIds = new Set(prev.map(e => e.id));
             let newEvents = data.events.filter((e: RecognitionEventWithRelations) => {
               return e && e.id && !existingIds.has(e.id);
