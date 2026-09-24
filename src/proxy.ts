@@ -13,6 +13,8 @@ const roleRoutes: Record<string, string[]> = {
   "/employee": ["ADMIN", "MANAGER", "EMPLOYEE"],
   // Το portal πελατών είναι ΜΟΝΟ για πελάτες — το προσωπικό έχει τη διαχείριση.
   "/client": ["CLIENT"],
+  // Η προεπισκόπηση του portal είναι εργαλείο του προσωπικού, όχι του πελάτη.
+  "/client-preview": ["ADMIN", "MANAGER"],
   // Ο πελάτης ΔΕΝ βλέπει τη διαχείριση. Παλιότερα το `/dashboard` επέτρεπε και
   // CLIENT, οπότε ένας πελάτης έβλεπε κινήσεις, συμβάσεις και στοιχεία άλλων.
   "/dashboard": ["ADMIN", "MANAGER", "EMPLOYEE"],
@@ -83,13 +85,22 @@ const authProxy = auth((req) => {
     return NextResponse.redirect(new URL(`/login?callbackUrl=${callbackUrl}`, nextUrl));
   }
 
-  // Check role-based access
-  for (const [route, allowedRoles] of Object.entries(roleRoutes)) {
-    if (nextUrl.pathname.startsWith(route)) {
+  // Check role-based access.
+  //
+  // Η αντιστοίχιση είναι ΑΚΡΙΒΗΣ ή σε όριο διαδρομής — ποτέ σκέτο πρόθεμα
+  // κειμένου. Με `startsWith` το `/client-preview` έπεφτε πάνω στον κανόνα του
+  // `/client` και ο διαχειριστής πεταγόταν στο dashboard: η σελίδα υπήρχε,
+  // αλλά ήταν απρόσιτη. Ο πιο ειδικός κανόνας κρίνει πρώτος, αλλιώς το
+  // `/client` θα προλάβαινε πάλι το `/client-preview`.
+  const matched = Object.entries(roleRoutes)
+    .filter(([route]) => nextUrl.pathname === route || nextUrl.pathname.startsWith(`${route}/`))
+    .sort((a, b) => b[0].length - a[0].length)[0];
+  if (matched) {
+    const [, allowedRoles] = matched;
+    {
       if (!userRole || !allowedRoles.includes(userRole)) {
         return NextResponse.redirect(new URL(homeFor(userRole), nextUrl));
       }
-      break;
     }
   }
 

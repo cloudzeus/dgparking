@@ -10,7 +10,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { LanguageSwitcher } from "@/components/site/language-switcher";
 import { cn } from "@/lib/utils";
 
-export function SiteHeader() {
+export function SiteHeader({
+  /**
+   * Μέσα στο portal ο πελάτης είναι ήδη συνδεδεμένος — ένα κουμπί «Σύνδεση»
+   * εκεί είναι σύγχυση, και τον στέλνει σε σελίδα που θα τον γυρίσει πίσω.
+   */
+  authenticated = false,
+}: { authenticated?: boolean } = {}) {
   const t = useTranslations("nav");
   const pathname = usePathname();
 
@@ -77,12 +83,14 @@ export function SiteHeader() {
         <div className="ml-auto flex items-center gap-2">
           <LanguageSwitcher />
           {/* Η πύλη πελατών ζει εκτός γλωσσικού προθέματος — `next/link`, όχι το i18n Link. */}
-          <Button asChild size="sm">
-            <NextLink href="/login">
-              <LogIn aria-hidden />
-              {t("login")}
-            </NextLink>
-          </Button>
+          {!authenticated && (
+            <Button asChild size="sm">
+              <NextLink href="/login">
+                <LogIn aria-hidden />
+                {t("login")}
+              </NextLink>
+            </Button>
+          )}
         </div>
       </div>
     </header>

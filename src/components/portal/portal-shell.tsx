@@ -36,7 +36,7 @@ export function PortalShell({
   return (
     <NextIntlClientProvider>
       <div className="theme-mega flex min-h-screen flex-col bg-background text-foreground">
-        <SiteHeader />
+        <SiteHeader authenticated />
 
         {/* Λωρίδα λογαριασμού: το μόνο που προστίθεται στο site, γιατί ο
             πελάτης πρέπει να βλέπει ως ποιος είναι συνδεδεμένος. */}
