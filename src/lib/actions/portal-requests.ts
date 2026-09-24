@@ -92,7 +92,19 @@ async function requireOwnedContract(inst: number) {
   return { userId: session.user.id as string, customer, contract } as const;
 }
 
-export async function requestAddPlate(inst: number, plateInput: string): Promise<RequestResult> {
+/**
+ * Αίτημα προσθήκης πινακίδας.
+ *
+ * Το `driver` είναι ο υπάλληλος/οδηγός που δηλώνει ο πελάτης. ΔΕΝ ταξιδεύει
+ * ποτέ προς το SoftOne — δεν υπάρχει πεδίο για αυτόν στις γραμμές σύμβασης.
+ * Μένει δικό μας, ώστε σε μια σύμβαση με δέκα αυτοκίνητα ο πελάτης να ξέρει
+ * ποιανού είναι το καθένα.
+ */
+export async function requestAddPlate(
+  inst: number,
+  plateInput: string,
+  driverInput?: string
+): Promise<RequestResult> {
   const owned = await requireOwnedContract(inst);
   if ("error" in owned) return { error: owned.error };
 
@@ -138,9 +150,49 @@ export async function requestAddPlate(inst: number, plateInput: string): Promise
   const allowance = await checkChangeAllowance(inst, slots);
   if ("error" in allowance) return { error: allowance.error };
 
+  const driverName = (driverInput ?? "").trim().slice(0, 120) || null;
+
   await prisma.contractChangeRequest.create({
-    data: { userId: owned.userId, inst, type: "ADD_PLATE", plate },
+    data: { userId: owned.userId, inst, type: "ADD_PLATE", plate, driverName },
   });
+
+  // Ο οδηγός καταχωρείται ΑΜΕΣΩΣ, χωρίς να περιμένει έγκριση: δεν αγγίζει το
+  // ERP ούτε αλλάζει τη σύμβαση, και αν το αίτημα τελικά απορριφθεί, μια
+  // ορφανή αντιστοίχιση ονόματος δεν βλάπτει κανέναν.
+  if (driverName && owned.customer.trdr) {
+    await prisma.plateDriver.upsert({
+      where: { trdr_plate: { trdr: owned.customer.trdr, plate } },
+      create: { trdr: owned.customer.trdr, plate, driverName, updatedById: owned.userId },
+      update: { driverName, updatedById: owned.userId },
+    });
+  }
+
+  revalidatePath("/client");
+  return { success: true };
+}
+
+/** Αλλαγή ή διαγραφή του οδηγού μιας ήδη δηλωμένης πινακίδας. */
+export async function setPlateDriver(
+  inst: number,
+  plateInput: string,
+  driverInput: string
+): Promise<RequestResult> {
+  const owned = await requireOwnedContract(inst);
+  if ("error" in owned) return { error: owned.error };
+  if (!owned.customer.trdr) return { error: "Ο λογαριασμός δεν έχει συνδεθεί με πελάτη." };
+
+  const plate = normalizePlate(plateInput);
+  const driverName = driverInput.trim().slice(0, 120);
+
+  if (!driverName) {
+    await prisma.plateDriver.deleteMany({ where: { trdr: owned.customer.trdr, plate } });
+  } else {
+    await prisma.plateDriver.upsert({
+      where: { trdr_plate: { trdr: owned.customer.trdr, plate } },
+      create: { trdr: owned.customer.trdr, plate, driverName, updatedById: owned.userId },
+      update: { driverName, updatedById: owned.userId },
+    });
+  }
   revalidatePath("/client");
   return { success: true };
 }

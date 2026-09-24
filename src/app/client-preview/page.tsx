@@ -3,6 +3,7 @@ import { unstable_noStore } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getPortalGateBook } from "@/lib/portal-gatebook";
+import { getPortalInvoices } from "@/lib/portal-data";
 import { activeContractWhere } from "@/lib/contract-active";
 import { nextContractPeriod, proposedContractName, formatPeriod } from "@/lib/contract-period";
 import { ClientPortal, type ContractDTO, type InvoiceDTO, type RequestDTO } from "@/components/portal/client-portal";
@@ -89,6 +90,12 @@ export default async function ClientPreviewPage() {
   // ακριβώς ό,τι θα δει ο πελάτης, όχι δείγμα.
   const gateBook = await getPortalGateBook(plates);
 
+  // Οι δηλωμένοι οδηγοί — δική μας πληροφορία, δεν υπάρχει στο SoftOne.
+  const driverRows = contract.TRDR
+    ? await prisma.plateDriver.findMany({ where: { trdr: String(contract.TRDR) } })
+    : [];
+  const drivers = Object.fromEntries(driverRows.map((d) => [d.plate, d.driverName]));
+
   const contracts: ContractDTO[] = [
     {
       inst: contract.INST,
@@ -99,18 +106,30 @@ export default async function ClientPreviewPage() {
       isActive: true,
       daysLeft,
       plates,
+      drivers,
       carsInside: gateBook.insideCount,
       nextPeriod: formatPeriod(period),
       nextName: proposedContractName(contract.NAME ?? customer?.NAME ?? "", period),
     },
   ];
 
-  // Δείγματα τιμολογίων και αιτημάτων — δεν αγγίζουμε το ERP για προεπισκόπηση.
-  const invoices: InvoiceDTO[] = [
-    { code: "ΤΠΥ0000381", date: "31/08/2026", amount: 360, url: "https://einvoice.impact.gr/" },
-    { code: "ΤΠΥ0000348", date: "02/08/2026", amount: 360, url: "https://einvoice.impact.gr/" },
-    { code: "ΤΠΥ0000305", date: "30/06/2026", amount: 360, url: null },
-  ];
+  // ΠΡΑΓΜΑΤΙΚΑ τιμολόγια του πελάτη της σύμβασης. Τα παλιά δείγματα έδειχναν
+  // τη γυμνή αρχική του παρόχου, που ζητά σύνδεση — ακριβώς το πρόβλημα που
+  // λύνει η αρχειοθέτηση σε PDF, και που η προεπισκόπηση έκρυβε.
+  let invoices: InvoiceDTO[] = [];
+  let invoiceError: string | null = null;
+  try {
+    const real = contract.TRDR ? await getPortalInvoices(String(contract.TRDR)) : [];
+    invoices = real.map((i) => ({
+      findoc: i.findoc,
+      code: i.code,
+      date: fmtDate(i.date),
+      amount: i.amount,
+      url: i.url,
+    }));
+  } catch (e) {
+    invoiceError = e instanceof Error ? e.message : "Τα τιμολόγια δεν φορτώθηκαν.";
+  }
 
   const requests: RequestDTO[] = [
     {

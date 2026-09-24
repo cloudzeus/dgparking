@@ -34,15 +34,20 @@ import {
 import { toast } from "sonner";
 import {
   AlertCircle,
-  Car,
   CalendarClock,
+  Car,
   Check,
+  CircleParking,
+  Download,
   ExternalLink,
   FileText,
+  LayoutGrid,
   Plus,
   Trash2,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type ContractDTO = {
   inst: number;
@@ -53,13 +58,21 @@ export type ContractDTO = {
   isActive: boolean;
   daysLeft: number | null;
   plates: string[];
+  /** Ο δηλωμένος οδηγός ανά πινακίδα — δικό μας πεδίο, εκτός SoftOne. */
+  drivers: Record<string, string>;
   carsInside: number;
   /** Η περίοδος της ΝΕΑΣ σύμβασης που θα δημιουργηθεί αν ζητηθεί ανανέωση. */
   nextPeriod: string;
   nextName: string;
 };
 
-export type InvoiceDTO = { code: string; date: string; amount: number; url: string | null };
+export type InvoiceDTO = {
+  findoc: number;
+  code: string;
+  date: string;
+  amount: number;
+  url: string | null;
+};
 
 export type RequestDTO = {
   id: string;
@@ -114,6 +127,7 @@ export function ClientPortal({
   const expiring = active.filter((c) => c.daysLeft !== null && c.daysLeft <= WARN_DAYS);
   const [pending, startTransition] = useTransition();
   const [newPlate, setNewPlate] = useState<Record<number, string>>({});
+  const [newDriver, setNewDriver] = useState<Record<number, string>>({});
   const [renewSlots, setRenewSlots] = useState<Record<number, string>>({});
 
   const run = (fn: () => Promise<{ success?: boolean; error?: string }>, okMessage: string) => {
@@ -183,9 +197,14 @@ export function ClientPortal({
                 </CardHeader>
                 <CardContent className="space-y-4 pt-4">
                   <div className="grid grid-cols-3 gap-3">
-                    <Stat label="Θέσεις" value={c.slots ?? "—"} />
-                    <Stat label="Δηλωμένες πινακίδες" value={c.plates.length} />
-                    <Stat label="Οχήματα μέσα τώρα" value={c.carsInside} />
+                    <Stat label="Θέσεις" value={c.slots ?? "—"} icon={LayoutGrid} tone="brand" />
+                    <Stat label="Δηλωμένες πινακίδες" value={c.plates.length} icon={Car} />
+                    <Stat
+                      label="Οχήματα μέσα τώρα"
+                      value={c.carsInside}
+                      icon={CircleParking}
+                      tone={c.carsInside > 0 ? "live" : "neutral"}
+                    />
                   </div>
 
                   {c.slots !== null && c.carsInside > c.slots && (
@@ -258,21 +277,28 @@ export function ClientPortal({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-4">
-                <div className="flex flex-wrap gap-2">
+                <div className="grid gap-2 sm:grid-cols-2">
                   {c.plates.length === 0 && (
                     <span className="text-sm text-muted-foreground">Καμία δηλωμένη πινακίδα.</span>
                   )}
                   {c.plates.map((plate) => (
-                    <span
+                    <div
                       key={plate}
-                      className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-sm"
+                      className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/40"
                     >
-                      <Car className="size-3.5 text-muted-foreground" />
-                      {plate}
+                      <span className="grid size-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                        <Car className="size-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-mono text-sm font-semibold">{plate}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {c.drivers[plate] || "χωρίς οδηγό"}
+                        </div>
+                      </div>
                       <button
                         type="button"
                         aria-label={`Αφαίρεση ${plate}`}
-                        className="text-muted-foreground transition-colors hover:text-destructive"
+                        className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
                         disabled={pending}
                         onClick={() =>
                           run(
@@ -281,9 +307,9 @@ export function ClientPortal({
                           )
                         }
                       >
-                        <Trash2 className="size-3.5" />
+                        <Trash2 className="size-4" />
                       </button>
-                    </span>
+                    </div>
                   ))}
                 </div>
 
@@ -300,11 +326,27 @@ export function ClientPortal({
                       disabled={pending}
                     />
                   </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`driver-${c.inst}`}>Οδηγός (προαιρετικό)</Label>
+                    <Input
+                      id={`driver-${c.inst}`}
+                      className="w-52"
+                      placeholder="π.χ. Μαρία Παπαδοπούλου"
+                      maxLength={120}
+                      value={newDriver[c.inst] ?? ""}
+                      onChange={(e) => setNewDriver((s) => ({ ...s, [c.inst]: e.target.value }))}
+                      disabled={pending}
+                    />
+                  </div>
                   <Button
                     disabled={pending || !(newPlate[c.inst] ?? "").trim()}
                     onClick={() => {
-                      run(() => requestAddPlate(c.inst, newPlate[c.inst] ?? ""), "Το αίτημα καταχωρήθηκε.");
+                      run(
+                        () => requestAddPlate(c.inst, newPlate[c.inst] ?? "", newDriver[c.inst] ?? ""),
+                        "Το αίτημα καταχωρήθηκε."
+                      );
                       setNewPlate((s) => ({ ...s, [c.inst]: "" }));
+                      setNewDriver((s) => ({ ...s, [c.inst]: "" }));
                     }}
                   >
                     {pending ? <Spinner data-icon="inline-start" /> : <Plus />}
@@ -312,7 +354,8 @@ export function ClientPortal({
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Οι αλλαγές ισχύουν μόλις τις εγκρίνει το προσωπικό μας.
+                  Οι αλλαγές ισχύουν μόλις τις εγκρίνει το προσωπικό μας. Το όνομα του οδηγού
+                  είναι δική σας σημείωση — μας βοηθά να σας εξυπηρετούμε γρηγορότερα.
                 </p>
               </CardContent>
             </Card>
@@ -406,8 +449,8 @@ export function ClientPortal({
             <CardHeader className="border-b">
               <CardTitle>Τιμολόγια τελευταίου 12μήνου</CardTitle>
               <CardDescription>
-                Τα παραστατικά ανοίγουν στη σελίδα του παρόχου ηλεκτρονικής τιμολόγησης,
-                από όπου μπορείτε να τα εκτυπώσετε ή να τα αποθηκεύσετε.
+                Κατεβάστε το παραστατικό σε PDF για να το δείτε, να το εκτυπώσετε ή να το
+                αποθηκεύσετε. Δεν χρειάζεται σύνδεση σε άλλη σελίδα.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -445,15 +488,18 @@ export function ClientPortal({
                         </TableCell>
                         <TableCell className="text-right">
                           {i.url ? (
-                            <a
-                              href={i.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-                            >
-                              Άνοιγμα
-                              <ExternalLink className="size-3.5" />
-                            </a>
+                            <Button asChild variant="outline" size="sm">
+                              {/* Δικό μας endpoint, όχι ο πάροχος: το αρχείο είναι
+                                  αρχειοθετημένο και δεν ζητά σύνδεση πουθενά. */}
+                              <a
+                                href={`/api/portal/invoices/${i.findoc}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <Download className="size-3.5" />
+                                PDF
+                              </a>
+                            </Button>
                           ) : (
                             <span className="text-xs text-muted-foreground">μη διαθέσιμο</span>
                           )}
@@ -537,11 +583,37 @@ export function ClientPortal({
   );
 }
 
-function Stat({ label, value }: { label: string; value: React.ReactNode }) {
+/**
+ * Αριθμός με εικονίδιο και χρώμα.
+ *
+ * Τρία γκρι κουτιά με νούμερα δεν λένε τίποτα με μια ματιά. Το χρώμα εδώ
+ * είναι λειτουργικό, όχι διακοσμητικό: ξεχωρίζει τη χωρητικότητα (θέσεις)
+ * από το δηλωμένο (πινακίδες) και από το ζωντανό (οχήματα μέσα τώρα).
+ */
+function Stat({
+  label,
+  value,
+  icon: Icon,
+  tone = "neutral",
+}: {
+  label: string;
+  value: React.ReactNode;
+  icon?: LucideIcon;
+  tone?: "neutral" | "brand" | "live";
+}) {
+  const tones = {
+    neutral: "border-border bg-muted/40 text-foreground",
+    brand: "border-primary/25 bg-primary/5 text-primary",
+    live: "border-chart-2/30 bg-chart-2/10 text-chart-2",
+  } as const;
+
   return (
-    <div className="rounded-lg border p-3">
-      <p className="text-xl font-semibold tabular-nums leading-none">{value}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{label}</p>
+    <div className={cn("rounded-xl border p-3.5 transition-colors", tones[tone])}>
+      <div className="flex items-center gap-2">
+        {Icon && <Icon className="size-4 opacity-80" aria-hidden />}
+        <p className="text-2xl font-semibold tabular-nums leading-none">{value}</p>
+      </div>
+      <p className="mt-1.5 text-xs font-medium text-muted-foreground">{label}</p>
     </div>
   );
 }

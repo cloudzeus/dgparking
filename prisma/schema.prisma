@@ -1150,6 +1150,46 @@ model ParkingInventory {
 }
 
 /// Ιστορικό ολοκληρωμένων σταθμεύσεων — γράφεται όταν ένα όχημα βγαίνει.
+/// Αρχείο τιμολογίων σε PDF, κατεβασμένο από τον πάροχο ηλεκτρονικής
+/// τιμολόγησης. Ο πελάτης δεν πρέπει να εξαρτάται από σελίδα τρίτου για να
+/// δει ή να τυπώσει τα δικά του παραστατικά.
+model InvoicePdf {
+  id          String   @id @default(cuid())
+  /// Ο αριθμός παραστατικού στο ERP (FINDOC).
+  findoc      Int      @unique
+  /// Διαδρομή στο CDN — ΠΟΤΕ δεν δίνεται στον πελάτη· το αρχείο σερβίρεται
+  /// μέσα από endpoint που ελέγχει σε ποιον ανήκει.
+  storagePath String   @map("storage_path") @db.VarChar(255)
+  bytes       Int
+  sourceUrl   String   @map("source_url") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("invoice_pdfs")
+}
+
+/// Ποιος οδηγεί κάθε πινακίδα, κατά δήλωση του πελάτη.
+///
+/// Το SoftOne δεν έχει πεδίο για οδηγό στις γραμμές σύμβασης, οπότε η
+/// πληροφορία ΔΕΝ ταξιδεύει προς το ERP. Ζει μόνο εδώ και εξυπηρετεί τον
+/// πελάτη: σε μια σύμβαση με δέκα αυτοκίνητα, οι πινακίδες από μόνες τους
+/// δεν λένε σε κανέναν ποιανού είναι.
+model PlateDriver {
+  id         String   @id @default(cuid())
+  /// Ο πελάτης (TRDR) — ο οδηγός ακολουθεί την πινακίδα, όχι τη σύμβαση,
+  /// ώστε να επιβιώνει της ανανέωσης που δημιουργεί ΝΕΑ σύμβαση.
+  trdr       String   @db.VarChar(50)
+  plate      String   @db.VarChar(50)
+  driverName String   @map("driver_name") @db.VarChar(120)
+  note       String?  @db.Text
+  updatedById String? @map("updated_by_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([trdr, plate])
+  @@index([plate])
+  @@map("plate_drivers")
+}
+
 model ParkingStay {
   id           String          @id @default(cuid())
   plate        String          @db.VarChar(50)
@@ -1234,6 +1274,11 @@ model ContractChangeRequest {
   decidedAt   DateTime?           @map("decided_at")
   decidedById String?             @map("decided_by_id")
   appliedAt   DateTime?           @map("applied_at")
+  /// Ο οδηγός/υπάλληλος που δηλώνει ο πελάτης για την πινακίδα. ΔΙΚΟ ΜΑΣ
+  /// πεδίο: το SoftOne δεν έχει θέση να το κρατήσει, οπότε δεν στέλνεται
+  /// ποτέ στο ERP — ζει μόνο εδώ, για να ξέρει ο πελάτης ποιανού είναι
+  /// κάθε αυτοκίνητο.
+  driverName  String?             @map("driver_name") @db.VarChar(120)
   /// Γιατί απέτυχε η εγγραφή στο ERP, αν απέτυχε.
   error       String?             @db.Text
   note        String?             @db.Text

@@ -46,6 +46,10 @@ export default async function ClientPortalPage() {
     console.error("[PORTAL] Αποτυχία ανάκτησης τιμολογίων:", e);
   }
 
+  // Οι δηλωμένοι οδηγοί ανά πινακίδα — δικό μας πεδίο, εκτός SoftOne.
+  const driverRows = await prisma.plateDriver.findMany({ where: { trdr: customer.trdr } });
+  const drivers = Object.fromEntries(driverRows.map((d) => [d.plate, d.driverName]));
+
   const contractRows: ContractDTO[] = contracts.map((c) => {
     const period = nextContractPeriod(c.startsOn, c.endsOn);
     return {
@@ -56,6 +60,7 @@ export default async function ClientPortalPage() {
       endsOn: fmtDate(c.endsOn),
       isActive: c.isActive,
       daysLeft: c.daysLeft,
+      drivers,
       plates: c.plates,
       carsInside: c.carsInside,
       nextPeriod: formatPeriod(period),
@@ -64,6 +69,7 @@ export default async function ClientPortalPage() {
   });
 
   const invoiceRows: InvoiceDTO[] = invoices.map((i) => ({
+    findoc: i.findoc,
     code: i.code,
     date: fmtDate(i.date),
     amount: i.amount,
