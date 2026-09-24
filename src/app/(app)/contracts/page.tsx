@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { unstable_noStore } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { activeContractWhere } from "@/lib/contract-active";
 import { ContractsClient } from "@/components/contracts/contracts-client";
 import type { Role } from "@prisma/client";
 
@@ -114,14 +115,8 @@ export default async function ContractsPage() {
     });
   };
   
-  // Contracts where WDATETO is on or after 30 Nov 2025, or WDATETO is null (no end date)
-  const contractsStartDate = new Date("2025-11-30T00:00:00.000Z");
-  const contractsWhere = {
-    OR: [
-      { WDATETO: { gte: contractsStartDate } },
-      { WDATETO: null },
-    ],
-  };
+  // Μόνο ενεργές συμβάσεις — όσες δεν έχουν λήξει ακόμα.
+  const contractsWhere = activeContractWhere();
 
   try {
     // Fetch INST (contracts) then ALL INSTLINES and attach by INST (match by normalized INST so we never miss rows)

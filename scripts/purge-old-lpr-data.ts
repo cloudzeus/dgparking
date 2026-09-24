@@ -29,6 +29,8 @@ const prisma = new PrismaClient({ log: ["warn", "error"] });
 const args = process.argv.slice(2);
 const EXECUTE = args.includes("--execute");
 const DAYS = Number(args.find((a) => a.startsWith("--days="))?.split("=")[1] ?? 60);
+/** Τα ημερολόγια cron δεν είναι δεδομένα καμερών — με αυτό μένουν ανέπαφα. */
+const SKIP_CRON_LOGS = args.includes("--skip-cron-logs");
 const BATCH = 500;
 const CONCURRENCY = 25;
 
@@ -189,7 +191,9 @@ async function main() {
     ["lpr_attributes_events", () => prisma.lprAttributesEvent.count({ where: { createdAt: { lt: cutoff } } }), () => prisma.lprAttributesEvent.deleteMany({ where: { createdAt: { lt: cutoff } } })],
     ["lpr_vehicle_counting_events", () => prisma.lprVehicleCountingEvent.count({ where: { createdAt: { lt: cutoff } } }), () => prisma.lprVehicleCountingEvent.deleteMany({ where: { createdAt: { lt: cutoff } } })],
     ["lpr_violation_events", () => prisma.lprViolationEvent.count({ where: { createdAt: { lt: cutoff } } }), () => prisma.lprViolationEvent.deleteMany({ where: { createdAt: { lt: cutoff } } })],
-    ["cron_job_logs", () => prisma.cronJobLog.count({ where: { createdAt: { lt: cutoff } } }), () => prisma.cronJobLog.deleteMany({ where: { createdAt: { lt: cutoff } } })],
+    ...(SKIP_CRON_LOGS
+      ? []
+      : [["cron_job_logs", () => prisma.cronJobLog.count({ where: { createdAt: { lt: cutoff } } }), () => prisma.cronJobLog.deleteMany({ where: { createdAt: { lt: cutoff } } })] as const]),
   ] as const;
 
   console.log("\nΕγγραφές:");

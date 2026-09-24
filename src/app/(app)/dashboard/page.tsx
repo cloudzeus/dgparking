@@ -1,6 +1,8 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { activeContractWhere } from "@/lib/contract-active";
+import { DeviationSummary } from "@/components/dashboard/deviation-summary";
 import { getContractInfoByPlate } from "@/lib/contract-cars";
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
 
@@ -127,7 +129,7 @@ export default async function DashboardPage() {
       select: { lines: { select: { MTRL: true } } },
     }),
     getContractInfoByPlate(),
-    prisma.iNST.count({ where: { lines: { some: {} } } }),
+    prisma.iNST.count({ where: { ...activeContractWhere(now), lines: { some: {} } } }),
   ]);
 
   type ImageRow = { eventId: string; url: string; imageType: string };
@@ -316,15 +318,18 @@ export default async function DashboardPage() {
   console.log(`[DASHBOARD] Final: ${recentRecognitionEvents.length} events, cars inside now: ${carsInsideNow}`);
 
   return (
-    <DashboardClient 
+    <div className="space-y-4">
+      <DeviationSummary />
+      <DashboardClient 
       user={session.user} 
       stats={statsWithCarsInside} 
       recentEvents={recentRecognitionEvents}
       materialLicensePlates={erpLicensePlates}
       platesInItems={platesInItems}
       contractInfoByPlate={contractInfoByPlate}
-      platesWithIn={Array.from(platesWithIn)}
-    />
+        platesWithIn={Array.from(platesWithIn)}
+      />
+    </div>
   );
 }
 

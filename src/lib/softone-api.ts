@@ -42,32 +42,74 @@ async function convertAnsi1253ToUtf8(response: Response): Promise<string> {
 }
 
 /**
- * Get SoftOne clientID from session (cookies)
+ * Καθαρίζει ένα payload πριν γραφτεί σε log.
+ *
+ * ΓΙΑΤΙ: το `login` μεταφέρει τον κωδικό του χρήστη SoftOne και η απάντηση
+ * μεταφέρει το `clientID`, που είναι bearer token για όλη την ημέρα. Και τα δύο
+ * κατέληγαν αυτούσια στα logs — του dev server, της παραγωγής, του Coolify —
+ * όπου τα βλέπει οποιοσδήποτε έχει πρόσβαση στα logs. Ποτέ μην τυπώνεις
+ * `requestData` κατευθείαν· πέρνα το από εδώ.
  */
+const SECRET_KEYS = ["password", "PASSWORD", "clientID", "clientId", "CLIENTID", "AccessKey"];
+
+function redactForLog(payload: unknown): string {
+  try {
+    return JSON.stringify(
+      payload,
+      (key, value) =>
+        SECRET_KEYS.includes(key) && typeof value === "string" && value.length > 0
+          ? `«απόκρυψη ${value.length} χαρακτήρων»`
+          : value,
+      2
+    );
+  } catch {
+    return "«μη σειριοποιήσιμο»";
+  }
+}
+
+/** Get SoftOne clientID from session (cookies) */
 export async function getSoftOneClientId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  return cookieStore.get(CLIENT_ID_COOKIE_NAME)?.value || null;
+  try {
+    const cookieStore = await cookies();
+    return cookieStore.get(CLIENT_ID_COOKIE_NAME)?.value || null;
+  } catch {
+    // Εκτός request scope (cron, worker, script) δεν υπάρχουν cookies.
+    return null;
+  }
 }
 
 /**
  * Store SoftOne clientID in session (cookies)
+ *
+ * Το cookie είναι απλώς cache της συνεδρίας για τον φυλλομετρητή. Όταν η
+ * ταυτοποίηση τρέχει εκτός request — cron, αποστολή email, script — δεν υπάρχει
+ * cookie store· αυτό ΔΕΝ είναι σφάλμα ταυτοποίησης και δεν πρέπει να ακυρώνει
+ * την κλήση, γιατί ο caller έχει ήδη το clientID στο χέρι του.
  */
 export async function setSoftOneClientId(clientId: string): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.set(CLIENT_ID_COOKIE_NAME, clientId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24, // 24 hours
-  });
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set(CLIENT_ID_COOKIE_NAME, clientId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+  } catch {
+    // εκτός request scope — δεν υπάρχει τίποτα να αποθηκευτεί
+  }
 }
 
 /**
  * Clear SoftOne clientID from session
  */
 export async function clearSoftOneClientId(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete(CLIENT_ID_COOKIE_NAME);
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete(CLIENT_ID_COOKIE_NAME);
+  } catch {
+    // εκτός request scope
+  }
 }
 
 /**
@@ -131,7 +173,7 @@ export async function authenticateSoftOneAPI(
   }
 
   // Log request data for debugging (matches axios example pattern)
-  console.log("SoftOne API - Request Data:", JSON.stringify(requestData, null, 2));
+  console.log("SoftOne API - Request Data:", redactForLog(requestData));
   console.log("SoftOne API - Request URL:", SOFTONE_API_URL);
   console.log("SoftOne API - Authenticating:", {
     url: SOFTONE_API_URL,
@@ -167,7 +209,7 @@ export async function authenticateSoftOneAPI(
     const jsonData = await convertAnsi1253ToUtf8(response);
     const data = JSON.parse(jsonData);
 
-    console.log("SoftOne API - Authentication Response:", JSON.stringify(data, null, 2));
+    console.log("SoftOne API - Authentication Response:", redactForLog(data));
 
     if (data.success && data.clientID) {
       // Store clientID in session
@@ -237,7 +279,7 @@ export async function softOneAPIRequest(
   console.log("URL:", SOFTONE_API_URL);
   console.log("Service:", service);
   console.log("ClientID:", clientID);
-  console.log("Full Request Payload:", JSON.stringify(requestData, null, 2));
+  console.log("Full Request Payload:", redactForLog(requestData));
 
   try {
     const response = await fetch(SOFTONE_API_URL, {
@@ -282,7 +324,7 @@ export async function softOneAPIRequestWithClientId(
   console.log("URL:", SOFTONE_API_URL);
   console.log("Service:", service);
   console.log("ClientID:", clientID.substring(0, 20) + "...");
-  console.log("Full Request Payload:", JSON.stringify(requestData, null, 2));
+  console.log("Full Request Payload:", redactForLog(requestData));
 
   try {
     const response = await fetch(SOFTONE_API_URL, {
@@ -990,7 +1032,7 @@ export async function getSoftOneSelectorFields(
 
     console.log("=== SoftOne API - selectorFields Request ===");
     console.log("URL:", SOFTONE_API_URL);
-    console.log("Full Request Payload:", JSON.stringify(requestData, null, 2));
+    console.log("Full Request Payload:", redactForLog(requestData));
 
     try {
       const response = await fetch(SOFTONE_API_URL, {
@@ -1159,7 +1201,7 @@ export async function setSoftOneData(
 
     console.log("=== SoftOne API - SetData Request ===");
     console.log("URL:", SOFTONE_API_URL);
-    console.log("Full Request Payload:", JSON.stringify(requestData, null, 2));
+    console.log("Full Request Payload:", redactForLog(requestData));
 
     try {
       const response = await fetch(SOFTONE_API_URL, {

@@ -1037,3 +1037,110 @@ model NewsTranslation {
   @@unique([locale, slug])
   @@map("cms_news_translations")
 }
+
+// ── Παρακολούθηση ψηφιακού πελατολογίου ─────────────────────────────────────
+// Το ERP (SOACTION + cccDC*) είναι η επίσημη εικόνα· οι κάμερες η δική μας.
+// Κρατάμε ένα baseline της στιγμής που συντονιστήκαμε και, από εκεί και μετά,
+// μητρώο αποκλίσεων ώστε καθεμιά να ειδοποιείται ΜΙΑ φορά και να παρακολουθείται.
+
+enum ParkingDeviationKind {
+  AMOUNT_DIFF
+  TIME_DIFF
+  MISSING_IN_ERP
+  MISSING_IN_CAMERAS
+}
+
+model ParkingBaseline {
+  id        String                 @id @default(cuid())
+  takenAt   DateTime               @default(now()) @map("taken_at")
+  erpOpen   Int                    @map("erp_open")
+  cameraIn  Int                    @map("camera_in")
+  matched   Int
+  note      String?                @db.Text
+  entries   ParkingBaselineEntry[]
+
+  @@map("parking_baselines")
+}
+
+model ParkingBaselineEntry {
+  id          String          @id @default(cuid())
+  baselineId  String          @map("baseline_id")
+  plate       String          @db.VarChar(50)
+  erpSoaction Int?            @map("erp_soaction")
+  erpEntry    DateTime?       @map("erp_entry")
+  cameraEntry DateTime?       @map("camera_entry")
+  inErp       Boolean         @map("in_erp")
+  inCameras   Boolean         @map("in_cameras")
+  contractInst Int?           @map("contract_inst")
+  baseline    ParkingBaseline @relation(fields: [baselineId], references: [id], onDelete: Cascade)
+
+  @@index([baselineId])
+  @@index([plate])
+  @@map("parking_baseline_entries")
+}
+
+model ParkingDeviation {
+  id          String               @id @default(cuid())
+  /// Σταθερή ταυτότητα της απόκλισης — εμποδίζει διπλές εγγραφές και διπλά email.
+  signature   String               @unique @db.VarChar(191)
+  plate       String               @db.VarChar(50)
+  kind        ParkingDeviationKind
+  firstSeenAt DateTime             @default(now()) @map("first_seen_at")
+  lastSeenAt  DateTime             @updatedAt @map("last_seen_at")
+  ourEntry    DateTime?            @map("our_entry")
+  ourExit     DateTime?            @map("our_exit")
+  ourAmount   Float?               @map("our_amount")
+  erpSoaction Int?                 @map("erp_soaction")
+  erpEntry    DateTime?            @map("erp_entry")
+  erpExit     DateTime?            @map("erp_exit")
+  erpAmount   Float?               @map("erp_amount")
+  explanation String               @db.Text
+  notifiedAt  DateTime?            @map("notified_at")
+  resolvedAt  DateTime?            @map("resolved_at")
+
+  @@index([kind])
+  @@index([plate])
+  @@index([firstSeenAt])
+  @@map("parking_deviations")
+}
+
+// ── Απογραφή: ποια οχήματα είναι ΤΩΡΑ μέσα ──────────────────────────────────
+// Μόνιμη κατάσταση, όχι υπολογισμός από συμβάντα. Ξεκινά από το ψηφιακό
+// πελατολόγιο (seed) και από εκεί και πέρα κάθε IN προσθέτει, κάθε OUT αφαιρεί.
+// Έτσι η εικόνα επιβιώνει ακόμα κι αν σβηστούν τα ιστορικά συμβάντα.
+
+enum InventorySource {
+  ERP_SEED
+  CAMERA
+}
+
+model ParkingInventory {
+  id           String          @id @default(cuid())
+  plate        String          @unique @db.VarChar(50)
+  enteredAt    DateTime        @map("entered_at")
+  source       InventorySource
+  erpSoaction  Int?            @map("erp_soaction")
+  contractInst Int?            @map("contract_inst")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  @@index([enteredAt])
+  @@map("parking_inventory")
+}
+
+/// Ιστορικό ολοκληρωμένων σταθμεύσεων — γράφεται όταν ένα όχημα βγαίνει.
+model ParkingStay {
+  id           String          @id @default(cuid())
+  plate        String          @db.VarChar(50)
+  enteredAt    DateTime        @map("entered_at")
+  exitedAt     DateTime        @map("exited_at")
+  minutes      Int
+  amount       Float?
+  contractInst Int?            @map("contract_inst")
+  enteredFrom  InventorySource @map("entered_from")
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  @@index([plate])
+  @@index([exitedAt])
+  @@map("parking_stays")
+}

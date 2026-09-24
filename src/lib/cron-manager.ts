@@ -15,6 +15,8 @@
 import cron from "node-cron";
 import { prisma } from "@/lib/prisma";
 import { refreshContractCars } from "@/lib/contract-cars";
+import { detectDeviations } from "@/lib/parking-monitor";
+import { sendImmediateAlerts, sendDailyDigest } from "@/lib/parking-notify";
 
 let cronJobs: Map<string, ReturnType<typeof cron.schedule>> = new Map();
 let isInitialized = false;
@@ -78,6 +80,81 @@ export async function runContractCarsRefreshNow() {
   await runContractCarsRefresh("χειροκίνητη");
 }
 
+/* ── Παρακολούθηση αποκλίσεων ψηφιακού πελατολογίου ──────────────────────── */
+
+export const DEVIATIONS_JOB_ID = "internal:parking-deviations";
+export const DEVIATIONS_DIGEST_JOB_ID = "internal:parking-digest";
+/** Ανίχνευση κάθε 15΄ — αρκετά συχνά για άμεση ειδοποίηση, χωρίς να πιέζει το ERP. */
+const DEVIATIONS_CRON = "*/15 * * * *";
+/** Η σύνοψη φεύγει στο τέλος της ημέρας, όταν έχουν κλείσει οι σταθμεύσεις. */
+const DIGEST_CRON = "0 21 * * *";
+
+let deviationsRunning = false;
+
+async function runDeviationScan(trigger: string) {
+  if (deviationsRunning) {
+    console.log(`[CRON] ${DEVIATIONS_JOB_ID}: προηγούμενη εκτέλεση σε εξέλιξη — παράλειψη (${trigger})`);
+    return;
+  }
+  deviationsRunning = true;
+  const startedAt = Date.now();
+  try {
+    const { created } = await detectDeviations();
+    const { sent, failed } = await sendImmediateAlerts();
+    console.log(
+      `[CRON] ${DEVIATIONS_JOB_ID}: ${created.length} νέες αποκλίσεις, ${sent} άμεσα email` +
+        (failed.length ? `, ${failed.length} αποτυχίες` : "") +
+        ` σε ${Date.now() - startedAt} ms (${trigger})`
+    );
+  } catch (error) {
+    // Χωρίς baseline η ανίχνευση δεν έχει νόημα· το μήνυμα το λέει καθαρά.
+    console.error(`[CRON] ${DEVIATIONS_JOB_ID}: απέτυχε`, error instanceof Error ? error.message : error);
+  } finally {
+    deviationsRunning = false;
+  }
+}
+
+async function runDigest(trigger: string) {
+  try {
+    const r = await sendDailyDigest();
+    console.log(`[CRON] ${DEVIATIONS_DIGEST_JOB_ID}: ${r.total} αποκλίσεις, στάλθηκε=${r.sent} (${trigger})`);
+  } catch (error) {
+    console.error(`[CRON] ${DEVIATIONS_DIGEST_JOB_ID}: απέτυχε`, error);
+  }
+}
+
+/**
+ * Προγραμματίζει την παρακολούθηση αποκλίσεων. Δεν τρέχει τίποτα στην εκκίνηση:
+ * η πρώτη σάρωση περιμένει τον επόμενο κύκλο, ώστε ένα restart να μη στέλνει
+ * ξαφνικά email.
+ */
+export function scheduleDeviationMonitoring() {
+  for (const [id, expr, fn] of [
+    [DEVIATIONS_JOB_ID, DEVIATIONS_CRON, runDeviationScan],
+    [DEVIATIONS_DIGEST_JOB_ID, DIGEST_CRON, runDigest],
+  ] as const) {
+    const existing = cronJobs.get(id);
+    if (existing) {
+      existing.stop();
+      cronJobs.delete(id);
+    }
+    const task = cron.schedule(expr, () => { void fn("προγραμματισμένη"); }, {
+      timezone: "Europe/Athens",
+    });
+    cronJobs.set(id, task);
+    console.log(`[CRON] ${id}: προγραμματίστηκε (${expr})`);
+  }
+}
+
+/** Χειροκίνητη εκτέλεση (σελίδα ρυθμίσεων / script). */
+export async function runDeviationScanNow() {
+  await runDeviationScan("χειροκίνητη");
+}
+
+export async function runDigestNow() {
+  await runDigest("χειροκίνητη");
+}
+
 /**
  * Initialize and start all cron jobs for active integrations
  * This should be called once when the server starts
@@ -134,8 +211,9 @@ export async function initializeCronJobs() {
       }
     }
 
-    // Εσωτερική εργασία, ανεξάρτητη από τις ενσωματώσεις SoftOne.
+    // Εσωτερικές εργασίες, ανεξάρτητες από τις ενσωματώσεις SoftOne.
     scheduleContractCarsRefresh();
+    scheduleDeviationMonitoring();
 
     isInitialized = true;
     console.log(`[CRON] All cron jobs initialized successfully - scheduled ${scheduledCount}/${integrations.length} integrations`);

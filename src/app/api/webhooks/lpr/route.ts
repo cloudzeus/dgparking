@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { applyCameraPass } from "@/lib/parking-inventory";
 import { prisma } from "@/lib/prisma";
 import { uploadImageToBunnyCDN } from "@/lib/bunny-cdn";
 import { logWebhookMessage } from "@/lib/lpr-logger";
@@ -913,7 +914,18 @@ async function processRecognitionEvent(
   });
 
   console.log("✅ Recognition event stored with ID:", event.id);
-  
+
+  // Ενημέρωση της απογραφής. Το συμβάν είναι το αποδεικτικό και έχει ήδη σωθεί·
+  // η απογραφή είναι παράγωγο, γι' αυτό μια αποτυχία εδώ δεν ακυρώνει τίποτα.
+  if (eventData.direction === "IN" || eventData.direction === "OUT") {
+    const result = await applyCameraPass(
+      eventData.licensePlate,
+      eventData.direction,
+      eventData.recognitionTime
+    );
+    console.log(`📋 Απογραφή: ${eventData.licensePlate} → ${result.action}${result.reason ? ` (${result.reason})` : ""}`);
+  }
+
   return event.id;
 }
 

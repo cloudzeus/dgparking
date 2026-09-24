@@ -128,6 +128,12 @@ const menuGroups: MenuGroup[] = [
         roles: ["ADMIN", "MANAGER", "EMPLOYEE"],
       },
       {
+        title: "Αντιπαραβολή",
+        href: "/reconciliation",
+        icon: Scale,
+        roles: ["ADMIN", "MANAGER", "EMPLOYEE"],
+      },
+      {
         title: "Πινακίδες",
         href: "/items",
         icon: Car,
