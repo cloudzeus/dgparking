@@ -35,6 +35,8 @@ model User {
   softoneConnections  SoftOneConnection[]
   softoneIntegrations SoftOneIntegration[]
   lprCameras          LprCamera[]
+  portalAccess        CustomerPortalAccess?
+  changeRequests      ContractChangeRequest[]
 
   @@map("users")
 }
@@ -1160,4 +1162,111 @@ model ParkingStay {
   @@index([plate])
   @@index([exitedAt])
   @@map("parking_stays")
+}
+
+// ── Portal πελατών ──────────────────────────────────────────────────────────
+// Ο χρήστης δηλώνει ΑΦΜ κατά την εγγραφή· το σύστημα βρίσκει τον πελάτη στο
+// ERP αλλά ΔΕΝ δίνει πρόσβαση μέχρι να εγκρίνει άνθρωπος. Το ΑΦΜ είναι
+// δημόσια πληροφορία και δεν αποδεικνύει από μόνο του τίποτα.
+
+enum PortalAccessStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model CustomerPortalAccess {
+  id          String             @id @default(cuid())
+  userId      String             @unique @map("user_id")
+  /// Το ΑΦΜ όπως το δήλωσε ο χρήστης.
+  afm         String             @db.VarChar(20)
+  /// Ο πελάτης του ERP, όταν βρεθεί αντιστοιχία. Μέχρι την έγκριση είναι
+  /// υποψήφια αντιστοίχιση, όχι δικαίωμα πρόσβασης.
+  trdr        String?            @db.VarChar(50)
+  matchedName String?            @map("matched_name") @db.VarChar(255)
+  status      PortalAccessStatus @default(PENDING)
+  requestedAt DateTime           @default(now()) @map("requested_at")
+  decidedAt   DateTime?          @map("decided_at")
+  decidedById String?            @map("decided_by_id")
+  note        String?            @db.Text
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([trdr])
+  @@index([status])
+  @@map("customer_portal_access")
+}
+
+/// Τι ζητάει ο πελάτης. Τίποτα δεν φτάνει στο ERP χωρίς έγκριση — οι πινακίδες
+/// και οι θέσεις επηρεάζουν τιμολόγηση και πρόσβαση στο πάρκινγκ.
+enum ChangeRequestType {
+  ADD_PLATE
+  REMOVE_PLATE
+  RENEW
+}
+
+enum ChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  APPLIED
+  FAILED
+}
+
+model ContractChangeRequest {
+  id          String              @id @default(cuid())
+  userId      String              @map("user_id")
+  /// Η σύμβαση (INST) που αφορά.
+  inst        Int
+  type        ChangeRequestType
+  plate       String?             @db.VarChar(50)
+  /// Για ανανέωση: νέος αριθμός θέσεων και νέα ημερομηνία λήξης.
+  slots       Int?
+  newEndDate  DateTime?           @map("new_end_date")
+  status      ChangeRequestStatus @default(PENDING)
+  createdAt   DateTime            @default(now()) @map("created_at")
+  decidedAt   DateTime?           @map("decided_at")
+  decidedById String?             @map("decided_by_id")
+  appliedAt   DateTime?           @map("applied_at")
+  /// Γιατί απέτυχε η εγγραφή στο ERP, αν απέτυχε.
+  error       String?             @db.Text
+  note        String?             @db.Text
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([inst])
+  @@index([status])
+  @@map("contract_change_requests")
+}
+
+/// Ειδοποιήσεις λήξης — μία ανά σύμβαση και ανά «σκαλοπάτι», ώστε να μη
+/// στέλνεται το ίδιο email κάθε μέρα.
+model ContractExpiryNotice {
+  id        String   @id @default(cuid())
+  inst      Int
+  /// Πόσες ημέρες πριν τη λήξη στάλθηκε (π.χ. 7).
+  daysAhead Int      @map("days_ahead")
+  expiresOn DateTime @map("expires_on")
+  sentAt    DateTime @default(now()) @map("sent_at")
+  sentTo    String   @map("sent_to") @db.VarChar(255)
+
+  @@unique([inst, daysAhead, expiresOn])
+  @@map("contract_expiry_notices")
+}
+
+/// Μία γραμμή ανά διεύθυνση email πελάτη. Τα πεδία του ERP είναι ελεύθερο
+/// κείμενο και συχνά περιέχουν δύο ή τρεις διευθύνσεις μαζί με ονόματα· εδώ
+/// αποθηκεύονται κανονικοποιημένες, ώστε οι ειδοποιήσεις να φτάνουν σε όλους.
+model CustomerEmail {
+  id        String   @id @default(cuid())
+  trdr      String   @db.VarChar(50)
+  email     String   @db.VarChar(255)
+  /// Από ποιο πεδίο του ERP προήλθε: EMAIL ή EMAILACC.
+  source    String   @db.VarChar(16)
+  /// Η πρώτη διεύθυνση του κύριου πεδίου — αυτή απαντάει σε ερωτήσεις «το email».
+  isPrimary Boolean  @default(false) @map("is_primary")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([trdr, email])
+  @@index([email])
+  @@map("customer_emails")
 }

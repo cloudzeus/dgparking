@@ -1,6 +1,7 @@
 "use server";
 
 import { signIn, signOut } from "@/lib/auth";
+import { isValidAfm, normalizeAfm } from "@/lib/afm";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -20,6 +21,10 @@ const registerSchema = z.object({
   confirmPassword: z.string(),
   firstName: z.string().min(2, "First name must be at least 2 characters"),
   lastName: z.string().min(2, "Last name must be at least 2 characters"),
+  afm: z
+    .string()
+    .min(1, "Το ΑΦΜ είναι υποχρεωτικό")
+    .refine((v) => isValidAfm(v), "Μη έγκυρο ΑΦΜ — έλεγξε τα ψηφία"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -47,6 +52,10 @@ export type RegisterState = {
   error?: string;
   success?: boolean;
   errors?: Record<string, string[]>;
+  /** Ο λογαριασμός δημιουργήθηκε αλλά περιμένει έγκριση διαχειριστή. */
+  pendingApproval?: boolean;
+  /** Η επωνυμία που βρέθηκε για το ΑΦΜ, αν βρέθηκε. */
+  matchedName?: string | null;
 };
 
 export type ForgotPasswordState = {
@@ -115,6 +124,7 @@ export async function register(
     confirmPassword: formData.get("confirmPassword"),
     firstName: formData.get("firstName"),
     lastName: formData.get("lastName"),
+    afm: formData.get("afm"),
   });
 
   if (!validatedFields.success) {
@@ -124,7 +134,7 @@ export async function register(
     };
   }
 
-  const { email, password, firstName, lastName } = validatedFields.data;
+  const { email, password, firstName, lastName, afm } = validatedFields.data;
 
   try {
     // Check if user already exists
@@ -136,21 +146,37 @@ export async function register(
       return { error: "An account with this email already exists" };
     }
 
-    // Hash password
+    const normalizedAfm = normalizeAfm(afm);
+
+    // Αντιστοίχιση με πελάτη του ERP. Γίνεται ΤΩΡΑ για να δει ο διαχειριστής
+    // ποιον αφορά το αίτημα, αλλά ΔΕΝ δίνει πρόσβαση: το ΑΦΜ είναι δημόσιο.
+    const customer = await prisma.cUSTORMER.findFirst({
+      where: { AFM: normalizedAfm },
+      select: { TRDR: true, NAME: true },
+    });
+
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
     await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         firstName,
         lastName,
-        role: "CLIENT", // Default role for self-registration
+        role: "CLIENT",
+        isActive: false, // ενεργοποιείται με την έγκριση
+        portalAccess: {
+          create: {
+            afm: normalizedAfm,
+            trdr: customer?.TRDR ?? null,
+            matchedName: customer?.NAME ?? null,
+            status: "PENDING",
+          },
+        },
       },
     });
 
-    return { success: true };
+    return { success: true, pendingApproval: true, matchedName: customer?.NAME ?? null };
   } catch {
     return { error: "Failed to create account. Please try again." };
   }

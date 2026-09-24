@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Mail, Lock, User, UserPlus } from "lucide-react";
+import { Loader2, Mail, Lock, User, UserPlus, Building2 } from "lucide-react";
 import { register, type RegisterState } from "@/lib/actions/auth";
 import { toast } from "sonner";
 
@@ -41,8 +41,15 @@ export function RegisterForm() {
       });
     }
     if (state?.success) {
-      toast.success("Account created successfully! Please sign in.");
-      router.push("/login");
+      // Ο λογαριασμός δημιουργήθηκε αλλά είναι ανενεργός μέχρι την έγκριση —
+      // θα ήταν παραπλανητικό να του πούμε «συνδεθείτε».
+      toast.success(
+        state.matchedName
+          ? `Η αίτηση καταχωρήθηκε για «${state.matchedName}». Θα ειδοποιηθείτε με email μόλις εγκριθεί.`
+          : "Η αίτηση καταχωρήθηκε. Θα ειδοποιηθείτε με email μόλις εγκριθεί.",
+        { duration: 8000 }
+      );
+      router.push("/login?pending=1");
     }
   }, [state, router]);
 
@@ -86,6 +93,30 @@ export function RegisterForm() {
                 />
               </div>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="afm" className="text-xs font-medium uppercase">
+              ΑΦΜ ΕΤΑΙΡΕΙΑΣ
+            </Label>
+            <div className="relative">
+              <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="afm"
+                name="afm"
+                type="text"
+                inputMode="numeric"
+                maxLength={12}
+                placeholder="9 ψηφία"
+                required
+                className="h-11 pl-10 font-mono"
+                disabled={isPending}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Με το ΑΦΜ βρίσκουμε τη σύμβασή σας. Ο λογαριασμός ενεργοποιείται
+              αφού τον εγκρίνει ο διαχειριστής.
+            </p>
           </div>
 
           <div className="space-y-2">
