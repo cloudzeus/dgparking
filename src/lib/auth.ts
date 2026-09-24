@@ -54,6 +54,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string },
+          include: { portalAccess: { select: { status: true } } },
         });
 
         if (!user || !user.password) {
@@ -61,7 +62,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         if (!user.isActive) {
-          throw new Error("Account is deactivated");
+          // Διάκριση «περιμένει έγκριση» από «απενεργοποιημένος»: είναι δύο
+          // εντελώς διαφορετικές καταστάσεις για τον χρήστη, και το ίδιο
+          // μήνυμα και για τις δύο γεννάει κλήσεις στην υποστήριξη.
+          const status = user.portalAccess?.status;
+          if (status === "PENDING") {
+            throw new Error(
+              "Ο λογαριασμός σας περιμένει έγκριση. Θα ειδοποιηθείτε με email μόλις ενεργοποιηθεί."
+            );
+          }
+          if (status === "REJECTED") {
+            throw new Error(
+              "Η αίτηση πρόσβασης απορρίφθηκε. Επικοινωνήστε μαζί μας για διευκρινίσεις."
+            );
+          }
+          throw new Error("Ο λογαριασμός είναι απενεργοποιημένος.");
         }
 
         const isPasswordValid = await bcrypt.compare(

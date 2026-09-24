@@ -56,6 +56,7 @@ import {
   Scale,
   Newspaper,
   Images,
+  UserCheck,
 } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
 import { Badge } from "@/components/ui/badge";
@@ -132,6 +133,12 @@ const menuGroups: MenuGroup[] = [
         href: "/reconciliation",
         icon: Scale,
         roles: ["ADMIN", "MANAGER", "EMPLOYEE"],
+      },
+      {
+        title: "Αιτήματα πελατών",
+        href: "/portal-access",
+        icon: UserCheck,
+        roles: ["ADMIN", "MANAGER"],
       },
       {
         title: "Πινακίδες",
