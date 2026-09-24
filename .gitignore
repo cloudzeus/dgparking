@@ -48,3 +48,6 @@ next-env.d.ts
 
 # session planning scratch
 .planning/
+
+# Παραγόμενες αναφορές — δεδομένα πελατών, δεν μπαίνουν στο repo
+anafora-*.pdf
