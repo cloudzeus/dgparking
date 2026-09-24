@@ -153,13 +153,32 @@ function blank(
   };
 }
 
-/** Οι στάσεις μιας περιόδου, με σύμβαση και χρέωση συμπληρωμένες. */
+/**
+ * Οι στάσεις μιας περιόδου.
+ *
+ * ΠΗΓΗ ΑΛΗΘΕΙΑΣ: οι μόνιμοι πίνακες `parking_stays` και `parking_inventory`,
+ * ΟΧΙ τα ακατέργαστα συμβάντα των καμερών.
+ *
+ * Ο λόγος είναι η ώρα εισόδου. Η απογραφή ξεκινά από το ψηφιακό πελατολόγιο,
+ * οπότε ένα όχημα μπορεί να μπήκε πριν αρχίσουμε να βλέπουμε — δεν υπάρχει
+ * `IN` από κάμερα, αλλά η ώρα εισόδου είναι γνωστή. Χτίζοντας τις στάσεις μόνο
+ * από συμβάντα, μια τέτοια έξοδος γινόταν «στάση μηδέν λεπτών» με ώρα εισόδου
+ * την ώρα της εξόδου, και η αντιπαραβολή ανέφερε τεράστιες ψεύτικες διαφορές
+ * ώρας (π.χ. +178′ για όχημα που στην πραγματικότητα συμφωνούσε στο λεπτό).
+ *
+ * Τα συμβάντα χρησιμοποιούνται μόνο ως εφεδρεία, για ό,τι δεν καλύπτεται.
+ */
 export async function getParkingSessions(
   from: Date,
   to: Date,
   tariff: Tariff = DEFAULT_TARIFF
 ): Promise<ParkingSession[]> {
-  const [events, plateToInst, exempt] = await Promise.all([
+  const [stays, inside, events, plateToInst, exempt] = await Promise.all([
+    prisma.parkingStay.findMany({
+      where: { exitedAt: { gte: from, lte: to } },
+      orderBy: { exitedAt: "desc" },
+    }),
+    prisma.parkingInventory.findMany(),
     prisma.lprRecognitionEvent.findMany({
       where: { recognitionTime: { gte: from, lte: to } },
       select: { licensePlate: true, direction: true, recognitionTime: true },
@@ -169,18 +188,71 @@ export async function getParkingSessions(
     getExemptPlates(to),
   ]);
 
-  const sessions = buildSessions(events);
-  for (const s of sessions) {
-    const inst = plateToInst.get(s.plate) ?? null;
-    s.contractInst = inst;
-    s.isExempt = exempt.has(s.plate);
-    if (s.exit && !s.orphanExit) {
-      s.charge = calculateCharge(
-        { entry: s.entry, exit: s.exit, hasContract: inst != null, isExempt: s.isExempt },
+  const sessions: ParkingSession[] = [];
+  const covered = new Set<string>();
+
+  // 1) Ολοκληρωμένες σταθμεύσεις — η ώρα εισόδου είναι η πραγματική.
+  for (const stay of stays) {
+    sessions.push({
+      plate: stay.plate,
+      entry: stay.enteredAt,
+      exit: stay.exitedAt,
+      durationMinutes: stay.minutes,
+      contractInst: stay.contractInst,
+      isExempt: exempt.has(stay.plate),
+      charge: calculateCharge(
+        {
+          entry: stay.enteredAt,
+          exit: stay.exitedAt,
+          hasContract: stay.contractInst != null,
+          isExempt: exempt.has(stay.plate),
+        },
+        tariff
+      ),
+      missingExit: false,
+      orphanExit: false,
+      passThrough: stay.minutes <= MIN_STAY_MINUTES,
+    });
+    covered.add(stay.plate);
+  }
+
+  // 2) Οχήματα που βρίσκονται ακόμα μέσα.
+  for (const row of inside) {
+    if (row.enteredAt > to) continue;
+    sessions.push({
+      plate: row.plate,
+      entry: row.enteredAt,
+      exit: null,
+      durationMinutes: null,
+      contractInst: row.contractInst,
+      isExempt: exempt.has(row.plate),
+      charge: null,
+      missingExit: false,
+      orphanExit: false,
+      passThrough: false,
+    });
+    covered.add(row.plate);
+  }
+
+  // 3) Εφεδρεία: πινακίδες που δεν εμφανίζονται πουθενά αλλού — π.χ. περάσματα
+  //    ή συμβάντα που δεν πρόλαβαν να περάσουν στην απογραφή.
+  const leftovers = events.filter(
+    (e) => !covered.has((e.licensePlate || "").trim().toUpperCase())
+  );
+  for (const session of buildSessions(leftovers)) {
+    const inst = plateToInst.get(session.plate) ?? null;
+    session.contractInst = inst;
+    session.isExempt = exempt.has(session.plate);
+    if (session.exit && !session.orphanExit) {
+      session.charge = calculateCharge(
+        { entry: session.entry, exit: session.exit, hasContract: inst != null, isExempt: session.isExempt },
         tariff
       );
     }
+    sessions.push(session);
   }
+
+  sessions.sort((a, b) => b.entry.getTime() - a.entry.getTime());
   return sessions;
 }
 
