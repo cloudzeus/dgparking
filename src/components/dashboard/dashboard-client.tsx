@@ -27,6 +27,7 @@ import {
   User,
   X,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -38,6 +39,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
@@ -465,6 +476,29 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
       toast.success("Η πινακίδα ενημερώθηκε");
     } catch (e) {
       toast.error("Η ενημέρωση της πινακίδας απέτυχε");
+    }
+  };
+
+  /**
+   * Διαγραφή συμβάντος.
+   *
+   * Η κάμερα πιάνει συχνά πεζούς ή οχήματα χωρίς ορατή πινακίδα και καταγράφει
+   * «No Plates», που μολύνουν κίνηση, αναφορές και αντιπαραβολή.
+   */
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      const res = await fetch(`/api/dashboard/recognition-event/${eventId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => null);
+      if (!data?.success) {
+        toast.error(data?.error || "Η διαγραφή απέτυχε");
+        return;
+      }
+      setEvents((prev) => prev.filter((e) => e.id !== eventId));
+      toast.success(
+        `Το συμβάν διαγράφηκε${data.deleted?.images ? ` μαζί με ${data.deleted.images} εικόνες` : ""}.`
+      );
+    } catch {
+      toast.error("Η διαγραφή απέτυχε");
     }
   };
 
@@ -1042,6 +1076,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
                   }}
                   onMarkAsLeft={handleMarkAsLeft}
                   onReevaluate={handleReevaluate}
+                  onDelete={handleDeleteEvent}
                 />
               );
             });
@@ -1074,11 +1109,13 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   );
 }
 
-function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, missingInErp = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false, isVisitorOverLimit = false, isSelected = false, onToggleSelect, onMarkAsLeft, onReevaluate }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; /** Δεν υπάρχει εγγραφή στο ψηφιακό πελατολόγιο του ERP. */ missingInErp?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean; /** true when car is inside but over contract limit → pays regular visitor fee */ isVisitorOverLimit?: boolean; isSelected?: boolean; onToggleSelect?: () => void; onMarkAsLeft?: (licensePlate: string, leftAt: Date) => Promise<void>; onReevaluate?: (eventId: string, newLicensePlate: string) => Promise<void> }) {
+function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, missingInErp = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false, isVisitorOverLimit = false, isSelected = false, onToggleSelect, onMarkAsLeft, onReevaluate, onDelete }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; /** Δεν υπάρχει εγγραφή στο ψηφιακό πελατολόγιο του ERP. */ missingInErp?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean; /** true when car is inside but over contract limit → pays regular visitor fee */ isVisitorOverLimit?: boolean; isSelected?: boolean; onToggleSelect?: () => void; onMarkAsLeft?: (licensePlate: string, leftAt: Date) => Promise<void>; onReevaluate?: (eventId: string, newLicensePlate: string) => Promise<void>; /** Διαγραφή λανθασμένης αναγνώρισης (π.χ. πεζός αντί για πινακίδα). */ onDelete?: (eventId: string) => Promise<void> }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [isLeftModalOpen, setIsLeftModalOpen] = useState(false);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [isReevaluateModalOpen, setIsReevaluateModalOpen] = useState(false);
   const [reevaluatePlate, setReevaluatePlate] = useState("");
   const [savingReevaluate, setSavingReevaluate] = useState(false);
@@ -1517,6 +1554,18 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                     Επανεκτίμηση
                   </DropdownMenuItem>
                 )}
+                {onDelete && (
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setIsDeleteOpen(true);
+                    }}
+                  >
+                    <Trash2 className="mr-2 size-4" aria-hidden />
+                    Διαγραφή συμβάντος
+                  </DropdownMenuItem>
+                )}
                 {onMarkAsLeft && isStillInside && (
                   <DropdownMenuItem
                     onSelect={(e) => {
@@ -1532,6 +1581,33 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Διαγραφή συμβάντος;</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Θα διαγραφεί οριστικά το συμβάν «{getDisplayPlate(event)}» μαζί με τις
+                    φωτογραφίες του, και από το CDN. Δεν αναιρείται.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleting}>Άκυρο</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={deleting}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      setDeleting(true);
+                      await onDelete?.(event.id);
+                      setDeleting(false);
+                      setIsDeleteOpen(false);
+                    }}
+                  >
+                    {deleting ? "Διαγραφή…" : "Διαγραφή"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
               </div>
 
               {/* Γραμμή 2: ετικέτες — ERP, κατεύθυνση, συμβόλαιο, κατάσταση */}
