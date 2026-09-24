@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { applyCameraPass } from "@/lib/parking-inventory";
 import { prisma } from "@/lib/prisma";
 import { uploadImageToBunnyCDN } from "@/lib/bunny-cdn";
@@ -1201,6 +1202,9 @@ async function processImages(
   console.log("   📤 Uploading", imageUploads.length, "image(s) directly to BunnyCDN (no blob storage)...");
 
   // Upload all images directly to BunnyCDN - we only store the URL, never the blob/base64
+  // Ανεβασμένα περιεχόμενα αυτού του συμβάντος: hash → αποτέλεσμα ανεβάσματος.
+  const uploadedByHash = new Map<string, { url: string; fileName: string }>();
+
   for (const img of imageUploads) {
     try {
       // Calculate file size from base64 before upload
@@ -1208,12 +1212,23 @@ async function processImages(
       const fileSizeBytes = Math.ceil((base64Data.length * 3) / 4);
       const fileSizeKB = Math.round(fileSizeBytes / 1024);
       
-      console.log("   ⬆️  Uploading", img.imageType, `(${fileSizeKB} KB) directly to BunnyCDN...`);
-      
-      // Upload directly to BunnyCDN - this converts base64 to buffer and uploads via PUT
-      // We do NOT store the blob/base64 anywhere - only the URL after successful upload
-      const uploadResult = await uploadImageToBunnyCDN(img.base64, img.fileName, img.folder);
-      console.log("   ✅ Uploaded to BunnyCDN:", uploadResult.url);
+      // ΑΠΟΦΥΓΗ ΔΙΠΛΟΥ ΑΝΕΒΑΣΜΑΤΟΣ.
+      //
+      // Η κάμερα στέλνει το ίδιο καρέ και ως `full_image` και ως `snapshot`:
+      // επαληθεύτηκε ότι τα δύο αρχεία είναι byte-για-byte ταυτόσημα (ίδιο
+      // SHA-256). Ανεβαίνοντας δύο φορές, το μισό του χώρου στο CDN ήταν
+      // διπλότυπα. Ανεβάζουμε μία φορά ανά περιεχόμενο και οι δύο εγγραφές
+      // δείχνουν στο ίδιο URL — ο τύπος εικόνας παραμένει ξεχωριστός.
+      const contentHash = createHash("sha256").update(base64Data).digest("hex");
+      let uploadResult = uploadedByHash.get(contentHash);
+      if (uploadResult) {
+        console.log(`   ♻️  ${img.imageType}: ταυτόσημο με ήδη ανεβασμένη εικόνα — επαναχρησιμοποίηση URL`);
+      } else {
+        console.log("   ⬆️  Uploading", img.imageType, `(${fileSizeKB} KB) directly to BunnyCDN...`);
+        uploadResult = await uploadImageToBunnyCDN(img.base64, img.fileName, img.folder);
+        uploadedByHash.set(contentHash, uploadResult);
+        console.log("   ✅ Uploaded to BunnyCDN:", uploadResult.url);
+      }
       
       // Only store the URL in database - NO blob/base64 data is stored
       // Build image data - conditionally include cameraId only if it's not null
@@ -1224,7 +1239,7 @@ async function processImages(
         url: uploadResult.url, // Only URL stored - image is on BunnyCDN
         fileName: uploadResult.fileName,
         fileSize: fileSizeBytes, // Store file size for reference
-        mimeType: "image/jpeg",
+        mimeType: uploadResult.fileName.endsWith(".webp") ? "image/webp" : "image/jpeg",
       };
       
       // Only include cameraId if it's not null (Prisma doesn't like null values for optional relations)

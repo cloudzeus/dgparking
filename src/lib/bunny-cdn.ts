@@ -5,7 +5,50 @@
  * Used for storing LPR camera images (plate images, full images, evidence images).
  * 
  * SERVER-SIDE ONLY
+ *
+ * ΟΛΕΣ οι εικόνες μετατρέπονται σε WebP με μέγιστη διάσταση 1440px πριν
+ * ανέβουν. Οι κάμερες στέλνουν JPEG 1920×1080 (~300 KB η καθεμία) και τρεις
+ * εικόνες ανά διέλευση: 81.539 αρχεία είχαν φτάσει τα 10,5 GB. Το WebP στο ίδιο
+ * οπτικό επίπεδο κόβει τον όγκο κατά ~70%.
  */
+
+import sharp from "sharp";
+import { MAX_IMAGE_DIMENSION, WEBP_QUALITY } from "@/lib/media";
+
+/**
+ * Μετατροπή σε WebP με σμίκρυνση.
+ *
+ * Αν αποτύχει — κατεστραμμένο byte stream, μορφή που δεν αναγνωρίζει η sharp —
+ * επιστρέφεται το πρωτότυπο. Μια εικόνα που δεν συμπιέστηκε είναι πολύ
+ * προτιμότερη από χαμένο αποδεικτικό υλικό.
+ */
+async function toWebp(
+  input: Buffer,
+  label: string
+): Promise<{ buffer: Buffer; extension: string; converted: boolean }> {
+  try {
+    const output = await sharp(input)
+      .rotate() // προσανατολισμός από EXIF πριν τη σμίκρυνση
+      .resize({
+        width: MAX_IMAGE_DIMENSION,
+        height: MAX_IMAGE_DIMENSION,
+        fit: "inside",
+        withoutEnlargement: true, // οι μικρές εικόνες πινακίδας μένουν ως έχουν
+      })
+      // Η διαφάνεια διατηρείται — ποτέ flatten.
+      .webp({ quality: WEBP_QUALITY, effort: 4 })
+      .toBuffer();
+
+    const saved = Math.round((1 - output.length / input.length) * 100);
+    console.log(
+      `   🗜️  WebP: ${(input.length / 1024).toFixed(0)}KB → ${(output.length / 1024).toFixed(0)}KB (−${saved}%) [${label}]`
+    );
+    return { buffer: output, extension: "webp", converted: true };
+  } catch (error) {
+    console.warn(`   ⚠️  Η μετατροπή σε WebP απέτυχε για «${label}» — ανεβαίνει ως έχει:`, error);
+    return { buffer: input, extension: "", converted: false };
+  }
+}
 
 const BUNNY_STORAGE_ZONE = process.env.BUNNY_STORAGE_ZONE;
 const BUNNY_ACCESS_KEY = process.env.BUNNY_ACCESS_KEY;
@@ -43,12 +86,20 @@ export async function uploadImageToBunnyCDN(
 
     // Decode base64 to buffer for upload
     // This buffer is only used for the upload request and is NOT stored anywhere
-    const imageBuffer = Buffer.from(base64Data, "base64");
+    const originalBuffer = Buffer.from(base64Data, "base64");
+
+    // Συμπίεση ΠΡΙΝ το ανέβασμα — ό,τι ανεβεί ασυμπίεστο μένει ασυμπίεστο.
+    const { buffer: imageBuffer, extension, converted } = await toWebp(originalBuffer, fileName);
 
     // Generate unique file name with timestamp
     const timestamp = Date.now();
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const finalFileName = `${timestamp}_${sanitizedFileName}`;
+    // Η κατάληξη πρέπει να ακολουθεί το περιεχόμενο: το BunnyCDN σερβίρει
+    // Content-Type με βάση την κατάληξη, και ένα WebP σε .jpg δεν εμφανίζεται.
+    const withExtension = converted
+      ? `${sanitizedFileName.replace(/\.[^.]+$/, "")}.${extension}`
+      : sanitizedFileName;
+    const finalFileName = `${timestamp}_${withExtension}`;
     const filePath = folder ? `${folder}/${finalFileName}` : finalFileName;
 
     // BunnyCDN Storage API endpoint
@@ -67,7 +118,9 @@ export async function uploadImageToBunnyCDN(
         "AccessKey": BUNNY_ACCESS_KEY,
         "Content-Type": "application/octet-stream",
       },
-      body: imageBuffer, // Direct upload - buffer is sent and then discarded
+      // Uint8Array και όχι Buffer: τα νεότερα Node types δεν δέχονται
+      // `Buffer<ArrayBufferLike>` ως BodyInit.
+      body: new Uint8Array(imageBuffer),
     });
 
     if (!response.ok) {
