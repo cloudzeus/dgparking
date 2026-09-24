@@ -118,43 +118,7 @@ export async function applyCameraPass(
     const current = await prisma.parkingInventory.findUnique({ where: { plate: key } });
     if (!current) return { action: "ignored", reason: "δεν βρισκόταν στην απογραφή" };
 
-    const minutes = Math.max(0, Math.round((at.getTime() - current.enteredAt.getTime()) / 60000));
-
-    // ΠΕΡΑΣΜΑ, ΟΧΙ ΣΤΑΘΜΕΥΣΗ. Όχημα που το είδαν και οι δύο κάμερες μέσα σε
-    // λίγα λεπτά απλώς πέρασε. Ο τύπος χρέωσης στρογγυλοποιεί ΠΑΝΩ, οπότε μια
-    // διαδρομή τριάντα δευτερολέπτων θα χρεωνόταν ολόκληρη ώρα — 5 €. Το ERP
-    // δεν καταγράφει καν τέτοια, άρα θα φαινόταν και ως ψεύτικη απόκλιση.
-    // Το όχημα φεύγει από την απογραφή, αλλά δεν γράφεται στάθμευση.
-    if (minutes <= MIN_STAY_MINUTES) {
-      await prisma.parkingInventory.delete({ where: { plate: key } });
-      return { action: "removed", reason: `πέρασμα ${minutes}′ — χωρίς χρέωση` };
-    }
-
-    const charge = calculateCharge({
-      entry: current.enteredAt,
-      exit: at,
-      hasContract: current.contractInst != null,
-      // Η απαλλαγή ελέγχεται με την ώρα της ΕΞΟΔΟΥ, όχι με το «τώρα»: μια
-      // απαλλαγή που καταχωρήθηκε αργότερα δεν ισχύει αναδρομικά.
-      isExempt: await isExempt(key, at),
-    });
-
-    await prisma.$transaction([
-      prisma.parkingStay.create({
-        data: {
-          plate: key,
-          enteredAt: current.enteredAt,
-          exitedAt: at,
-          minutes,
-          amount: charge.amount,
-          contractInst: current.contractInst,
-          enteredFrom: current.source,
-        },
-      }),
-      prisma.parkingInventory.delete({ where: { plate: key } }),
-    ]);
-
-    return { action: "removed" };
+    return closeStay(key, current, at);
   } catch (error) {
     console.error("[INVENTORY] Το πέρασμα δεν εφαρμόστηκε:", error);
     return { action: "ignored", reason: "σφάλμα" };
@@ -173,4 +137,69 @@ export async function getInventoryStats() {
     prisma.parkingInventory.findFirst({ orderBy: { enteredAt: "asc" } }),
   ]);
   return { total, withContract, visitors: total - withContract, oldestEntry: oldest?.enteredAt ?? null };
+}
+
+
+/** Καταγραφή ανωμαλίας. Δεν ρίχνει ποτέ: το πέρασμα έχει προτεραιότητα. */
+async function recordAnomaly(
+  plate: string,
+  kind: string,
+  at: Date,
+  detail: string
+): Promise<void> {
+  try {
+    await prisma.parkingAnomaly.create({ data: { plate, kind, at, detail } });
+  } catch (error) {
+    console.error("[INVENTORY] Η ανωμαλία δεν καταγράφηκε:", error);
+  }
+}
+
+/**
+ * Κλείνει μια στάθμευση: βγάζει το όχημα από την απογραφή και, εφόσον
+ * έμεινε αρκετά, γράφει τη στάση με τη χρέωσή της.
+ *
+ * Ζει χωριστά γιατί καλείται από ΔΥΟ σημεία: την κανονική έξοδο, και την
+ * είσοδο οχήματος που βρισκόταν ήδη μέσα (έξοδος από τη λωρίδα εισόδου).
+ */
+async function closeStay(
+  plate: string,
+  current: { enteredAt: Date; contractInst: number | null; source: InventorySource },
+  at: Date
+): Promise<{ action: "removed"; reason?: string }> {
+  const minutes = Math.max(0, Math.round((at.getTime() - current.enteredAt.getTime()) / 60000));
+
+  // ΠΕΡΑΣΜΑ, ΟΧΙ ΣΤΑΘΜΕΥΣΗ. Όχημα που το είδαν και οι δύο κάμερες μέσα σε
+  // λίγα λεπτά απλώς πέρασε. Ο τύπος χρέωσης στρογγυλοποιεί ΠΑΝΩ, οπότε μια
+  // διαδρομή τριάντα δευτερολέπτων θα χρεωνόταν ολόκληρη ώρα — 5 €. Το ERP
+  // δεν καταγράφει καν τέτοια, άρα θα φαινόταν και ως ψεύτικη απόκλιση.
+  if (minutes <= MIN_STAY_MINUTES) {
+    await prisma.parkingInventory.delete({ where: { plate } });
+    return { action: "removed", reason: `πέρασμα ${minutes}′ — χωρίς χρέωση` };
+  }
+
+  const charge = calculateCharge({
+    entry: current.enteredAt,
+    exit: at,
+    hasContract: current.contractInst != null,
+    // Η απαλλαγή ελέγχεται με την ώρα της ΕΞΟΔΟΥ, όχι με το «τώρα»: μια
+    // απαλλαγή που καταχωρήθηκε αργότερα δεν ισχύει αναδρομικά.
+    isExempt: await isExempt(plate, at),
+  });
+
+  await prisma.$transaction([
+    prisma.parkingStay.create({
+      data: {
+        plate,
+        enteredAt: current.enteredAt,
+        exitedAt: at,
+        minutes,
+        amount: charge.amount,
+        contractInst: current.contractInst,
+        enteredFrom: current.source,
+      },
+    }),
+    prisma.parkingInventory.delete({ where: { plate } }),
+  ]);
+
+  return { action: "removed", reason: `${minutes}′ · ${charge.amount.toFixed(2)} €` };
 }

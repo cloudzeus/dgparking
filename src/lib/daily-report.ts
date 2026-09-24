@@ -69,6 +69,8 @@ export type ReportStats = {
   byStatus: { status: string; count: number }[];
   /** Ποια οχήματα είναι μέσα — η δεύτερη καρτέλα. */
   gate: { both: number; onlyOurs: number; onlyErp: number; inventory: number; erpOpen: number };
+  /** Ανωμαλίες κίνησης της ημέρας — π.χ. έξοδος από τη λωρίδα εισόδου. */
+  anomalies: { plate: string; kind: string; at: Date; detail: string | null }[];
 };
 
 /** Η μέρα σε ώρα τοίχου — από τα μεσάνυχτα ως τώρα (ή ως το τέλος της). */
@@ -188,7 +190,7 @@ function pendingLabel(minutes: number | null): string {
 export async function buildDailyReport(day: Date = wallClockNow()): Promise<DailyReport> {
   const { from, to } = dayBounds(day);
 
-  const [sessions, erpStays, revenue, inventory, erpOpen] = await Promise.all([
+  const [sessions, erpStays, revenue, inventory, erpOpen, anomalies] = await Promise.all([
     getParkingSessions(from, to),
     fetchErpStays(from, to),
     // Μια αποτυχία στα παραστατικά δεν πρέπει να ακυρώσει ολόκληρη την
@@ -206,9 +208,15 @@ export async function buildDailyReport(day: Date = wallClockNow()): Promise<Dail
       })
     ),
     getInventory(),
+
     // Χωρίς φίλτρο ημέρας: ένα όχημα που μπήκε χθες και είναι ακόμα μέσα
     // πρέπει να μετρηθεί, αλλιώς φαίνεται ψευδώς ότι λείπει από το ERP.
     fetchOpenErpStays().catch(() => []),
+    prisma.parkingAnomaly.findMany({
+      where: { at: { gte: from, lte: to } },
+      orderBy: { at: "asc" },
+      select: { plate: true, kind: true, at: true, detail: true },
+    }),
   ]);
   const rows = reconcile(sessions, erpStays);
 
@@ -255,6 +263,7 @@ export async function buildDailyReport(day: Date = wallClockNow()): Promise<Dail
         erpOpen: erp.size,
       };
     })(),
+    anomalies,
   };
 
   // Οι φωτογραφίες κατεβαίνουν ΜΟΝΟ για τις αποκλίσεις, και με όριο: μια
@@ -586,6 +595,40 @@ function render(
     row3("Απογραφή μας", String(stats.gate.inventory), "");
     row3("Ανοιχτά στο SoftOne", String(stats.gate.erpOpen), "");
     doc.moveDown(1);
+
+    // ── Ανωμαλίες κίνησης ─────────────────────────────────────────────────
+    //
+    // Είναι διορθώσεις που έγιναν αυτόματα. Χωρίς αναφορά, το σύστημα θα
+    // «καθάριζε» σιωπηλά ένα πραγματικό πρόβλημα λειτουργίας — οδηγούς που
+    // βγαίνουν από τη λωρίδα της εισόδου — και κανείς δεν θα το μάθαινε.
+    const ANOMALY_LABEL: Record<string, string> = {
+      EXIT_THROUGH_ENTRANCE: "Έξοδος από τη λωρίδα εισόδου",
+    };
+
+    if (stats.anomalies.length > 0) {
+      h2(
+        "Ανωμαλίες κίνησης",
+        "Διορθώθηκαν αυτόματα. Αναφέρονται γιατί δείχνουν πώς χρησιμοποιείται ο χώρος."
+      );
+      const byKind = new Map<string, number>();
+      for (const a of stats.anomalies) byKind.set(a.kind, (byKind.get(a.kind) ?? 0) + 1);
+      for (const [kind, count] of byKind) {
+        row3(ANOMALY_LABEL[kind] ?? kind, String(count), "", true, MEGA_RED);
+      }
+      doc.moveDown(0.3);
+      for (const a of stats.anomalies.slice(0, 20)) {
+        row3(`   ${a.plate}`, formatWallClock(a.at), "", false, MUTED);
+      }
+      if (stats.anomalies.length > 20) {
+        doc
+          .font("r")
+          .fontSize(7.5)
+          .fillColor(MUTED)
+          .text(`… και άλλες ${stats.anomalies.length - 20}`, 40, doc.y, { width: W });
+        doc.y += 12;
+      }
+      doc.moveDown(0.8);
+    }
 
     // ── Παραστατικά και εισπράξεις ────────────────────────────────────────
     const rev = stats.revenue;

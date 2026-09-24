@@ -1190,6 +1190,25 @@ model PlateDriver {
   @@map("plate_drivers")
 }
 
+/// Ανωμαλίες κίνησης που εντοπίζονται τη στιγμή που συμβαίνουν.
+///
+/// Δεν είναι σφάλματα του συστήματος αλλά της χρήσης του χώρου — π.χ. όχημα
+/// που βγαίνει από τη λωρίδα της εισόδου. Καταγράφονται για να μπουν στην
+/// ημερήσια αναφορά: αλλιώς διορθώνονται σιωπηλά και κανείς δεν μαθαίνει ότι
+/// συμβαίνουν.
+model ParkingAnomaly {
+  id        String   @id @default(cuid())
+  plate     String   @db.VarChar(50)
+  kind      String   @db.VarChar(40)
+  at        DateTime
+  detail    String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([at])
+  @@index([plate])
+  @@map("parking_anomalies")
+}
+
 model ParkingStay {
   id           String          @id @default(cuid())
   plate        String          @db.VarChar(50)
