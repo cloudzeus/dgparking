@@ -52,7 +52,10 @@ const authProxy = auth((req) => {
   // Φόρμες του δημόσιου site (επικοινωνία, αίτημα προσφοράς) — χωρίς σύνδεση.
   const isSiteFormRoute =
     nextUrl.pathname.startsWith("/api/send-contact") ||
-    nextUrl.pathname.startsWith("/api/send-proposal");
+    nextUrl.pathname.startsWith("/api/send-proposal") ||
+    // Συγκατάθεση cookie, αιτήματα δικαιωμάτων και ο σύνδεσμος επιβεβαίωσής
+    // τους: τα ασκεί ο επισκέπτης, χωρίς λογαριασμό (ΓΚΠΔ άρ. 12 §2).
+    nextUrl.pathname.startsWith("/api/gdpr");
 
   if (isSoftOneApiRoute || isCronApiRoute || isAuthApiRoute || isWebhookRoute || isSiteFormRoute) {
     return NextResponse.next();

@@ -30,6 +30,8 @@ interface INSTLINES {
   LINENUM: number | null;
   SODTYPE: number | null;
   MTRL: string | null;
+  /** Η πινακίδα του οχήματος — το CODE του είδους στο ERP. */
+  MTRL_PLATE?: string | null;
   MTRL_NAME?: string | null;
   BUSUNITS: string | null;
   QTY: number | null;
@@ -91,6 +93,8 @@ interface INST {
   INSDATE: Date | null;
   UPDDATE: Date | null;
   NUM01: number | null;
+  /** Οχήματα του συμβολαίου που βρίσκονται μέσα τώρα (από contract_cars). */
+  CARS_IN?: number;
   REMARKS: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -441,7 +445,7 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
       .filter(line => line.MTRL && String(line.MTRL).trim() !== '')
       .map(line => ({
         mtrl: line.MTRL!,
-        name: line.MTRL_NAME || 'No name',
+        name: line.MTRL_PLATE || line.MTRL_NAME || 'No name',
         instLine: line,
       }));
   };
@@ -462,12 +466,23 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
     return (!from || today >= from) && (!to || today <= to);
   };
 
-  /** Υπέρβαση του ορίου οχημάτων (NUM01) από τις πινακίδες του συμβολαίου. */
-  const isOverLimit = (inst: INST) => {
-    const plates = inst.lines?.length ?? 0;
+  /**
+   * Πόσα οχήματα του συμβολαίου βρίσκονται μέσα ΠΑΝΩ από τις θέσεις που έχει
+   * κλείσει ο πελάτης (NUM01).
+   *
+   * Δεν είναι σφάλμα ούτε παράβαση: ο πελάτης δηλώνει όσες πινακίδες θέλει
+   * (10 πινακίδες για 2 θέσεις είναι μια χαρά) και τα επιπλέον οχήματα απλώς
+   * **χρεώνονται κανονικά, σαν επισκέπτες**. Το δείχνουμε για να ξέρει το
+   * ταμείο ότι υπάρχει χρέωση, όχι για να σημάνει συναγερμό.
+   */
+  const extraCars = (inst: INST) => {
     const limit = inst.NUM01 != null ? Math.floor(Number(inst.NUM01)) : null;
-    return limit != null && limit >= 0 && plates > limit;
+    const inside = inst.CARS_IN ?? 0;
+    if (limit == null || limit < 0) return 0;
+    return Math.max(0, inside - limit);
   };
+
+  const isOverLimit = (inst: INST) => extraCars(inst) > 0;
 
   const summary = useMemo(
     () => ({
@@ -576,11 +591,11 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
           tone="violet"
         />
         <KpiTile
-          label="Υπέρβαση ορίου"
+          label="Με χρέωση επισκέπτη"
           value={summary.overLimit.toLocaleString("el-GR")}
-          hint="περισσότερες πινακίδες από το NUM01"
+          hint="συμβόλαια με οχήματα πάνω από τις θέσεις τους"
           icon={TriangleAlert}
-          tone="red"
+          tone="amber"
         />
       </div>
 
@@ -757,17 +772,26 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                           {(() => {
                             const platesCount = installation.lines?.length ?? 0;
                             const num01 = installation.NUM01 != null ? Math.floor(Number(installation.NUM01)) : null;
-                            const exceeded = num01 != null && num01 >= 0 && platesCount > num01;
+                            const inside = installation.CARS_IN ?? 0;
+                            const extra = extraCars(installation);
                             return (
-                              <span className="inline-flex items-center justify-end gap-1.5">
-                                <span className={exceeded ? "font-medium text-destructive" : ""}>
+                              <span className="inline-flex flex-col items-end gap-0.5">
+                                <span>
                                   {num01 != null
-                                    ? `${platesCount.toLocaleString("el-GR")} / ${num01.toLocaleString("el-GR")}`
-                                    : platesCount > 0
-                                      ? `${platesCount.toLocaleString("el-GR")} (χωρίς όριο)`
-                                      : "—"}
+                                    ? `${inside.toLocaleString("el-GR")} / ${num01.toLocaleString("el-GR")} θέσεις`
+                                    : `${inside.toLocaleString("el-GR")} μέσα (χωρίς όριο)`}
                                 </span>
-                                {exceeded && <Badge variant="danger">Υπέρβαση</Badge>}
+                                <span className="text-xs text-muted-foreground">
+                                  {platesCount.toLocaleString("el-GR")} πινακίδες
+                                </span>
+                                {extra > 0 && (
+                                  <Badge
+                                    variant="warning"
+                                    title="Τα οχήματα πάνω από τις θέσεις του συμβολαίου χρεώνονται κανονικά, ως επισκέπτες."
+                                  >
+                                    {extra.toLocaleString("el-GR")} με χρέωση επισκέπτη
+                                  </Badge>
+                                )}
                               </span>
                             );
                           })()}
@@ -850,7 +874,11 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                                   ) : (
                                     <Badge variant="neutral">Ανενεργό</Badge>
                                   )}
-                                  {isOverLimit(installation) && <Badge variant="danger">Υπέρβαση ορίου</Badge>}
+                                  {isOverLimit(installation) && (
+                                    <Badge variant="warning" title="Τα επιπλέον οχήματα χρεώνονται ως επισκέπτες.">
+                                      {extraCars(installation).toLocaleString("el-GR")} με χρέωση επισκέπτη
+                                    </Badge>
+                                  )}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground tabular-nums">
                                   <span>
@@ -956,7 +984,12 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                                 {instLinesWithPlate.length > 0 ? (
                                   <div className="flex flex-wrap gap-1.5">
                                     {instLinesWithPlate.map((line) => {
-                                      const plateName = (line.MTRL_NAME && String(line.MTRL_NAME).trim() !== "" ? line.MTRL_NAME : line.MTRL) ?? "—";
+                                      const plateName =
+                                        (line.MTRL_PLATE && String(line.MTRL_PLATE).trim() !== ""
+                                          ? line.MTRL_PLATE
+                                          : line.MTRL_NAME && String(line.MTRL_NAME).trim() !== ""
+                                            ? line.MTRL_NAME
+                                            : line.MTRL) ?? "—";
                                       return (
                                         <span
                                           key={line.INSTLINES}
@@ -1079,7 +1112,7 @@ export function ContractsClient({ installations, currentUserRole, instLinesInteg
                           <TableCell className="tabular-nums">{idx + 1}</TableCell>
                           <TableCell className="tabular-nums">{line.LINENUM ?? "—"}</TableCell>
                           <TableCell className="font-mono tabular-nums">{line.MTRL ?? "—"}</TableCell>
-                          <TableCell className="font-mono uppercase tabular-nums">{line.MTRL_NAME ?? "—"}</TableCell>
+                          <TableCell className="font-mono uppercase tabular-nums">{line.MTRL_PLATE ?? line.MTRL_NAME ?? "—"}</TableCell>
                           <TableCell className="text-right tabular-nums">{line.QTY != null ? line.QTY.toLocaleString("el-GR") : "—"}</TableCell>
                           <TableCell className="tabular-nums">
                             {line.FROMDATE ? format(new Date(line.FROMDATE), "dd/MM/yyyy") : "—"}

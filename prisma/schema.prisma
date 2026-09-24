@@ -117,47 +117,47 @@ model CUSTORMER {
 }
 
 model iNST {
-  INST       Int         @id @map("inst")
-  CODE       String?     @map("code")
-  NAME       String?     @map("name")
-  ISACTIVE   Int         @map("isactive")
-  INSTTYPE   String?     @map("insttype")
-  TRDR       String?     @map("trdr")
-  TRDBRANCH  String?     @map("trdbranch")
-  BRANCH     String?     @map("branch")
-  BUSUNITS   String?     @map("busunits")
-  SALESMAN   String?     @map("salesman")
-  TRDRS      String?     @map("trdrs")
-  TRDBRANCHS String?     @map("trdbranchs")
-  GPNT       String?     @map("gpnt")
-  PRSN       String?     @map("prsn")
-  PRJC       String?     @map("prjc")
-  FROMDATE   DateTime?   @map("fromdate")
-  BLOCKED    Int?        @map("blocked")
-  BLCKDATE   DateTime?   @map("blckdate")
-  GDATEFROM  DateTime?   @map("gdatefrom")
-  GDATETO    DateTime?   @map("gdateto")
-  WDATEFROM  DateTime?   @map("wdatefrom")
-  WDATETO    DateTime?   @map("wdateto")
-  INSDATE    DateTime?   @map("insdate")
-  UPDDATE    DateTime?   @updatedAt @map("upddate")
-  NUM01      Float?      @map("num01")
-  REMARKS    String?     @map("remarks") @db.Text
-  createdAt  DateTime    @default(now()) @map("created_at")
-  updatedAt  DateTime    @updatedAt @map("updated_at")
-  lines      iNSTLINES[]
+  INST        Int          @id @map("inst")
+  CODE        String?      @map("code")
+  NAME        String?      @map("name")
+  ISACTIVE    Int          @map("isactive")
+  INSTTYPE    String?      @map("insttype")
+  TRDR        String?      @map("trdr")
+  TRDBRANCH   String?      @map("trdbranch")
+  BRANCH      String?      @map("branch")
+  BUSUNITS    String?      @map("busunits")
+  SALESMAN    String?      @map("salesman")
+  TRDRS       String?      @map("trdrs")
+  TRDBRANCHS  String?      @map("trdbranchs")
+  GPNT        String?      @map("gpnt")
+  PRSN        String?      @map("prsn")
+  PRJC        String?      @map("prjc")
+  FROMDATE    DateTime?    @map("fromdate")
+  BLOCKED     Int?         @map("blocked")
+  BLCKDATE    DateTime?    @map("blckdate")
+  GDATEFROM   DateTime?    @map("gdatefrom")
+  GDATETO     DateTime?    @map("gdateto")
+  WDATEFROM   DateTime?    @map("wdatefrom")
+  WDATETO     DateTime?    @map("wdateto")
+  INSDATE     DateTime?    @map("insdate")
+  UPDDATE     DateTime?    @updatedAt @map("upddate")
+  NUM01       Float?       @map("num01")
+  REMARKS     String?      @map("remarks") @db.Text
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  lines       iNSTLINES[]
   contractCar ContractCar?
 
   @@map("inst")
 }
 
 model ContractCar {
-  id       String   @id @default(cuid()) @map("id")
-  inst     Int      @unique @map("inst")
-  num01    Float?   @map("num01")
-  carsIn   Int      @default(0) @map("cars_in")
+  id        String   @id @default(cuid()) @map("id")
+  inst      Int      @unique @map("inst")
+  num01     Float?   @map("num01")
+  carsIn    Int      @default(0) @map("cars_in")
   updatedAt DateTime @updatedAt @map("updated_at")
-  instRef  iNST     @relation(fields: [inst], references: [INST], onDelete: Cascade)
+  instRef   iNST     @relation(fields: [inst], references: [INST], onDelete: Cascade)
 
   @@map("contract_cars")
 }
@@ -251,15 +251,15 @@ model iTEMS {
 }
 
 model COUNTRY {
-  COUNTRY     Int       @id @map("country")
-  SHORTCUT    String?   @map("shortcut")
-  NAME        String?   @map("name")
-  SOCURRENCY  Int?      @map("socurrency")
-  INTCODE     String?   @map("intcode")
-  INTERCODE   String?   @map("intercode")
-  ISACTIVE    Int       @map("isactive")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  COUNTRY    Int      @id @map("country")
+  SHORTCUT   String?  @map("shortcut")
+  NAME       String?  @map("name")
+  SOCURRENCY Int?     @map("socurrency")
+  INTCODE    String?  @map("intcode")
+  INTERCODE  String?  @map("intercode")
+  ISACTIVE   Int      @map("isactive")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("country")
 }
@@ -279,83 +279,83 @@ model IRSDATA {
 }
 
 model VAT {
-  VAT         Int       @id @map("vat")
-  NAME        String?   @map("name")
-  PERCNT      Float?    @map("percnt")
-  VATS1       Int?      @map("vats1")
-  VATS3       Int?      @map("vats3")
-  ISACTIVE    Int       @map("isactive")
-  MYDATACODE  Int?      @map("mydatacode")
-  DEPART      Int?      @map("depart")
-  ACNMSKS     Int?      @map("acnmsks")
-  ACNMSKX     Int?      @map("acnmskx")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  VAT        Int      @id @map("vat")
+  NAME       String?  @map("name")
+  PERCNT     Float?   @map("percnt")
+  VATS1      Int?     @map("vats1")
+  VATS3      Int?     @map("vats3")
+  ISACTIVE   Int      @map("isactive")
+  MYDATACODE Int?     @map("mydatacode")
+  DEPART     Int?     @map("depart")
+  ACNMSKS    Int?     @map("acnmsks")
+  ACNMSKX    Int?     @map("acnmskx")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("vat")
 }
 
 model SOCURRENCY {
-  SOCURRENCY Int       @id @map("socurrency")
-  LOCKID     Int?      @map("lockid")
-  SHORTCUT   String?   @map("shortcut")
-  NAME       String?   @map("name")
-  ISACTIVE   Int       @map("isactive")
-  INTERCODE  String?   @map("intercode")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
+  SOCURRENCY Int      @id @map("socurrency")
+  LOCKID     Int?     @map("lockid")
+  SHORTCUT   String?  @map("shortcut")
+  NAME       String?  @map("name")
+  ISACTIVE   Int      @map("isactive")
+  INTERCODE  String?  @map("intercode")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("socurrency")
 }
 
 model TRDCATEGORY {
-  TRDCATEGORY Int       @id @map("trdcategory")
-  CODE        String?   @map("code")
-  NAME        String?   @map("name")
-  ACNMSK      String?   @map("acnmsk")
-  KEPYOST     String?   @map("kepyost")
-  COUNTRY     Int?      @map("country")
-  SOCURRENCY  Int?      @map("socurrency")
-  ISACTIVE    Int       @map("isactive")
-  COMPANY     String?   @map("company")
-  SODTYPE     Int?      @map("sodtype")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  TRDCATEGORY Int      @id @map("trdcategory")
+  CODE        String?  @map("code")
+  NAME        String?  @map("name")
+  ACNMSK      String?  @map("acnmsk")
+  KEPYOST     String?  @map("kepyost")
+  COUNTRY     Int?     @map("country")
+  SOCURRENCY  Int?     @map("socurrency")
+  ISACTIVE    Int      @map("isactive")
+  COMPANY     String?  @map("company")
+  SODTYPE     Int?     @map("sodtype")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("trdcategory")
 }
 
 model PAYMENT {
-  PAYMENT       Int       @id @unique @map("payment")
-  CODE          String?   @map("code")
-  NAME          String?   @map("name")
-  ISACTIVE      Int       @map("isactive")
-  ACNMSK        String?   @map("acnmsk")
-  INSPAYMD      String?   @map("inspaymd")
-  INSCLCMD      String?   @map("insclcmd")
-  CREDITCARDS   String?   @map("creditcards")
-  VATPAYMENT    String?   @map("vatpayment")
-  ISDOSE        Int?      @map("isdose")
-  PAYFROMDATE   DateTime? @map("payfromdate")
-  INSTALMENTS   Int?      @map("instalments")
-  MATURE        Int?      @map("mature")
-  PAYROUND      Int?      @map("payround")
-  MATURE1       Int?      @map("mature1")
-  EXPN          String?   @map("expn")
-  SERIES        String?   @map("series")
-  CHQTPRMS      String?   @map("chqtprms")
-  BANK          String?   @map("bank")
-  BANKBRANCH    String?   @map("bankbranch")
-  INTERESTDEB   Float?    @map("interestdeb")
-  INTERESTCRE   Float?    @map("interestcre")
-  SODATA        String?   @map("sodata")
-  MYDATACODE    String?   @map("mydatacode")
-  EFACTURACODE  String?   @map("efacturacode")
-  PAYACNMSK     String?   @map("payacnmsk")
-  INSDATE       DateTime? @map("insdate")
-  UPDDATE       DateTime? @updatedAt @map("upddate")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  PAYMENT      Int       @id @unique @map("payment")
+  CODE         String?   @map("code")
+  NAME         String?   @map("name")
+  ISACTIVE     Int       @map("isactive")
+  ACNMSK       String?   @map("acnmsk")
+  INSPAYMD     String?   @map("inspaymd")
+  INSCLCMD     String?   @map("insclcmd")
+  CREDITCARDS  String?   @map("creditcards")
+  VATPAYMENT   String?   @map("vatpayment")
+  ISDOSE       Int?      @map("isdose")
+  PAYFROMDATE  DateTime? @map("payfromdate")
+  INSTALMENTS  Int?      @map("instalments")
+  MATURE       Int?      @map("mature")
+  PAYROUND     Int?      @map("payround")
+  MATURE1      Int?      @map("mature1")
+  EXPN         String?   @map("expn")
+  SERIES       String?   @map("series")
+  CHQTPRMS     String?   @map("chqtprms")
+  BANK         String?   @map("bank")
+  BANKBRANCH   String?   @map("bankbranch")
+  INTERESTDEB  Float?    @map("interestdeb")
+  INTERESTCRE  Float?    @map("interestcre")
+  SODATA       String?   @map("sodata")
+  MYDATACODE   String?   @map("mydatacode")
+  EFACTURACODE String?   @map("efacturacode")
+  PAYACNMSK    String?   @map("payacnmsk")
+  INSDATE      DateTime? @map("insdate")
+  UPDDATE      DateTime? @updatedAt @map("upddate")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   @@map("payment")
 }
@@ -428,9 +428,9 @@ model CronJobLog {
 }
 
 model CronJobProgress {
-  id             String   @id @default(cuid()) @map("id")
-  jobType        String   @map("job_type") @db.VarChar(100)
-  integrationId  String?  @map("integration_id") @db.VarChar(191)
+  id            String   @id @default(cuid()) @map("id")
+  jobType       String   @map("job_type") @db.VarChar(100)
+  integrationId String?  @map("integration_id") @db.VarChar(191)
   modelName     String?  @map("model_name") @db.VarChar(100)
   lastOffset    Int      @default(0) @map("last_offset")
   totalSeen     Int?     @map("total_seen")
@@ -497,33 +497,33 @@ enum LprImageType {
 }
 
 model LprCamera {
-  id                String                @id @default(cuid())
-  userId            String                @map("user_id")
-  name              String                @db.VarChar(255)
-  location          String?               @db.VarChar(255)
-  description       String?               @db.Text
-  ipAddress         String                @map("ip_address") @db.VarChar(255)
-  port              Int                   @default(80)
-  connectionType    LprConnectionType     @map("connection_type") @default(HTTP)
-  username          String?               @db.VarChar(255)
-  passwordEnc       String?               @map("password_enc") @db.Text
-  deviceId          String?               @map("device_id") @db.VarChar(255)
-  isActive          Boolean               @default(true) @map("is_active")
-  lastConnectedAt   DateTime?             @map("last_connected_at")
-  registerAll       Boolean               @default(false) @map("register_all")
-  registerRecognition Boolean             @default(true) @map("register_recognition")
-  registerCounting  Boolean               @default(false) @map("register_counting")
-  registerListEvent Boolean               @default(false) @map("register_list_event")
-  registerAttributes Boolean              @default(false) @map("register_attributes")
-  registerViolation Boolean               @default(false) @map("register_violation")
-  createdAt         DateTime              @default(now()) @map("created_at")
-  updatedAt         DateTime              @updatedAt @map("updated_at")
-  
-  user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String            @id @default(cuid())
+  userId              String            @map("user_id")
+  name                String            @db.VarChar(255)
+  location            String?           @db.VarChar(255)
+  description         String?           @db.Text
+  ipAddress           String            @map("ip_address") @db.VarChar(255)
+  port                Int               @default(80)
+  connectionType      LprConnectionType @default(HTTP) @map("connection_type")
+  username            String?           @db.VarChar(255)
+  passwordEnc         String?           @map("password_enc") @db.Text
+  deviceId            String?           @map("device_id") @db.VarChar(255)
+  isActive            Boolean           @default(true) @map("is_active")
+  lastConnectedAt     DateTime?         @map("last_connected_at")
+  registerAll         Boolean           @default(false) @map("register_all")
+  registerRecognition Boolean           @default(true) @map("register_recognition")
+  registerCounting    Boolean           @default(false) @map("register_counting")
+  registerListEvent   Boolean           @default(false) @map("register_list_event")
+  registerAttributes  Boolean           @default(false) @map("register_attributes")
+  registerViolation   Boolean           @default(false) @map("register_violation")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   recognitionEvents LprRecognitionEvent[]
   countingEvents    LprVehicleCountingEvent[]
   listEvents        LprListEvent[]
-  attributesEvents LprAttributesEvent[]
+  attributesEvents  LprAttributesEvent[]
   violationEvents   LprViolationEvent[]
   images            LprImage[]
 
@@ -534,33 +534,33 @@ model LprCamera {
 }
 
 model LprRecognitionEvent {
-  id                String        @id @default(cuid())
-  cameraId          String?       @map("camera_id")
-  recognitionTime   DateTime      @map("recognition_time")
-  licensePlate      String        @map("license_plate") @db.VarChar(50)
-  vehicleColor      String?       @map("vehicle_color") @db.VarChar(50)
-  vehicleBrand      String?       @map("vehicle_brand") @db.VarChar(100)
-  vehicleType       LprVehicleType? @map("vehicle_type")
-  plateColor        String?       @map("plate_color") @db.VarChar(50)
-  plateType         LprPlateType? @map("plate_type")
-  confidence        Float?
-  speed             Int?          // km/h
-  direction         LprDirection? @default(UNKNOWN)
-  region            String?       @db.VarChar(100)
-  roiId             Int?          @map("roi_id")
-  coordinateX1      Int?           @map("coordinate_x1")
-  coordinateY1      Int?           @map("coordinate_y1")
-  coordinateX2      Int?           @map("coordinate_x2")
-  coordinateY2      Int?           @map("coordinate_y2")
-  resolutionWidth   Int?           @map("resolution_width")
-  resolutionHeight  Int?           @map("resolution_height")
-  distance          Float?
-  azimuth           Float?
-  vehicleCount      Int?           @map("vehicle_count")
-  plateLength       Int?           @map("plate_length")
-  createdAt         DateTime      @default(now()) @map("created_at")
-  
-  camera            LprCamera?    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  id               String          @id @default(cuid())
+  cameraId         String?         @map("camera_id")
+  recognitionTime  DateTime        @map("recognition_time")
+  licensePlate     String          @map("license_plate") @db.VarChar(50)
+  vehicleColor     String?         @map("vehicle_color") @db.VarChar(50)
+  vehicleBrand     String?         @map("vehicle_brand") @db.VarChar(100)
+  vehicleType      LprVehicleType? @map("vehicle_type")
+  plateColor       String?         @map("plate_color") @db.VarChar(50)
+  plateType        LprPlateType?   @map("plate_type")
+  confidence       Float?
+  speed            Int? // km/h
+  direction        LprDirection?   @default(UNKNOWN)
+  region           String?         @db.VarChar(100)
+  roiId            Int?            @map("roi_id")
+  coordinateX1     Int?            @map("coordinate_x1")
+  coordinateY1     Int?            @map("coordinate_y1")
+  coordinateX2     Int?            @map("coordinate_x2")
+  coordinateY2     Int?            @map("coordinate_y2")
+  resolutionWidth  Int?            @map("resolution_width")
+  resolutionHeight Int?            @map("resolution_height")
+  distance         Float?
+  azimuth          Float?
+  vehicleCount     Int?            @map("vehicle_count")
+  plateLength      Int?            @map("plate_length")
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  camera LprCamera? @relation(fields: [cameraId], references: [id], onDelete: Cascade)
 
   @@index([cameraId])
   @@index([recognitionTime])
@@ -570,32 +570,32 @@ model LprRecognitionEvent {
 }
 
 model LprVehicleCountingEvent {
-  id                String        @id @default(cuid())
-  cameraId          String        @map("camera_id")
-  eventTime         DateTime      @map("event_time")
-  region            Int?
-  regionName        String?       @map("region_name") @db.VarChar(100)
-  reportType        String?       @map("report_type") @db.VarChar(50) // "instant" or "interval"
-  allCar            Int?          @map("all_car")
-  allMotorcycle     Int?          @map("all_motorcycle")
-  allNonMotor       Int?          @map("all_non_motor")
-  car               Int?
-  motorbike         Int?
-  bus                Int?
-  truck              Int?
-  van                Int?
-  suv                Int?
-  fireEngine         Int?          @map("fire_engine")
-  ambulance          Int?
-  bicycle            Int?
-  other              Int?
-  smallVehicle       Int?          @map("small_vehicle")
-  mediumVehicle      Int?          @map("medium_vehicle")
-  largeVehicle       Int?          @map("large_vehicle")
-  snapshotUrl        String?       @map("snapshot_url") @db.Text
-  createdAt          DateTime      @default(now()) @map("created_at")
-  
-  camera             LprCamera     @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  cameraId      String   @map("camera_id")
+  eventTime     DateTime @map("event_time")
+  region        Int?
+  regionName    String?  @map("region_name") @db.VarChar(100)
+  reportType    String?  @map("report_type") @db.VarChar(50) // "instant" or "interval"
+  allCar        Int?     @map("all_car")
+  allMotorcycle Int?     @map("all_motorcycle")
+  allNonMotor   Int?     @map("all_non_motor")
+  car           Int?
+  motorbike     Int?
+  bus           Int?
+  truck         Int?
+  van           Int?
+  suv           Int?
+  fireEngine    Int?     @map("fire_engine")
+  ambulance     Int?
+  bicycle       Int?
+  other         Int?
+  smallVehicle  Int?     @map("small_vehicle")
+  mediumVehicle Int?     @map("medium_vehicle")
+  largeVehicle  Int?     @map("large_vehicle")
+  snapshotUrl   String?  @map("snapshot_url") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  camera LprCamera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
 
   @@index([cameraId])
   @@index([eventTime])
@@ -604,16 +604,16 @@ model LprVehicleCountingEvent {
 }
 
 model LprListEvent {
-  id                String        @id @default(cuid())
-  cameraId          String?       @map("camera_id")
-  eventTime         DateTime      @map("event_time")
-  licensePlate      String        @map("license_plate") @db.VarChar(50)
-  listType          String?       @map("list_type") @db.VarChar(50) // "whitelist" or "blacklist"
-  matchStatus       String?       @map("match_status") @db.VarChar(50)
-  additionalData    Json?         @map("additional_data")
-  createdAt         DateTime      @default(now()) @map("created_at")
-  
-  camera            LprCamera?    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  cameraId       String?  @map("camera_id")
+  eventTime      DateTime @map("event_time")
+  licensePlate   String   @map("license_plate") @db.VarChar(50)
+  listType       String?  @map("list_type") @db.VarChar(50) // "whitelist" or "blacklist"
+  matchStatus    String?  @map("match_status") @db.VarChar(50)
+  additionalData Json?    @map("additional_data")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  camera LprCamera? @relation(fields: [cameraId], references: [id], onDelete: Cascade)
 
   @@index([cameraId])
   @@index([eventTime])
@@ -622,18 +622,18 @@ model LprListEvent {
 }
 
 model LprAttributesEvent {
-  id                String        @id @default(cuid())
-  cameraId          String?       @map("camera_id")
-  eventTime         DateTime      @map("event_time")
-  licensePlate      String        @map("license_plate") @db.VarChar(50)
-  vehicleColor      String?       @map("vehicle_color") @db.VarChar(50)
-  vehicleBrand      String?       @map("vehicle_brand") @db.VarChar(100)
-  vehicleType       LprVehicleType? @map("vehicle_type")
-  plateColor        String?       @map("plate_color") @db.VarChar(50)
-  additionalData    Json?         @map("additional_data")
-  createdAt         DateTime      @default(now()) @map("created_at")
-  
-  camera            LprCamera?    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  id             String          @id @default(cuid())
+  cameraId       String?         @map("camera_id")
+  eventTime      DateTime        @map("event_time")
+  licensePlate   String          @map("license_plate") @db.VarChar(50)
+  vehicleColor   String?         @map("vehicle_color") @db.VarChar(50)
+  vehicleBrand   String?         @map("vehicle_brand") @db.VarChar(100)
+  vehicleType    LprVehicleType? @map("vehicle_type")
+  plateColor     String?         @map("plate_color") @db.VarChar(50)
+  additionalData Json?           @map("additional_data")
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  camera LprCamera? @relation(fields: [cameraId], references: [id], onDelete: Cascade)
 
   @@index([cameraId])
   @@index([eventTime])
@@ -642,17 +642,17 @@ model LprAttributesEvent {
 }
 
 model LprViolationEvent {
-  id                String        @id @default(cuid())
-  cameraId          String?       @map("camera_id")
-  eventTime         DateTime      @map("event_time")
-  licensePlate      String        @map("license_plate") @db.VarChar(50)
-  violationType     String?       @map("violation_type") @db.VarChar(100)
-  region            Int?
-  regionName        String?       @map("region_name") @db.VarChar(100)
-  details           Json?
-  createdAt         DateTime      @default(now()) @map("created_at")
-  
-  camera            LprCamera?    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  id            String   @id @default(cuid())
+  cameraId      String?  @map("camera_id")
+  eventTime     DateTime @map("event_time")
+  licensePlate  String   @map("license_plate") @db.VarChar(50)
+  violationType String?  @map("violation_type") @db.VarChar(100)
+  region        Int?
+  regionName    String?  @map("region_name") @db.VarChar(100)
+  details       Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  camera LprCamera? @relation(fields: [cameraId], references: [id], onDelete: Cascade)
 
   @@index([cameraId])
   @@index([eventTime])
@@ -661,18 +661,18 @@ model LprViolationEvent {
 }
 
 model LprImage {
-  id                String        @id @default(cuid())
-  cameraId          String?       @map("camera_id")
-  eventType         String        @map("event_type") @db.VarChar(50) // "recognition", "counting", "list", "attributes", "violation"
-  eventId           String        @map("event_id")
-  imageType         LprImageType  @map("image_type")
-  url               String        @db.Text
-  fileName          String?       @map("file_name") @db.VarChar(255)
-  fileSize          Int?          @map("file_size")
-  mimeType          String?       @map("mime_type") @db.VarChar(100)
-  createdAt         DateTime      @default(now()) @map("created_at")
-  
-  camera            LprCamera?    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  id        String       @id @default(cuid())
+  cameraId  String?      @map("camera_id")
+  eventType String       @map("event_type") @db.VarChar(50) // "recognition", "counting", "list", "attributes", "violation"
+  eventId   String       @map("event_id")
+  imageType LprImageType @map("image_type")
+  url       String       @db.Text
+  fileName  String?      @map("file_name") @db.VarChar(255)
+  fileSize  Int?         @map("file_size")
+  mimeType  String?      @map("mime_type") @db.VarChar(100)
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  camera LprCamera? @relation(fields: [cameraId], references: [id], onDelete: Cascade)
 
   @@index([eventType, eventId])
   @@index([cameraId])
@@ -684,11 +684,356 @@ model LprImage {
 model ParkingWorkingHours {
   id        String   @id @default(cuid()) @map("id")
   dayOfWeek Int      @unique @map("day_of_week") // 0 Sun, 1 Mon, 2 Tue, 3 Wed, 4 Thu, 5 Fri, 6 Sat
-  openTime  String?  @map("open_time") @db.VarChar(5)  // "08:00"
-  closeTime String?  @map("close_time") @db.VarChar(5)  // "22:00"
+  openTime  String?  @map("open_time") @db.VarChar(5) // "08:00"
+  closeTime String?  @map("close_time") @db.VarChar(5) // "22:00"
   isClosed  Boolean  @default(false) @map("is_closed")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("parking_working_hours")
+}
+
+/// Ρυθμίσεις Mailgun για τα email των δημόσιων φορμών (μία εγγραφή).
+/// Το κλειδί API αποθηκεύεται κρυπτογραφημένο (lib/encryption.ts).
+model MailgunSettings {
+  id             String    @id @default(cuid())
+  domain         String    @db.VarChar(255)
+  apiKeyEnc      String    @map("api_key_enc") @db.Text
+  /// Περιοχή αποθήκευσης του λογαριασμού: "eu" (api.eu.mailgun.net) ή "us".
+  region         String    @default("eu") @db.VarChar(2)
+  fromName       String    @map("from_name") @db.VarChar(255)
+  fromEmail      String    @map("from_email") @db.VarChar(255)
+  /// Παραλήπτης των μηνυμάτων των φορμών (η εταιρεία).
+  recipientEmail String    @map("recipient_email") @db.VarChar(255)
+  /// Όταν είναι κλειστό, οι φόρμες δεν στέλνουν email.
+  isActive       Boolean   @default(true) @map("is_active")
+  lastTestAt     DateTime? @map("last_test_at")
+  lastTestOk     Boolean?  @map("last_test_ok")
+  lastTestError  String?   @map("last_test_error") @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@map("mailgun_settings")
+}
+
+// ── Newsletter ────────────────────────────────────────────────────────────────
+
+enum NewsletterStatus {
+  PENDING // Έγινε εγγραφή, εκκρεμεί επιβεβαίωση (double opt-in)
+  SUBSCRIBED
+  UNSUBSCRIBED
+  BOUNCED
+  COMPLAINED
+}
+
+/// Παραλήπτες ενημερωτικού δελτίου.
+model NewsletterSubscriber {
+  id             String           @id @default(cuid())
+  email          String           @unique @db.VarChar(255)
+  firstName      String?          @map("first_name") @db.VarChar(100)
+  lastName       String?          @map("last_name") @db.VarChar(100)
+  locale         String           @default("el") @db.VarChar(2)
+  status         NewsletterStatus @default(PENDING)
+  /// Τυχαίο κλειδί για επιβεβαίωση και διαγραφή, χωρίς σύνδεση.
+  token          String           @unique @db.VarChar(64)
+  source         String?          @db.VarChar(50) // "site-footer", "admin", "import"
+  confirmedAt    DateTime?        @map("confirmed_at")
+  unsubscribedAt DateTime?        @map("unsubscribed_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  recipients NewsletterRecipient[]
+
+  @@index([status])
+  @@map("newsletter_subscribers")
+}
+
+enum CampaignStatus {
+  DRAFT
+  SENDING
+  SENT
+  FAILED
+}
+
+/// Μία αποστολή ενημερωτικού δελτίου.
+model NewsletterCampaign {
+  id              String         @id @default(cuid())
+  name            String         @db.VarChar(255)
+  subject         String         @db.VarChar(255)
+  preheader       String?        @db.VarChar(255)
+  /// Ποιο από τα έτοιμα πρότυπα χρησιμοποιεί.
+  template        String         @default("standard") @db.VarChar(50)
+  /// Το περιεχόμενο του επεξεργαστή (Tiptap JSON).
+  contentJson     Json?          @map("content_json")
+  /// Το τελικό HTML που στάλθηκε — κρατιέται για το ιστορικό.
+  renderedHtml    String?        @map("rendered_html") @db.LongText
+  status          CampaignStatus @default(DRAFT)
+  locale          String         @default("el") @db.VarChar(2)
+  createdById     String?        @map("created_by_id")
+  sentAt          DateTime?      @map("sent_at")
+  /// Σύνολα τη στιγμή της αποστολής.
+  totalRecipients Int            @default(0) @map("total_recipients")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  recipients NewsletterRecipient[]
+  events     NewsletterEvent[]
+
+  @@index([status])
+  @@map("newsletter_campaigns")
+}
+
+/// Ένας παραλήπτης μιας αποστολής — κρατά το id του Mailgun για αντιστοίχιση.
+model NewsletterRecipient {
+  id           String   @id @default(cuid())
+  campaignId   String   @map("campaign_id")
+  subscriberId String   @map("subscriber_id")
+  email        String   @db.VarChar(255)
+  /// Το Message-Id που επιστρέφει το Mailgun.
+  messageId    String?  @map("message_id") @db.VarChar(255)
+  error        String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  campaign   NewsletterCampaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  subscriber NewsletterSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, subscriberId])
+  @@index([messageId])
+  @@map("newsletter_recipients")
+}
+
+/// Συμβάντα από το Mailgun (delivered, opened, clicked, failed…).
+model NewsletterEvent {
+  id         String   @id @default(cuid())
+  campaignId String?  @map("campaign_id")
+  messageId  String?  @map("message_id") @db.VarChar(255)
+  email      String   @db.VarChar(255)
+  /// accepted · delivered · opened · clicked · failed · complained · unsubscribed
+  event      String   @db.VarChar(30)
+  url        String?  @db.Text // για clicked
+  reason     String?  @db.Text // για failed
+  city       String?  @db.VarChar(100)
+  country    String?  @db.VarChar(2)
+  clientName String?  @map("client_name") @db.VarChar(100)
+  deviceType String?  @map("device_type") @db.VarChar(50)
+  timestamp  DateTime
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  campaign NewsletterCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, event, email, timestamp])
+  @@index([campaignId, event])
+  @@index([timestamp])
+  @@map("newsletter_events")
+}
+
+// ── GDPR ──────────────────────────────────────────────────────────────────────
+
+enum ConsentType {
+  NEWSLETTER // Εγγραφή σε ενημερωτικό δελτίο
+  COOKIES_ANALYTICS // Cookies στατιστικών
+  COOKIES_MARKETING // Cookies μάρκετινγκ
+  CONTACT_FORM // Υποβολή φόρμας επικοινωνίας
+  PROPOSAL_FORM // Αίτημα επαγγελματικής προσφοράς
+  CAR_WASH_BOOKING // Κράτηση πλυσίματος
+  TERMS // Αποδοχή όρων χρήσης
+  PRIVACY_POLICY // Ανάγνωση/αποδοχή πολιτικής απορρήτου
+}
+
+enum ConsentAction {
+  GRANTED
+  WITHDRAWN
+}
+
+/// Αρχείο συγκαταθέσεων (GDPR άρ. 7 §1: απόδειξη ότι δόθηκε συγκατάθεση).
+/// Κάθε εγγραφή είναι αμετάβλητη — ανάκληση = ΝΕΑ εγγραφή με WITHDRAWN.
+model ConsentLog {
+  id            String        @id @default(cuid())
+  email         String?       @db.VarChar(255)
+  subscriberId  String?       @map("subscriber_id")
+  userId        String?       @map("user_id")
+  type          ConsentType
+  action        ConsentAction
+  /// Το ακριβές κείμενο που είδε ο χρήστης όταν συναίνεσε.
+  consentText   String?       @map("consent_text") @db.Text
+  /// Έκδοση πολιτικής/όρων τη στιγμή της συγκατάθεσης.
+  policyVersion String?       @map("policy_version") @db.VarChar(20)
+  /// Πραγματική IP του επισκέπτη (πίσω από proxy: x-forwarded-for).
+  ipAddress     String?       @map("ip_address") @db.VarChar(45)
+  userAgent     String?       @map("user_agent") @db.Text
+  /// Η σελίδα από την οποία δόθηκε.
+  sourceUrl     String?       @map("source_url") @db.Text
+  locale        String?       @db.VarChar(2)
+  /// Πώς αποδεικνύεται (π.χ. "double-opt-in", "checkbox", "banner").
+  method        String?       @db.VarChar(50)
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  @@index([email])
+  @@index([type, action])
+  @@index([createdAt])
+  @@map("consent_logs")
+}
+
+enum DataRequestType {
+  ACCESS // άρ. 15 — πρόσβαση/αντίγραφο
+  RECTIFICATION // άρ. 16 — διόρθωση
+  ERASURE // άρ. 17 — διαγραφή
+  RESTRICTION // άρ. 18 — περιορισμός
+  PORTABILITY // άρ. 20 — φορητότητα
+  OBJECTION // άρ. 21 — εναντίωση
+  WITHDRAW // άρ. 7 §3 — ανάκληση συγκατάθεσης
+}
+
+enum DataRequestStatus {
+  RECEIVED
+  VERIFYING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
+/// Αιτήματα άσκησης δικαιωμάτων. Προθεσμία απάντησης: 30 ημέρες (άρ. 12 §3).
+model DataSubjectRequest {
+  id          String            @id @default(cuid())
+  email       String            @db.VarChar(255)
+  fullName    String?           @map("full_name") @db.VarChar(255)
+  type        DataRequestType
+  status      DataRequestStatus @default(RECEIVED)
+  message     String?           @db.Text
+  /// Επιβεβαίωση ταυτότητας με σύνδεσμο μιας χρήσης.
+  token       String            @unique @db.VarChar(64)
+  verifiedAt  DateTime?         @map("verified_at")
+  /// Προθεσμία 30 ημερών από την επιβεβαίωση.
+  dueAt       DateTime?         @map("due_at")
+  handledById String?           @map("handled_by_id")
+  handledAt   DateTime?         @map("handled_at")
+  resolution  String?           @db.Text
+  ipAddress   String?           @map("ip_address") @db.VarChar(45)
+  userAgent   String?           @map("user_agent") @db.Text
+  locale      String?           @db.VarChar(2)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([email])
+  @@map("data_subject_requests")
+}
+
+// ── CMS: πολυμέσα, σελίδες, νέα ────────────────────────────────────────────────
+
+/// Βιβλιοθήκη πολυμέσων. Τα αρχεία ζουν στο BunnyCDN· εδώ μένουν τα μεταδεδομένα.
+model MediaAsset {
+  id           String   @id @default(cuid())
+  /// Το όνομα που βλέπει ο χρήστης.
+  title        String   @db.VarChar(255)
+  fileName     String   @map("file_name") @db.VarChar(255)
+  url          String   @db.Text
+  mimeType     String   @map("mime_type") @db.VarChar(100)
+  fileSize     Int      @map("file_size")
+  /// Διαστάσεις μετά τη μετατροπή — μόνο για εικόνες.
+  width        Int?
+  height       Int?
+  /// Εναλλακτικό κείμενο ανά γλώσσα: { "el": "...", "en": "..." }
+  alt          Json?
+  folder       String   @default("library") @db.VarChar(100)
+  uploadedById String?  @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([mimeType])
+  @@index([createdAt])
+  @@map("media_assets")
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// Σελίδα του δημόσιου site. Το περιεχόμενο ζει στις μεταφράσεις.
+model Page {
+  id          String        @id @default(cuid())
+  /// Σταθερό κλειδί για εσωτερική αναφορά (δεν αλλάζει με τη γλώσσα).
+  key         String        @unique @db.VarChar(100)
+  status      ContentStatus @default(DRAFT)
+  /// Σειρά στο μενού· κενό σημαίνει εκτός μενού.
+  menuOrder   Int?          @map("menu_order")
+  showInMenu  Boolean       @default(false) @map("show_in_menu")
+  publishedAt DateTime?     @map("published_at")
+  createdById String?       @map("created_by_id")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  translations PageTranslation[]
+
+  @@index([status])
+  @@map("cms_pages")
+}
+
+model PageTranslation {
+  id                  String    @id @default(cuid())
+  pageId              String    @map("page_id")
+  locale              String    @db.VarChar(2)
+  title               String    @db.VarChar(255)
+  /// Μοναδικό ανά γλώσσα — χτίζει τη διαδρομή /{locale}/{slug}.
+  slug                String    @db.VarChar(255)
+  excerpt             String?   @db.Text
+  /// Περιεχόμενο του επεξεργαστή (Tiptap JSON).
+  contentJson         Json?     @map("content_json")
+  /// Το ίδιο περιεχόμενο ως HTML, για την απόδοση στο site.
+  contentHtml         String?   @map("content_html") @db.LongText
+  seoTitle            String?   @map("seo_title") @db.VarChar(255)
+  seoDescription      String?   @map("seo_description") @db.Text
+  ogImageUrl          String?   @map("og_image_url") @db.Text
+  /// Πότε η μετάφραση παρήχθη αυτόματα και δεν έχει ελεγχθεί από άνθρωπο.
+  isMachineTranslated Boolean   @default(false) @map("is_machine_translated")
+  translatedAt        DateTime? @map("translated_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, locale])
+  @@unique([locale, slug])
+  @@map("cms_page_translations")
+}
+
+/// Άρθρο / νέο.
+model NewsPost {
+  id            String        @id @default(cuid())
+  status        ContentStatus @default(DRAFT)
+  coverImageUrl String?       @map("cover_image_url") @db.Text
+  publishedAt   DateTime?     @map("published_at")
+  createdById   String?       @map("created_by_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  translations NewsTranslation[]
+
+  @@index([status, publishedAt])
+  @@map("cms_news")
+}
+
+model NewsTranslation {
+  id                  String    @id @default(cuid())
+  postId              String    @map("post_id")
+  locale              String    @db.VarChar(2)
+  title               String    @db.VarChar(255)
+  slug                String    @db.VarChar(255)
+  excerpt             String?   @db.Text
+  contentJson         Json?     @map("content_json")
+  contentHtml         String?   @map("content_html") @db.LongText
+  seoTitle            String?   @map("seo_title") @db.VarChar(255)
+  seoDescription      String?   @map("seo_description") @db.Text
+  isMachineTranslated Boolean   @default(false) @map("is_machine_translated")
+  translatedAt        DateTime? @map("translated_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  post NewsPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, locale])
+  @@unique([locale, slug])
+  @@map("cms_news_translations")
 }

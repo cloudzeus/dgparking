@@ -1,0 +1,179 @@
+{
+  "gdpr": {
+    "nav": {
+      "privacy": "Privacy policy",
+      "terms": "Terms of service",
+      "cookies": "Cookies",
+      "dataRights": "Your rights"
+    },
+    "controller": {
+      "title": "Data controller",
+      "name": "MEGA PARKING",
+      "address": "4 Mavromichali Street, Piraeus, Greece",
+      "emailLabel": "Email",
+      "email": "info@megaparking.gr",
+      "phoneLabel": "Phone",
+      "phone": "+30 210 4176 000",
+      "contactTitle": "Contact for data protection matters",
+      "contactText": "For any question about your personal data, or to exercise your rights, write to info@megaparking.gr or send a letter to the company address."
+    },
+    "authority": {
+      "title": "Right to lodge a complaint",
+      "text": "If you believe the processing of your data infringes the General Data Protection Regulation (EU) 2016/679, you may lodge a complaint with the supervisory authority.",
+      "name": "Hellenic Data Protection Authority",
+      "address": "1-3 Kifissias Avenue, 115 23 Athens, Greece",
+      "website": "www.dpa.gr"
+    },
+    "privacy": {
+      "meta": {
+        "title": "Privacy policy",
+        "description": "How MEGA Parking collects, uses and protects your personal data."
+      },
+      "lead": "This page explains which of your data we process, why, for how long, and how you can exercise your rights.",
+      "rightsTitle": "Your rights at a glance",
+      "rightsIntro": "The General Data Protection Regulation gives you specific rights. You can exercise them free of charge, at any time.",
+      "rightsCta": "Exercise your rights",
+      "cookiesCta": "Cookie settings"
+    },
+    "terms": {
+      "meta": {
+        "title": "Terms of service",
+        "description": "The terms under which you use the MEGA Parking website and services."
+      },
+      "lead": "By using our website and services you accept the terms below."
+    },
+    "cookies": {
+      "meta": {
+        "title": "Cookies",
+        "description": "What each cookie category does and how to change your choices."
+      },
+      "lead": "Cookies are small files stored on your device. The necessary ones keep the site working; everything else is your decision.",
+      "manageTitle": "Your choices",
+      "manageText": "You can change your choices at any time. Withdrawing consent is as easy as giving it.",
+      "reopen": "Cookie settings",
+      "alwaysOn": "Always on",
+      "optional": "Optional",
+      "whatTitle": "What we store",
+      "categories": {
+        "necessary": {
+          "name": "Necessary",
+          "description": "Without these the site does not work: login session, form security, and your cookie choice itself. They require no consent (Art. 5(3) of Directive 2002/58/EC).",
+          "examples": "Examples: user session, cross-site request forgery protection, storing your cookie preferences."
+        },
+        "analytics": {
+          "name": "Analytics",
+          "description": "They show us anonymously which pages are read and where you struggle, so we can improve the site.",
+          "examples": "Examples: traffic measurement, entry and exit pages, time on site."
+        },
+        "marketing": {
+          "name": "Marketing",
+          "description": "They let us show you relevant ads and measure how those ads perform on third-party platforms.",
+          "examples": "Examples: advertising conversion tracking, remarketing."
+        }
+      }
+    },
+    "banner": {
+      "title": "We respect your choices",
+      "description": "We use necessary cookies to keep the site running. With your consent we also use analytics and marketing cookies. You can change your mind at any time.",
+      "acceptAll": "Accept all",
+      "necessaryOnly": "Necessary only",
+      "settings": "Settings",
+      "save": "Save choices",
+      "close": "Close cookie notice",
+      "settingsTitle": "Cookie settings",
+      "settingsDescription": "Choose which cookie categories you allow. Necessary cookies are always on.",
+      "privacyLink": "Privacy policy",
+      "cookiesLink": "More about cookies",
+      "saved": "Your choices have been saved."
+    },
+    "consentCheckbox": {
+      "contact": "I have read the privacy policy and consent to my details being processed so that you can reply to my message.",
+      "proposal": "I have read the privacy policy and consent to my details being processed so that you can prepare and send me a quote.",
+      "linkText": "privacy policy",
+      "required": "We need your consent in order to continue."
+    },
+    "dataRights": {
+      "meta": {
+        "title": "Your rights",
+        "description": "Access, rectification, erasure, restriction, portability, objection and withdrawal of consent."
+      },
+      "lead": "Your data is yours. Below we explain what you can ask for, and you can submit your request in a minute.",
+      "rightsTitle": "What you can ask for",
+      "rights": {
+        "ACCESS": {
+          "title": "Access",
+          "article": "Art. 15",
+          "description": "Find out whether we process your data and receive a copy, together with the purpose, the recipients and the retention period."
+        },
+        "RECTIFICATION": {
+          "title": "Rectification",
+          "article": "Art. 16",
+          "description": "Have inaccurate details corrected or incomplete ones completed — a wrong phone number or licence plate, for example."
+        },
+        "ERASURE": {
+          "title": "Erasure",
+          "article": "Art. 17",
+          "description": "Have your data deleted when we no longer need it, or when you withdraw consent and no other legal basis applies."
+        },
+        "RESTRICTION": {
+          "title": "Restriction",
+          "article": "Art. 18",
+          "description": "Freeze the processing — for instance while the accuracy of your data or the merit of an objection is being checked."
+        },
+        "PORTABILITY": {
+          "title": "Portability",
+          "article": "Art. 20",
+          "description": "Receive the data you gave us in a structured, commonly used and machine-readable format."
+        },
+        "OBJECTION": {
+          "title": "Objection",
+          "article": "Art. 21",
+          "description": "Object to processing based on legitimate interest, and at any time to direct marketing."
+        },
+        "WITHDRAW": {
+          "title": "Withdrawal of consent",
+          "article": "Art. 7(3)",
+          "description": "Withdraw consent you have given, as easily as you gave it. Withdrawal does not affect the lawfulness of processing carried out beforehand."
+        }
+      },
+      "form": {
+        "title": "Submit a request",
+        "description": "Fill in the form. We will email you a confirmation link — that is how we make sure the request really comes from you.",
+        "typeLabel": "What you are asking for",
+        "typePlaceholder": "Choose a right",
+        "nameLabel": "Full name",
+        "namePlaceholder": "Your full name",
+        "emailLabel": "Email",
+        "emailPlaceholder": "The address you gave us",
+        "emailHint": "Use the address you contacted us with — the confirmation link will be sent there.",
+        "messageLabel": "Details",
+        "messagePlaceholder": "Anything that helps us find your records (optional)",
+        "consent": "I consent to the details in this form being processed solely in order to handle my request.",
+        "submit": "Submit request",
+        "submitting": "Submitting…",
+        "successTitle": "We have received your request",
+        "successDescription": "We sent you an email with a confirmation link. We reply within one month of confirmation at the latest.",
+        "errorTitle": "Something went wrong",
+        "errorDescription": "The request was not submitted. Please try again or write to info@megaparking.gr.",
+        "errors": {
+          "type": "Choose which right you want to exercise.",
+          "email": "Enter a valid email address.",
+          "name": "Enter your full name.",
+          "consent": "We need your consent in order to continue."
+        }
+      },
+      "verified": {
+        "title": "Your request is confirmed",
+        "description": "We have started working on it. You will hear from us within one month at the latest."
+      },
+      "verifyFailed": {
+        "title": "This link is not valid",
+        "description": "The confirmation link is wrong or has already been used. Submit a new request or write to info@megaparking.gr."
+      },
+      "deadlineTitle": "How long it takes",
+      "deadlineText": "We reply without undue delay and within one month of the request being confirmed at the latest (Art. 12(3)). For complex requests that period may be extended by two months — we will tell you if it is.",
+      "freeTitle": "Free of charge",
+      "freeText": "Exercising your rights costs you nothing."
+    }
+  }
+}

@@ -49,7 +49,6 @@
         "features": [
           "Posto auto riservato dedicato",
           "Accesso 24/7 con controllo remoto tramite app",
-          "15% di sconto sui servizi di lavaggio auto",
           "Fattura mensile digitale"
         ]
       },
@@ -83,10 +82,6 @@
         {
           "question": "Il vostro parcheggio è sicuro?",
           "answer": "Sì, il nostro parcheggio è ben illuminato e monitorato per garantire la sicurezza del tuo veicolo. Puoi parcheggiare con tranquillità, sapendo che la tua auto è in buone mani."
-        },
-        {
-          "question": "Offrite servizi di lavaggio auto?",
-          "answer": "Sì, offriamo un servizio professionale di lavaggio auto a mano. Il nostro team pulirà il tuo veicolo con grande cura, utilizzando prodotti di alta qualità e tecniche di lavaggio a mano per garantire che brilli come nuovo."
         },
         {
           "question": "Quali sono gli orari di apertura?",

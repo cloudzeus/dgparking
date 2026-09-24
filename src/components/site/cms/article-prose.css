@@ -1,0 +1,200 @@
+/*
+ * Τυπογραφία για το σώμα των άρθρων και των σελίδων του CMS.
+ *
+ * Το έργο δεν έχει `@tailwindcss/typography` — οι κανόνες γράφονται εδώ, με τα
+ * tokens της μάρκας, ώστε το κείμενο του επεξεργαστή να διαβάζεται σωστά χωρίς
+ * κλάσεις σε κάθε ετικέτα (το HTML έρχεται έτοιμο από τη βάση).
+ */
+
+.mega-prose {
+  color: var(--foreground);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  overflow-wrap: break-word;
+}
+
+.mega-prose > :first-child {
+  margin-top: 0;
+}
+
+.mega-prose > :last-child {
+  margin-bottom: 0;
+}
+
+.mega-prose p {
+  margin: 1.25em 0;
+}
+
+.mega-prose h2,
+.mega-prose h3,
+.mega-prose h4 {
+  color: var(--mega-blue);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.dark .mega-prose h2,
+.dark .mega-prose h3,
+.dark .mega-prose h4 {
+  color: var(--foreground);
+}
+
+.mega-prose h2 {
+  margin: 2em 0 0.75em;
+  font-size: 1.625rem;
+}
+
+.mega-prose h3 {
+  margin: 1.75em 0 0.6em;
+  font-size: 1.3125rem;
+}
+
+.mega-prose h4 {
+  margin: 1.5em 0 0.5em;
+  font-size: 1.125rem;
+}
+
+.mega-prose strong,
+.mega-prose b {
+  font-weight: 650;
+  color: var(--foreground);
+}
+
+.mega-prose a {
+  color: var(--mega-red);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.mega-prose a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.mega-prose ul,
+.mega-prose ol {
+  margin: 1.25em 0;
+  padding-inline-start: 1.5em;
+}
+
+.mega-prose ul {
+  list-style: disc;
+}
+
+.mega-prose ol {
+  list-style: decimal;
+}
+
+.mega-prose li {
+  margin: 0.4em 0;
+}
+
+.mega-prose li::marker {
+  color: var(--mega-steel);
+}
+
+.mega-prose blockquote {
+  margin: 1.75em 0;
+  padding: 0.25em 0 0.25em 1.25em;
+  border-inline-start: 3px solid var(--mega-red);
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+.mega-prose blockquote p {
+  margin: 0.5em 0;
+}
+
+.mega-prose hr {
+  margin: 2.5em 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.mega-prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.75em 0;
+  border-radius: var(--radius);
+}
+
+.mega-prose figure {
+  margin: 1.75em 0;
+}
+
+.mega-prose figure img {
+  margin: 0;
+}
+
+.mega-prose figcaption {
+  margin-top: 0.6em;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.mega-prose code {
+  padding: 0.15em 0.4em;
+  border-radius: calc(var(--radius) - 4px);
+  background: var(--mega-cloud);
+  color: var(--mega-blue);
+  font-size: 0.9em;
+}
+
+.dark .mega-prose code {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.mega-prose pre {
+  margin: 1.75em 0;
+  padding: 1em 1.25em;
+  border-radius: var(--radius);
+  background: var(--mega-blue);
+  color: #ffffff;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.mega-prose pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.mega-prose table {
+  display: block;
+  width: 100%;
+  margin: 1.75em 0;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.mega-prose th,
+.mega-prose td {
+  padding: 0.6em 0.85em;
+  border: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.mega-prose th {
+  background: var(--mega-cloud);
+  color: var(--mega-blue);
+  font-weight: 650;
+}
+
+.dark .mega-prose th {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.mega-prose caption {
+  margin-bottom: 0.5em;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}

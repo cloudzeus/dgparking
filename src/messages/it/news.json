@@ -1,0 +1,26 @@
+{
+  "news": {
+    "meta": {
+      "title": "Notizie",
+      "description": "Comunicazioni, variazioni di orario e notizie da MEGA Parking al Pireo."
+    },
+    "index": {
+      "title": "Notizie",
+      "description": "Comunicazioni, variazioni di orario e notizie dal parcheggio al Pireo.",
+      "readMore": "Leggi di più",
+      "empty": "Non abbiamo ancora pubblicato notizie. Torna a trovarci presto.",
+      "paginationNav": "Paginazione delle notizie",
+      "previous": "Precedente",
+      "next": "Successiva",
+      "pageStatus": "Pagina {page} di {total}"
+    },
+    "article": {
+      "back": "Tutte le notizie",
+      "readingTime": "{minutes, plural, one {# minuto di lettura} other {# minuti di lettura}}",
+      "related": "Ultime notizie"
+    }
+  },
+  "cms": {
+    "machineTranslated": "Questo testo è stato tradotto automaticamente e non è stato verificato da una persona."
+  }
+}

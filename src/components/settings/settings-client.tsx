@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PageHeader } from "@/components/admin/page";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,30 +103,28 @@ export function SettingsClient({ initialWorkingHours }: SettingsClientProps) {
   };
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Ρυθμίσεις"
-        description="Ωράριο λειτουργίας του πάρκινγκ ανά ημέρα — καθορίζει την πρόσβαση και την τιμολόγηση."
-        icon={Clock}
-        actions={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={loadWorkingHours}
-              disabled={loading}
-              title="Ανανέωση από τη βάση"
-            >
-              {loading ? <Spinner /> : <RefreshCw />}
-              Ανανέωση
-            </Button>
-            <Button type="button" onClick={handleSave} disabled={saving} title="Αποθήκευση ωραρίου">
-              {saving ? <Spinner /> : <Save />}
-              Αποθήκευση
-            </Button>
-          </>
-        }
-      />
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="min-w-0 text-sm text-muted-foreground">
+          Ωράριο λειτουργίας του πάρκινγκ ανά ημέρα — καθορίζει την πρόσβαση και την τιμολόγηση.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={loadWorkingHours}
+            disabled={loading}
+            title="Ανανέωση από τη βάση"
+          >
+            {loading ? <Spinner /> : <RefreshCw />}
+            Ανανέωση
+          </Button>
+          <Button type="button" onClick={handleSave} disabled={saving} title="Αποθήκευση ωραρίου">
+            {saving ? <Spinner /> : <Save />}
+            Αποθήκευση
+          </Button>
+        </div>
+      </div>
 
       <Card>
         <CardHeader>

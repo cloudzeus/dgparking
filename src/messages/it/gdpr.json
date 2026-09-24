@@ -1,0 +1,179 @@
+{
+  "gdpr": {
+    "nav": {
+      "privacy": "Informativa sulla privacy",
+      "terms": "Termini di servizio",
+      "cookies": "Cookie",
+      "dataRights": "I tuoi diritti"
+    },
+    "controller": {
+      "title": "Titolare del trattamento",
+      "name": "MEGA PARKING",
+      "address": "Via Mavromichali 4, Pireo, Grecia",
+      "emailLabel": "Email",
+      "email": "info@megaparking.gr",
+      "phoneLabel": "Telefono",
+      "phone": "+30 210 4176 000",
+      "contactTitle": "Contatto per la protezione dei dati",
+      "contactText": "Per qualsiasi domanda sui tuoi dati personali o per esercitare i tuoi diritti, scrivi a info@megaparking.gr oppure invia una lettera all'indirizzo della società."
+    },
+    "authority": {
+      "title": "Diritto di reclamo",
+      "text": "Se ritieni che il trattamento dei tuoi dati violi il Regolamento generale sulla protezione dei dati (UE) 2016/679, puoi presentare reclamo all'autorità di controllo.",
+      "name": "Autorità ellenica per la protezione dei dati personali",
+      "address": "Viale Kifissias 1-3, 115 23 Atene, Grecia",
+      "website": "www.dpa.gr"
+    },
+    "privacy": {
+      "meta": {
+        "title": "Informativa sulla privacy",
+        "description": "Come MEGA Parking raccoglie, utilizza e protegge i tuoi dati personali."
+      },
+      "lead": "Questa pagina spiega quali dati trattiamo, perché, per quanto tempo e come puoi esercitare i tuoi diritti.",
+      "rightsTitle": "I tuoi diritti in sintesi",
+      "rightsIntro": "Il Regolamento generale sulla protezione dei dati ti riconosce diritti precisi. Puoi esercitarli gratuitamente, in qualsiasi momento.",
+      "rightsCta": "Esercita i tuoi diritti",
+      "cookiesCta": "Impostazioni cookie"
+    },
+    "terms": {
+      "meta": {
+        "title": "Termini di servizio",
+        "description": "I termini a cui utilizzi il sito e i servizi di MEGA Parking."
+      },
+      "lead": "Utilizzando il nostro sito e i nostri servizi accetti i termini riportati di seguito."
+    },
+    "cookies": {
+      "meta": {
+        "title": "Cookie",
+        "description": "Che cosa fa ogni categoria di cookie e come modificare le tue scelte."
+      },
+      "lead": "I cookie sono piccoli file salvati sul tuo dispositivo. Quelli necessari fanno funzionare il sito; su tutto il resto decidi tu.",
+      "manageTitle": "Le tue scelte",
+      "manageText": "Puoi modificare le tue scelte in qualsiasi momento. Revocare il consenso è semplice quanto darlo.",
+      "reopen": "Impostazioni cookie",
+      "alwaysOn": "Sempre attivi",
+      "optional": "Facoltativi",
+      "whatTitle": "Che cosa memorizziamo",
+      "categories": {
+        "necessary": {
+          "name": "Necessari",
+          "description": "Senza questi il sito non funziona: sessione di accesso, sicurezza dei moduli e la tua stessa scelta sui cookie. Non richiedono consenso (art. 5, par. 3 della direttiva 2002/58/CE).",
+          "examples": "Esempi: sessione utente, protezione contro la falsificazione delle richieste, memorizzazione delle tue preferenze sui cookie."
+        },
+        "analytics": {
+          "name": "Statistici",
+          "description": "Ci mostrano in forma anonima quali pagine vengono lette e dove incontri difficoltà, così possiamo migliorare il sito.",
+          "examples": "Esempi: misurazione del traffico, pagine di ingresso e di uscita, durata della visita."
+        },
+        "marketing": {
+          "name": "Marketing",
+          "description": "Servono a mostrarti annunci pertinenti e a misurarne il rendimento su piattaforme di terze parti.",
+          "examples": "Esempi: monitoraggio delle conversioni pubblicitarie, remarketing."
+        }
+      }
+    },
+    "banner": {
+      "title": "Rispettiamo le tue scelte",
+      "description": "Utilizziamo cookie necessari per far funzionare il sito. Con il tuo consenso utilizziamo anche cookie statistici e di marketing. Puoi cambiare idea in qualsiasi momento.",
+      "acceptAll": "Accetta tutti",
+      "necessaryOnly": "Solo i necessari",
+      "settings": "Impostazioni",
+      "save": "Salva le scelte",
+      "close": "Chiudi avviso cookie",
+      "settingsTitle": "Impostazioni cookie",
+      "settingsDescription": "Scegli quali categorie di cookie consenti. Quelli necessari sono sempre attivi.",
+      "privacyLink": "Informativa sulla privacy",
+      "cookiesLink": "Maggiori informazioni sui cookie",
+      "saved": "Le tue scelte sono state salvate."
+    },
+    "consentCheckbox": {
+      "contact": "Ho letto l'informativa sulla privacy e acconsento al trattamento dei miei dati affinché possiate rispondere al mio messaggio.",
+      "proposal": "Ho letto l'informativa sulla privacy e acconsento al trattamento dei miei dati affinché possiate preparare e inviarmi un preventivo.",
+      "linkText": "informativa sulla privacy",
+      "required": "Abbiamo bisogno del tuo consenso per proseguire."
+    },
+    "dataRights": {
+      "meta": {
+        "title": "I tuoi diritti",
+        "description": "Accesso, rettifica, cancellazione, limitazione, portabilità, opposizione e revoca del consenso."
+      },
+      "lead": "I tuoi dati sono tuoi. Qui sotto spieghiamo che cosa puoi chiedere e puoi inviare la tua richiesta in un minuto.",
+      "rightsTitle": "Che cosa puoi chiedere",
+      "rights": {
+        "ACCESS": {
+          "title": "Accesso",
+          "article": "art. 15",
+          "description": "Sapere se trattiamo i tuoi dati e ricevere una copia, insieme alla finalità, ai destinatari e al periodo di conservazione."
+        },
+        "RECTIFICATION": {
+          "title": "Rettifica",
+          "article": "art. 16",
+          "description": "Far correggere dati inesatti o completare quelli incompleti, per esempio un numero di telefono o una targa errati."
+        },
+        "ERASURE": {
+          "title": "Cancellazione",
+          "article": "art. 17",
+          "description": "Far cancellare i tuoi dati quando non ci servono più o quando revochi il consenso e non esiste un'altra base giuridica."
+        },
+        "RESTRICTION": {
+          "title": "Limitazione",
+          "article": "art. 18",
+          "description": "Congelare il trattamento, per esempio mentre si verifica l'esattezza dei tuoi dati o la fondatezza di un'opposizione."
+        },
+        "PORTABILITY": {
+          "title": "Portabilità",
+          "article": "art. 20",
+          "description": "Ricevere i dati che ci hai fornito in un formato strutturato, di uso comune e leggibile da dispositivo automatico."
+        },
+        "OBJECTION": {
+          "title": "Opposizione",
+          "article": "art. 21",
+          "description": "Opporti al trattamento fondato sul legittimo interesse e, in qualsiasi momento, al marketing diretto."
+        },
+        "WITHDRAW": {
+          "title": "Revoca del consenso",
+          "article": "art. 7, par. 3",
+          "description": "Revocare il consenso prestato, con la stessa facilità con cui lo hai dato. La revoca non pregiudica la liceità del trattamento precedente."
+        }
+      },
+      "form": {
+        "title": "Invia una richiesta",
+        "description": "Compila il modulo. Ti invieremo un'email con un link di conferma: così verifichiamo che la richiesta provenga davvero da te.",
+        "typeLabel": "Che cosa chiedi",
+        "typePlaceholder": "Scegli un diritto",
+        "nameLabel": "Nome e cognome",
+        "namePlaceholder": "Il tuo nome e cognome",
+        "emailLabel": "Email",
+        "emailPlaceholder": "L'indirizzo che ci hai fornito",
+        "emailHint": "Usa l'indirizzo con cui ci hai contattato: il link di conferma verrà inviato lì.",
+        "messageLabel": "Dettagli",
+        "messagePlaceholder": "Tutto ciò che ci aiuta a trovare i tuoi dati (facoltativo)",
+        "consent": "Acconsento al trattamento dei dati di questo modulo esclusivamente per gestire la mia richiesta.",
+        "submit": "Invia la richiesta",
+        "submitting": "Invio in corso…",
+        "successTitle": "Abbiamo ricevuto la tua richiesta",
+        "successDescription": "Ti abbiamo inviato un'email con un link di conferma. Rispondiamo al più tardi entro un mese dalla conferma.",
+        "errorTitle": "Qualcosa è andato storto",
+        "errorDescription": "La richiesta non è stata inviata. Riprova oppure scrivici a info@megaparking.gr.",
+        "errors": {
+          "type": "Scegli quale diritto vuoi esercitare.",
+          "email": "Inserisci un indirizzo email valido.",
+          "name": "Inserisci il tuo nome e cognome.",
+          "consent": "Abbiamo bisogno del tuo consenso per proseguire."
+        }
+      },
+      "verified": {
+        "title": "La tua richiesta è confermata",
+        "description": "Abbiamo iniziato a lavorarci. Riceverai una risposta al più tardi entro un mese."
+      },
+      "verifyFailed": {
+        "title": "Il link non è valido",
+        "description": "Il link di conferma è errato oppure è già stato utilizzato. Invia una nuova richiesta o scrivici a info@megaparking.gr."
+      },
+      "deadlineTitle": "Quanto tempo serve",
+      "deadlineText": "Rispondiamo senza ingiustificato ritardo e al più tardi entro un mese dalla conferma della richiesta (art. 12, par. 3). Per richieste complesse il termine può essere prorogato di due mesi: te lo comunicheremo.",
+      "freeTitle": "Senza costi",
+      "freeText": "L'esercizio dei tuoi diritti è gratuito."
+    }
+  }
+}

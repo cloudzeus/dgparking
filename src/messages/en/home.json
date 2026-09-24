@@ -22,10 +22,6 @@
       "title": "Spacious Parking",
       "description": "Wide, comfortable parking spaces designed to accommodate vehicles of all sizes, from compact cars to larger SUVs."
     },
-    "carWash": {
-      "title": "Hand Car Wash",
-      "description": "Our premium hand car wash service provides a personalized touch, ensuring your car gets the best care possible."
-    },
     "support": {
       "title": "Customer Support",
       "description": "Our friendly staff is always available to assist you with any queries or concerns regarding our parking services."
@@ -57,27 +53,6 @@
     "reports": {
       "title": "Reports and history",
       "description": "Movements per day, exits without an entry, and the full recognition history for every plate."
-    }
-  },
-  "carWashServices": {
-    "title": "Car Wash Services",
-    "description": "Professional car washing services at our facilities.",
-    "popular": "Popular",
-    "cta": "Schedule Car Wash",
-    "basic": {
-      "title": "Basic Wash",
-      "price": "20€",
-      "features": ["Exterior hand wash", "Tire cleaning", "Windows cleaning"]
-    },
-    "premium": {
-      "title": "Premium Wash",
-      "price": "30€",
-      "features": ["Everything in Basic", "Interior vacuum", "Dashboard cleaning", "Air freshener"]
-    },
-    "deluxe": {
-      "title": "Deluxe Wash",
-      "price": "40€",
-      "features": ["Everything in Premium", "Hand waxing", "Tire shine", "Interior detailing"]
     }
   },
   "business": {

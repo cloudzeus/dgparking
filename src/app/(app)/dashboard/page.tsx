@@ -101,11 +101,13 @@ export default async function DashboardPage() {
   const now = new Date();
 
   // Run all secondary data fetches in parallel for faster dashboard load
+  // Ένα φόρτωμα των ειδών, όχι δύο: το δεύτερο ερώτημα ζητούσε ακριβώς τα ίδια
+  // 26.000 rows με ένα επιπλέον πεδίο. Με απομακρυσμένη βάση κάθε περιττό
+  // ερώτημα κοστίζει δευτερόλεπτα.
   const [
     fetchedImages,
-    itemsWithCodeForPlatesInItems,
+    itemsWithCode,
     activeInstWithLines,
-    itemsWithCodeForContract,
     contractInfoMap,
     contractsWithPlatesCount,
   ] = await Promise.all([
@@ -118,15 +120,11 @@ export default async function DashboardPage() {
       : Promise.resolve([]),
     prisma.iTEMS.findMany({
       where: { CODE: { not: null } },
-      select: { CODE: true },
+      select: { MTRL: true, CODE: true },
     }),
     prisma.iNST.findMany({
       where: { WDATETO: { gte: now }, ISACTIVE: 1, lines: { some: {} } },
       select: { lines: { select: { MTRL: true } } },
-    }),
-    prisma.iTEMS.findMany({
-      where: { CODE: { not: null } },
-      select: { MTRL: true, CODE: true },
     }),
     getContractInfoByPlate(),
     prisma.iNST.count({ where: { lines: { some: {} } } }),
@@ -277,7 +275,7 @@ export default async function DashboardPage() {
 
   // Plates registered in ITEMS (CODE = license plate) — from parallel fetch
   const platesInItems = new Set<string>();
-  for (const item of itemsWithCodeForPlatesInItems) {
+  for (const item of itemsWithCode) {
     if (item.CODE && typeof item.CODE === "string") {
       const plate = item.CODE.trim().toUpperCase();
       if (plate.length > 0) platesInItems.add(plate);
@@ -296,7 +294,7 @@ export default async function DashboardPage() {
       }
     }
   }
-  for (const item of itemsWithCodeForContract) {
+  for (const item of itemsWithCode) {
     if (!item.CODE || typeof item.CODE !== "string") continue;
     const normalizedMtrl = item.MTRL ? (String(item.MTRL).replace(/^0+/, "") || item.MTRL.trim()) : "";
     const inContract = (normalizedMtrl && mtrlSet.has(normalizedMtrl)) || (item.MTRL && mtrlSet.has(item.MTRL.trim()));
@@ -333,61 +331,45 @@ export default async function DashboardPage() {
 async function getDashboardStats(role: string) {
   // Calculate vehicle statistics from recognition events
   // Only count events with valid license plates
-  const whereValidPlate = {
-    licensePlate: {
-      not: "",
-    },
-  };
-
-  // Total vehicles (all recognition events with license plates)
-  const totalVehicles = await prisma.lprRecognitionEvent.count({
-    where: whereValidPlate,
-  });
-
-  // Total IN (direction = IN)
-  const totalIn = await prisma.lprRecognitionEvent.count({
-    where: {
-      ...whereValidPlate,
-      direction: "IN",
-    },
-  });
-
-  // Total OUT (direction = OUT)
-  const totalOut = await prisma.lprRecognitionEvent.count({
-    where: {
-      ...whereValidPlate,
-      direction: "OUT",
-    },
-  });
-
-  // Contracts IN (plateType = BLACK or WHITE, direction = IN)
-  const contractsIn = await prisma.lprRecognitionEvent.count({
-    where: {
-      ...whereValidPlate,
-      direction: "IN",
-      plateType: {
-        in: ["BLACK", "WHITE"],
-      },
-    },
-  });
-
-  // Walk Ins (plateType = VISITOR, direction = IN) — only 06:00 to 23:00 of current date
+  // Πέντε COUNT πάνω στον ΙΔΙΟ πίνακα γίνονται ένα πέρασμα με conditional sums.
+  // Με απομακρυσμένη βάση αυτό είναι 1 διαδρομή αντί για 5, και η MySQL σαρώνει
+  // τον πίνακα μία φορά αντί για πέντε.
   const now = new Date();
   const walkInWindowStart = new Date(now);
   walkInWindowStart.setHours(6, 0, 0, 0);
   const walkInWindowEnd = new Date(now);
   walkInWindowEnd.setHours(23, 0, 0, 0);
-  const walkIns = await prisma.lprRecognitionEvent.count({
-    where: {
-      ...whereValidPlate,
-      direction: "IN",
-      plateType: "VISITOR",
-      recognitionTime: {
-        gte: walkInWindowStart,
-        lte: walkInWindowEnd,
-      },
-    },
-  });
+
+  const [row] = await prisma.$queryRaw<
+    {
+      totalVehicles: bigint;
+      totalIn: bigint;
+      totalOut: bigint;
+      contractsIn: bigint;
+      walkIns: bigint;
+    }[]
+  >`
+    SELECT
+      COUNT(*) AS totalVehicles,
+      SUM(direction = 'IN') AS totalIn,
+      SUM(direction = 'OUT') AS totalOut,
+      SUM(direction = 'IN' AND plate_type IN ('BLACK','WHITE')) AS contractsIn,
+      SUM(
+        direction = 'IN'
+        AND plate_type = 'VISITOR'
+        AND recognition_time >= ${walkInWindowStart}
+        AND recognition_time <= ${walkInWindowEnd}
+      ) AS walkIns
+    FROM lpr_recognition_events
+    WHERE license_plate IS NOT NULL AND license_plate <> ''
+  `;
+
+  const n = (v: bigint | number | null | undefined) => Number(v ?? 0);
+  const totalVehicles = n(row?.totalVehicles);
+  const totalIn = n(row?.totalIn);
+  const totalOut = n(row?.totalOut);
+  const contractsIn = n(row?.contractsIn);
+  const walkIns = n(row?.walkIns);
 
   return {
     totalVehicles,

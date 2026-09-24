@@ -205,10 +205,12 @@ export async function POST(
           objectData.CODE = String(recordData.CODE);
         }
 
-        // For ITEMS model, SoftOne table name is "MTRL", not "ITEMS"
+        // Το SoftOne θέλει ΑΝΤΙΚΕΙΜΕΝΟ, όχι πίνακα: το αντικείμενο των ειδών
+        // είναι το `ITEM` (ο πίνακάς του λέγεται MTRL). Το `MTRL` δεν υπάρχει
+        // ως αντικείμενο — το setData γύριζε success χωρίς να γράψει τίποτα.
         let objectName = integration.objectName || integration.tableName;
         if (modelName === "ITEMS") {
-          objectName = "MTRL"; // SoftOne table name for items is MTRL
+          objectName = "ITEM";
         }
         softOneData[objectName] = [objectData];
 
@@ -248,9 +250,12 @@ export async function POST(
         // If SoftOne also returned data via LOCATEINFO, use it to update fields
         if (setDataResult.data) {
           const softOneResponse = setDataResult.data;
-          // For ITEMS, check both "MTRL" and objectName (in case it's stored differently)
-          const responseKey = modelName === "ITEMS" ? "MTRL" : objectName;
-          if (softOneResponse[responseKey] && softOneResponse[responseKey][0]) {
+          // Η απάντηση έρχεται με κλειδί το όνομα του ΠΙΝΑΚΑ. Για τα είδη αυτό
+          // είναι "ITEM", αλλά κάποιες εγκαταστάσεις απαντούν με το dbname
+          // ("MTRL") — δοκιμάζουμε και τα δύο αντί να μαντέψουμε.
+          const candidates = modelName === "ITEMS" ? ["ITEM", "MTRL", objectName] : [objectName];
+          const responseKey = candidates.find((k) => softOneResponse[k]?.[0]);
+          if (responseKey) {
             const softOneRecord = softOneResponse[responseKey][0];
             
             if (modelName === "CUSTORMER") {

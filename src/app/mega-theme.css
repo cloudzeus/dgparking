@@ -1,76 +1,98 @@
 /*
- * MEGA Parking — χρώματα του δημόσιου site (cloudzeus/megaparkingsite).
+ * MEGA Parking — επίσημη ταυτότητα.
+ * Πηγή: «Σύστημα Σχεδιασμού & Υλικό Ταυτότητας» v1.0, Ιούλιος 2026.
  *
- * Ισχύουν ΜΟΝΟ μέσα στο `.theme-mega` (το layout των δημόσιων σελίδων), ώστε
- * οι σελίδες διαχείρισης να κρατούν τα tokens του DG. Ίδια components,
- * διαφορετική μάρκα.
+ * Ισχύει ΜΟΝΟ μέσα στο `.theme-mega` (δημόσιο site και σελίδες σύνδεσης),
+ * ώστε οι σελίδες διαχείρισης να κρατούν τα tokens του DG.
  *
- * Μπλε #17285B · Κόκκινο #BE0E30 · Roboto.
+ * Παλέτα οδηγού — οι τιμές μπαίνουν ως hex, ακριβώς όπως ορίζονται:
+ *   MP Red   #C4123D  (PMS 193 C) — ΜΟΝΟ για δράση: CTA, κουμπιά, έξοδοι
+ *   MP Navy  #1E2A5A  (PMS 281 C) — ασφάλεια, σταθερότητα, κεφαλίδες
+ *   Ink      #21212E  (PMS 532 C) — κείμενο
+ *   Steel    #888894                — δευτερεύον κείμενο
+ *   Cloud    #EDEDF1                — φόντα, διαχωριστικά
+ *   White    #FFFFFF
  */
 
 .theme-mega {
   --radius: 0.5rem;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.269 0.061 265); /* MEGA blue σε κείμενο */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.269 0.061 265);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.269 0.061 265);
+  --background: #ffffff;
+  --foreground: #21212e; /* Ink */
+  --card: #ffffff;
+  --card-foreground: #21212e;
+  --popover: #ffffff;
+  --popover-foreground: #21212e;
 
-  --primary: oklch(0.297 0.086 268); /* #17285B */
-  --primary-foreground: oklch(1 0 0);
+  /* Το μπλε της μάρκας κουβαλά την αναγνωρισιμότητα. */
+  --primary: #1e2a5a; /* MP Navy */
+  --primary-foreground: #ffffff;
 
-  --secondary: oklch(0.968 0.007 265);
-  --secondary-foreground: oklch(0.297 0.086 268);
-  --muted: oklch(0.968 0.007 265);
-  --muted-foreground: oklch(0.49 0.02 265);
-  --accent: oklch(0.948 0.012 265);
-  --accent-foreground: oklch(0.297 0.086 268);
+  --secondary: #ededf1; /* Cloud */
+  --secondary-foreground: #1e2a5a;
+  --muted: #ededf1;
+  --muted-foreground: #888894; /* Steel */
+  --accent: #e2e2e8;
+  --accent-foreground: #1e2a5a;
 
-  --destructive: oklch(0.505 0.196 19); /* #BE0E30 */
+  /* Το κόκκινο είναι χρώμα δράσης — και καταστροφικής ενέργειας. */
+  --destructive: #c4123d; /* MP Red */
 
-  --border: oklch(0.912 0.009 265);
-  --input: oklch(0.912 0.009 265);
-  --ring: oklch(0.297 0.086 268);
+  --border: #dcdce2;
+  --input: #dcdce2;
+  --ring: #1e2a5a;
 
   /* Η μάρκα ως δικά της tokens, για ό,τι δεν είναι σημασιολογικό. */
-  --mega-blue: #17285b;
-  --mega-red: #be0e30;
+  --mega-blue: #1e2a5a;
+  --mega-red: #c4123d;
+  --mega-ink: #21212e;
+  --mega-steel: #888894;
+  --mega-cloud: #ededf1;
 }
 
 .dark .theme-mega,
 .theme-mega.dark {
-  --background: oklch(0.242 0.069 268); /* βαθύ MEGA blue */
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.297 0.086 268);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.297 0.086 268);
-  --popover-foreground: oklch(0.98 0 0);
+  --background: #151a30; /* βαθύ MP Navy */
+  --foreground: #f5f5f8;
+  --card: #1e2a5a;
+  --card-foreground: #f5f5f8;
+  --popover: #1e2a5a;
+  --popover-foreground: #f5f5f8;
 
-  --primary: oklch(0.98 0 0);
-  --primary-foreground: oklch(0.297 0.086 268);
+  --primary: #ffffff;
+  --primary-foreground: #1e2a5a;
 
-  --secondary: oklch(0.34 0.07 268);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.34 0.07 268);
-  --muted-foreground: oklch(0.78 0.02 265);
-  --accent: oklch(0.34 0.07 268);
-  --accent-foreground: oklch(0.98 0 0);
+  --secondary: #2a3768;
+  --secondary-foreground: #f5f5f8;
+  --muted: #2a3768;
+  --muted-foreground: #b8b8c2;
+  --accent: #2a3768;
+  --accent-foreground: #f5f5f8;
 
-  --destructive: oklch(0.62 0.2 19);
+  --destructive: #e0415f; /* MP Red, φωτισμένο για σκούρο φόντο */
 
-  --border: oklch(1 0 0 / 14%);
-  --input: oklch(1 0 0 / 18%);
-  --ring: oklch(0.78 0.03 265);
+  --border: rgb(255 255 255 / 14%);
+  --input: rgb(255 255 255 / 18%);
+  --ring: #b8b8c2;
 }
 
-/* Roboto στο site — Inter/Segoe μένουν στις σελίδες διαχείρισης. */
+/*
+ * Γραμματοσειρές του οδηγού: Commissioner για τα πάντα (καλύπτει ελληνικά και
+ * λατινικά σε ένα αρχείο), JetBrains Mono για λειτουργικά δεδομένα — πινακίδες,
+ * ώρες, τιμές, αριθμούς θέσεων.
+ */
 .theme-mega {
-  font-family: var(--font-roboto), var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-commissioner), Arial, Helvetica, sans-serif;
 }
 
-/* Το κόκκινο της μάρκας ως υπογράμμιση τίτλου ή τονισμός. */
+.theme-mega .font-mono,
+.theme-mega code,
+.theme-mega kbd,
+.theme-mega samp {
+  font-family: var(--font-jetbrains-mono), "Courier New", monospace;
+}
+
+/* Βοηθητικά της μάρκας. */
 .theme-mega .text-mega-red {
   color: var(--mega-red);
 }
@@ -81,4 +103,8 @@
 
 .theme-mega .bg-mega-red {
   background-color: var(--mega-red);
+}
+
+.theme-mega .border-mega-red {
+  border-color: var(--mega-red);
 }

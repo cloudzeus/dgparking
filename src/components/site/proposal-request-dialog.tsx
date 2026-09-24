@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Link } from "@/i18n/navigation";
 
 const SERVICE_TYPES = ["monthly", "vip", "reserved", "fleet", "events"] as const;
 const VEHICLE_COUNTS = ["1-5", "6-10", "11-20", "21-50", "50+"] as const;
@@ -52,11 +53,13 @@ type ProposalValues = {
   accessNeeded: string;
   additionalInfo: string;
   agreement: boolean;
+  consent: boolean;
 };
 
 /** Αίτημα επαγγελματικής προσφοράς — στέλνει στο `/api/send-proposal`. */
 export function ProposalRequestDialog() {
   const t = useTranslations("business.proposal");
+  const tConsent = useTranslations("gdpr.consentCheckbox");
   const [open, setOpen] = useState(false);
 
   // Τα μηνύματα λάθους έρχονται από τα i18n αρχεία, γι' αυτό το schema φτιάχνεται εδώ.
@@ -70,6 +73,7 @@ export function ProposalRequestDialog() {
     accessNeeded: z.string().min(1, t("errors.accessNeeded")),
     additionalInfo: z.string(),
     agreement: z.boolean().refine((value) => value === true, t("errors.agreement")),
+    consent: z.boolean().refine((value) => value === true, tConsent("required")),
   });
 
   const form = useForm<ProposalValues>({
@@ -84,6 +88,7 @@ export function ProposalRequestDialog() {
       accessNeeded: "",
       additionalInfo: "",
       agreement: false,
+      consent: false,
     },
   });
 
@@ -91,10 +96,16 @@ export function ProposalRequestDialog() {
 
   async function onSubmit(values: ProposalValues) {
     try {
+      // Η συγκατάθεση ταξιδεύει χωριστά (`gdprConsent`): το route την
+      // καταγράφει και τη βγάζει, ώστε το email να μείνει ακριβώς ίδιο.
+      const { consent, ...formData } = values;
       const response = await fetch("/api/send-proposal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          ...formData,
+          gdprConsent: { text: tConsent("proposal"), accepted: consent },
+        }),
       });
 
       if (!response.ok) throw new Error("Failed to submit proposal request");
@@ -317,6 +328,32 @@ export function ProposalRequestDialog() {
                   <div className="space-y-1 leading-none">
                     <FormLabel>{t("agreement")}</FormLabel>
                     <FormDescription>{t("agreementHelp")}</FormDescription>
+                    <FormMessage />
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="consent"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start gap-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                      className="mt-1"
+                    />
+                  </FormControl>
+                  <div className="min-w-0 space-y-1 leading-none">
+                    <FormLabel className="text-sm leading-snug font-normal">
+                      {tConsent("proposal")}{" "}
+                      <Link href="/privacy" className="underline underline-offset-4">
+                        {tConsent("linkText")}
+                      </Link>
+                    </FormLabel>
                     <FormMessage />
                   </div>
                 </FormItem>

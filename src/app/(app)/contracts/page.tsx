@@ -6,7 +6,7 @@ import { ContractsClient } from "@/components/contracts/contracts-client";
 import type { Role } from "@prisma/client";
 
 /** Shape of an INSTLINE used in filter/map callbacks (avoids implicit any) */
-type InstLineRow = { MTRL?: string | null; INSTLINES?: unknown; INST?: unknown; LINENUM?: unknown; MTRL_NAME?: string | null };
+type InstLineRow = { MTRL?: string | null; INSTLINES?: unknown; INST?: unknown; LINENUM?: unknown; MTRL_PLATE?: string | null; MTRL_NAME?: string | null };
 
 // Disable caching for this page to ensure fresh data
 export const dynamic = "force-dynamic";
@@ -32,9 +32,17 @@ export default async function ContractsPage() {
   const allItems = await prisma.iTEMS.findMany({
     select: {
       MTRL: true,
+      CODE: true,
       NAME: true,
     },
   });
+
+  // Πόσα οχήματα κάθε συμβολαίου βρίσκονται ΜΕΣΑ τώρα. Ο πίνακας ενημερώνεται
+  // από cron κάθε 5 λεπτά (lib/cron-manager → refreshContractCars).
+  const contractCars = await prisma.contractCar.findMany({
+    select: { inst: true, carsIn: true },
+  });
+  const carsInByInst = new Map(contractCars.map((c) => [c.inst, c.carsIn]));
   
   // Fetch all CUSTORMER records for full customer details (TRDR lookup)
   const allCustomers = await prisma.cUSTORMER.findMany({
@@ -65,12 +73,17 @@ export default async function ContractsPage() {
     countryNameByCode[key] = c.NAME ?? key;
   });
 
-  // Create a map of MTRL -> NAME for quick lookup
+  // MTRL -> πινακίδα. Η πινακίδα είναι το CODE του είδους· το NAME συμπίπτει
+  // συνήθως αλλά όχι πάντα (467 είδη διαφέρουν), οπότε το CODE είναι η αλήθεια.
+  const mtrlToPlateMap = new Map<string, string>();
   const mtrlToNameMap = new Map<string, string>();
   allItems.forEach(item => {
-    if (item.MTRL) {
-      const normalizedMtrl = String(item.MTRL).replace(/^0+/, '') || String(item.MTRL);
-      mtrlToNameMap.set(normalizedMtrl, item.NAME || '');
+    if (!item.MTRL) return;
+    const normalizedMtrl = String(item.MTRL).replace(/^0+/, '') || String(item.MTRL);
+    const plate = (item.CODE ?? '').trim().toUpperCase();
+    for (const key of [normalizedMtrl, item.MTRL.trim()]) {
+      if (plate) mtrlToPlateMap.set(key, plate);
+      mtrlToNameMap.set(key, item.NAME || '');
     }
   });
 
@@ -85,10 +98,17 @@ export default async function ContractsPage() {
   // Helper function to add MTRL_NAME to INSTLINES
   const addMtrlNamesToLines = (lines: any[]) => {
     return lines.map(line => {
-      const normalizedMtrl = line.MTRL ? String(line.MTRL).replace(/^0+/, '') || String(line.MTRL) : null;
-      const mtrlName = normalizedMtrl ? (mtrlToNameMap.get(normalizedMtrl) || null) : null;
+      const raw = line.MTRL ? String(line.MTRL).trim() : '';
+      const normalizedMtrl = raw ? raw.replace(/^0+/, '') || raw : null;
+      const lookup = normalizedMtrl
+        ? (mtrlToPlateMap.get(normalizedMtrl) ?? mtrlToPlateMap.get(raw) ?? null)
+        : null;
+      const mtrlName = normalizedMtrl
+        ? (mtrlToNameMap.get(normalizedMtrl) ?? mtrlToNameMap.get(raw) ?? null)
+        : null;
       return {
         ...line,
+        MTRL_PLATE: lookup,
         MTRL_NAME: mtrlName,
       };
     });
@@ -168,16 +188,9 @@ export default async function ContractsPage() {
               // Match: INSTLINES.INST === INST.INST (both normalized)
               return lineInst !== null && lineInst === normalizedInstId;
             })
-            .map(line => {
-              // Add MTRL NAME to each INSTLINE
-              const normalizedMtrl = line.MTRL ? String(line.MTRL).replace(/^0+/, '') || String(line.MTRL) : null;
-              const mtrlName = normalizedMtrl ? (mtrlToNameMap.get(normalizedMtrl) || null) : null;
-              
-              return {
-                ...line,
-                MTRL_NAME: mtrlName,
-              };
-            }),
+            // Ίδιος helper με την άλλη διαδρομή — δύο αντίγραφα της ίδιας
+            // αντιστοίχισης ήταν ο λόγος που οι πινακίδες έμεναν λάθος εδώ.
+            .map(line => addMtrlNamesToLines([line])[0]),
           CUSTOMER_NAME: customer?.NAME ?? null,
           customerDetails: customer ?? null,
         };
@@ -230,9 +243,15 @@ export default async function ContractsPage() {
   const instLinesIntegrationId = instLinesIntegration?.id ?? null;
 
   // Serialize so client receives plain objects with lines (avoids Prisma/serialization dropping relation)
-  const serializedInstallations = JSON.parse(
-    JSON.stringify(installations, (_, v) => (v === undefined ? null : v))
-  ) as typeof installations;
+  const serializedInstallations = (
+    JSON.parse(
+      JSON.stringify(installations, (_, v) => (v === undefined ? null : v))
+    ) as typeof installations
+  ).map((inst) => ({
+    ...inst,
+    // Οχήματα του συμβολαίου που βρίσκονται μέσα αυτή τη στιγμή.
+    CARS_IN: carsInByInst.get(Number((inst as { INST: unknown }).INST)) ?? 0,
+  }));
 
   return (
     <ContractsClient

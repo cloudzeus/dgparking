@@ -169,10 +169,12 @@ export async function POST(
           }
         });
 
-        // For ITEMS model, SoftOne table name is "MTRL", not "ITEMS"
+        // Το SoftOne θέλει ΑΝΤΙΚΕΙΜΕΝΟ, όχι πίνακα: το αντικείμενο των ειδών
+        // είναι το `ITEM` (ο πίνακάς του λέγεται MTRL). Το `MTRL` δεν υπάρχει
+        // ως αντικείμενο — το setData γύριζε success χωρίς να γράψει τίποτα.
         let objectName = integration.objectName || integration.tableName;
         if (modelName === "ITEMS") {
-          objectName = "MTRL"; // SoftOne table name for items is MTRL
+          objectName = "ITEM";
         }
         softOneData[objectName] = [objectData];
 

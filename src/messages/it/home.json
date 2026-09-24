@@ -22,10 +22,6 @@
       "title": "Parcheggio Spazioso",
       "description": "Ampi spazi di parcheggio confortevoli progettati per accogliere veicoli di tutte le dimensioni, dalle auto compatte ai SUV più grandi."
     },
-    "carWash": {
-      "title": "Lavaggio Auto a Mano",
-      "description": "Il nostro servizio premium di lavaggio auto a mano offre un tocco personalizzato, assicurando che la tua auto riceva le migliori cure possibili."
-    },
     "support": {
       "title": "Supporto Clienti",
       "description": "Il nostro personale amichevole è sempre disponibile per assisterti con qualsiasi domanda o preoccupazione riguardante i nostri servizi di parcheggio."
@@ -57,27 +53,6 @@
     "reports": {
       "title": "Report e storico",
       "description": "Movimenti per giorno, uscite senza ingresso e lo storico completo dei riconoscimenti per ogni targa."
-    }
-  },
-  "carWashServices": {
-    "title": "Servizi di Lavaggio Auto",
-    "description": "Servizi professionali di lavaggio auto presso le nostre strutture.",
-    "popular": "Popolare",
-    "cta": "Prenota Lavaggio",
-    "basic": {
-      "title": "Lavaggio Base",
-      "price": "20€",
-      "features": ["Lavaggio esterno a mano", "Pulizia pneumatici", "Pulizia finestre"]
-    },
-    "premium": {
-      "title": "Lavaggio Premium",
-      "price": "30€",
-      "features": ["Tutto del Basic", "Aspirazione interni", "Pulizia cruscotto", "Deodorante"]
-    },
-    "deluxe": {
-      "title": "Lavaggio Deluxe",
-      "price": "40€",
-      "features": ["Tutto del Premium", "Cera a mano", "Lucidatura pneumatici", "Dettagliatura interni"]
     }
   },
   "business": {

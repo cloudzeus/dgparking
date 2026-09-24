@@ -79,7 +79,8 @@ export async function POST(request: Request) {
           );
 
           if (authResult.success && authResult.clientID) {
-            const objectName = instLinesIntegration.objectName || "INSTLINES";
+            // Το `INSTLINES` είναι πίνακας-παιδί· το αντικείμενο είναι το `INST`.
+            const objectName = "INST";
             const erpData: any = {};
             const reverseMappings: Record<string, string> = {};
             
@@ -96,23 +97,33 @@ export async function POST(request: Request) {
               }
             });
 
-            // Ensure INSTLINES ID is included
-            erpData[reverseMappings["INSTLINES"] || "INSTLINES"] = instLineId;
-            // Ensure INST is included (required)
-            if (instLine.INST) {
-              erpData[reverseMappings["INST"] || "INST"] = instLine.INST;
+            // Γράφουμε μέσα από το συμβόλαιο: KEY = INST, data = οι γραμμές του.
+            //
+            // ΠΡΟΣΟΧΗ: όποια υπάρχουσα γραμμή λείπει από το payload ΔΙΑΓΡΑΦΕΤΑΙ
+            // από το SoftOne. Διαβάζουμε λοιπόν όλες τις γραμμές του συμβολαίου
+            // και στέλνουμε τη μία αλλαγμένη μαζί με τις υπόλοιπες αυτούσιες.
+            if (!instLine.INST) {
+              return NextResponse.json(
+                { success: false, error: "Η γραμμή δεν έχει συμβόλαιο (INST) — δεν μπορεί να ενημερωθεί στο ERP." },
+                { status: 400 }
+              );
             }
 
-            // Use INSTLINES as the key for updates
-            const key = String(instLineId);
+            const siblingLines = await prisma.iNSTLINES.findMany({
+              where: { INST: instLine.INST },
+              orderBy: { LINENUM: "asc" },
+            });
 
-            const softOneData: any = {};
-            softOneData[objectName] = [erpData];
+            const lines = siblingLines.map((line) =>
+              line.INSTLINES === instLineId
+                ? { ...erpData, LINENUM: line.LINENUM }
+                : { LINENUM: line.LINENUM, MTRL: line.MTRL }
+            );
 
             const setDataResult = await setSoftOneData(
               objectName,
-              key,
-              softOneData,
+              String(instLine.INST),
+              { INSTLINES: lines },
               authResult.clientID,
               instLinesIntegration.connection.appId,
               "2", // VERSION 2

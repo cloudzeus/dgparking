@@ -4,9 +4,9 @@
     {
       "name": "megaparking-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "3005"],
+      "runtimeArgs": ["run", "dev"],
       "autoPort": false,
-      "port": 3005
+      "port": 3000
     }
   ]
 }

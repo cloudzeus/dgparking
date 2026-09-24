@@ -14,9 +14,69 @@
 
 import cron from "node-cron";
 import { prisma } from "@/lib/prisma";
+import { refreshContractCars } from "@/lib/contract-cars";
 
 let cronJobs: Map<string, ReturnType<typeof cron.schedule>> = new Map();
 let isInitialized = false;
+
+/**
+ * Εσωτερική εργασία — δεν προέρχεται από `SoftOneIntegration`, γι' αυτό έχει
+ * δικό της αναγνωριστικό με πρόθεμα.
+ */
+export const CONTRACT_CARS_JOB_ID = "internal:contract-cars";
+const CONTRACT_CARS_CRON = "*/5 * * * *";
+
+/** Φρουρός επικάλυψης: αν η προηγούμενη εκτέλεση τρέχει ακόμη, την προσπερνάμε. */
+let contractCarsRunning = false;
+
+async function runContractCarsRefresh(trigger: string) {
+  if (contractCarsRunning) {
+    console.log(`[CRON] ${CONTRACT_CARS_JOB_ID}: προηγούμενη εκτέλεση σε εξέλιξη — παράλειψη (${trigger})`);
+    return;
+  }
+  contractCarsRunning = true;
+  const startedAt = Date.now();
+  try {
+    await refreshContractCars();
+    console.log(`[CRON] ${CONTRACT_CARS_JOB_ID}: ολοκληρώθηκε σε ${Date.now() - startedAt} ms (${trigger})`);
+  } catch (error) {
+    console.error(`[CRON] ${CONTRACT_CARS_JOB_ID}: απέτυχε`, error);
+  } finally {
+    contractCarsRunning = false;
+  }
+}
+
+/**
+ * Ενημερώνει τον βοηθητικό πίνακα `contract_cars` (πόσα οχήματα κάθε συμβολαίου
+ * βρίσκονται μέσα). Έφυγε από τη φόρτωση του dashboard γιατί κόστιζε ~21 s ανά
+ * άνοιγμα· εδώ τρέχει μία φορά ανά πέντε λεπτά, ανεξάρτητα από χρήστες.
+ */
+export function scheduleContractCarsRefresh() {
+  const existing = cronJobs.get(CONTRACT_CARS_JOB_ID);
+  if (existing) {
+    existing.stop();
+    cronJobs.delete(CONTRACT_CARS_JOB_ID);
+  }
+
+  const task = cron.schedule(
+    CONTRACT_CARS_CRON,
+    () => {
+      void runContractCarsRefresh("προγραμματισμένη");
+    },
+    { timezone: "Europe/Athens" }
+  );
+
+  cronJobs.set(CONTRACT_CARS_JOB_ID, task);
+  console.log(`[CRON] ${CONTRACT_CARS_JOB_ID}: προγραμματίστηκε (${CONTRACT_CARS_CRON})`);
+
+  // Μία εκτέλεση στην εκκίνηση, ώστε ο πίνακας να μην είναι μπαγιάτικος μετά από deploy.
+  void runContractCarsRefresh("εκκίνηση");
+}
+
+/** Χειροκίνητη εκτέλεση (σελίδα ρυθμίσεων). */
+export async function runContractCarsRefreshNow() {
+  await runContractCarsRefresh("χειροκίνητη");
+}
 
 /**
  * Initialize and start all cron jobs for active integrations
@@ -73,6 +133,9 @@ export async function initializeCronJobs() {
         // Continue with other integrations even if one fails
       }
     }
+
+    // Εσωτερική εργασία, ανεξάρτητη από τις ενσωματώσεις SoftOne.
+    scheduleContractCarsRefresh();
 
     isInitialized = true;
     console.log(`[CRON] All cron jobs initialized successfully - scheduled ${scheduledCount}/${integrations.length} integrations`);
@@ -231,6 +294,10 @@ export async function rescheduleAllIntegrations() {
     task.stop();
   }
   cronJobs.clear();
+
+  // Allow initializeCronJobs to run again - otherwise the guard below would
+  // return early and leave the process with zero scheduled jobs.
+  isInitialized = false;
 
   // Reload and schedule all active integrations
   await initializeCronJobs();

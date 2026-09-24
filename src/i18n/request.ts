@@ -6,7 +6,15 @@ import { routing } from "./routing";
  * Τα μηνύματα ζουν ανά ενότητα: `src/messages/<γλώσσα>/<ενότητα>.json`.
  * Κάθε σελίδα έχει το δικό της αρχείο, ώστε οι αλλαγές να μην μπλέκονται.
  */
-const NAMESPACES = ["common", "home", "prices", "carWash", "contact", "legal"] as const;
+const NAMESPACES = [
+  "common",
+  "home",
+  "prices",
+  "contact",
+  "legal",
+  "gdpr",
+  "news",
+] as const;
 
 export default getRequestConfig(async ({ requestLocale }) => {
   const requested = await requestLocale;

@@ -51,6 +51,11 @@ import {
   BarChart3,
   ArrowDownRight,
   FileCheck,
+  Mail,
+  ShieldCheck,
+  Scale,
+  Newspaper,
+  Images,
 } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
 import { Badge } from "@/components/ui/badge";
@@ -137,6 +142,30 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
+    title: "Newsletter",
+    icon: Mail,
+    items: [
+      {
+        title: "Εκστρατείες",
+        href: "/newsletter",
+        icon: Mail,
+        roles: ["ADMIN", "MANAGER"],
+      },
+      {
+        title: "Συνδρομητές",
+        href: "/newsletter/subscribers",
+        icon: Users,
+        roles: ["ADMIN", "MANAGER"],
+      },
+      {
+        title: "Στατιστικά",
+        href: "/newsletter/stats",
+        icon: BarChart3,
+        roles: ["ADMIN", "MANAGER"],
+      },
+    ],
+  },
+  {
     title: "Αναφορές",
     icon: BarChart3,
     items: [
@@ -144,6 +173,48 @@ const menuGroups: MenuGroup[] = [
         title: "Έξοδοι χωρίς είσοδο",
         href: "/reports/out-without-in",
         icon: ArrowDownRight,
+        roles: ["ADMIN", "MANAGER"],
+      },
+    ],
+  },
+  {
+    title: "GDPR",
+    icon: ShieldCheck,
+    items: [
+      {
+        title: "Αρχείο συγκαταθέσεων",
+        href: "/gdpr/consents",
+        icon: ShieldCheck,
+        roles: ["ADMIN"],
+      },
+      {
+        title: "Αιτήματα δικαιωμάτων",
+        href: "/gdpr/requests",
+        icon: Scale,
+        roles: ["ADMIN"],
+      },
+    ],
+  },
+  {
+    title: "CMS",
+    icon: FileText,
+    items: [
+      {
+        title: "Σελίδες",
+        href: "/cms/pages",
+        icon: FileText,
+        roles: ["ADMIN", "MANAGER"],
+      },
+      {
+        title: "Νέα",
+        href: "/cms/news",
+        icon: Newspaper,
+        roles: ["ADMIN", "MANAGER"],
+      },
+      {
+        title: "Βιβλιοθήκη πολυμέσων",
+        href: "/media",
+        icon: Images,
         roles: ["ADMIN", "MANAGER"],
       },
     ],

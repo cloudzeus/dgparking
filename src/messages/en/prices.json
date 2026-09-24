@@ -49,7 +49,6 @@
         "features": [
           "Dedicated reserved parking spot",
           "24/7 access with remote app control",
-          "15% discount on car wash services",
           "Digital monthly invoice"
         ]
       },
@@ -83,10 +82,6 @@
         {
           "question": "Is your parking area secure?",
           "answer": "Yes, our parking facility is well-lit and monitored to ensure the safety of your vehicle. You can park with peace of mind, knowing that your car is in good hands."
-        },
-        {
-          "question": "Do you provide car washing services?",
-          "answer": "Yes, we offer a professional hand car wash service. Our team will clean your vehicle with great care, using high-quality products and hand-washing techniques to ensure it shines like new."
         },
         {
           "question": "What are your working hours?",

@@ -34,6 +34,10 @@ const ROUTE_TITLES: Record<string, string> = {
   "/contracts": "Συμβόλαια",
   "/items": "Πινακίδες",
   "/integrations": "Διασυνδέσεις",
+  "/newsletter": "Εκστρατείες",
+  "/newsletter/new": "Νέα εκστρατεία",
+  "/newsletter/subscribers": "Συνδρομητές",
+  "/newsletter/stats": "Στατιστικά newsletter",
   "/reports/out-without-in": "Έξοδοι χωρίς είσοδο",
   "/customers-2-erp": "Πελάτες προς ERP",
   "/account": "Ο λογαριασμός μου",
@@ -41,6 +45,13 @@ const ROUTE_TITLES: Record<string, string> = {
   "/account/cron-logs": "Ιστορικό cron",
   "/lpr-logs": "Ιστορικό αναγνώρισης",
   "/settings": "Ρυθμίσεις",
+  "/gdpr/consents": "Αρχείο συγκαταθέσεων",
+  "/gdpr/requests": "Αιτήματα δικαιωμάτων",
+  "/cms/pages": "Σελίδες",
+  "/cms/pages/new": "Νέα σελίδα",
+  "/cms/news": "Νέα",
+  "/cms/news/new": "Νέο άρθρο",
+  "/media": "Βιβλιοθήκη πολυμέσων",
 };
 
 export function AppHeader({ user, isSoftOneConnected = false }: AppHeaderProps) {

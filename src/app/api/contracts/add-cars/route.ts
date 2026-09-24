@@ -8,6 +8,11 @@ import { decrypt } from "@/lib/encryption";
  * POST /api/contracts/add-cars
  * Add license plates (INSTLINES) to a contract (INST) and sync to ERP
  */
+/** Το αντικείμενο των εγκαταστάσεων — οι γραμμές γράφονται μέσα από αυτό. */
+const INST_OBJECT = "INST";
+/** Νέα γραμμή σε πίνακα-παιδί: LINENUM ≥ 9000001 (κανόνας του Soft1). */
+const NEW_LINE_BASE = 9000001;
+
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -56,23 +61,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Compare NUM01 (max allowed cars per contract) with current INSTLINES count
-    const num01 = inst.NUM01 != null ? Math.floor(Number(inst.NUM01)) : null;
-    const currentCarsCount = await prisma.iNSTLINES.count({
-      where: { INST: instId },
-    });
-    if (num01 != null && num01 >= 0 && currentCarsCount + mtrlList.length > num01) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Contract allows max ${num01} car(s) (NUM01). It already has ${currentCarsCount} plate(s). Adding ${mtrlList.length} would exceed the limit.`,
-          num01,
-          currentCarsCount,
-          requested: mtrlList.length,
-        },
-        { status: 400 }
-      );
-    }
+    // ΔΕΝ περιορίζουμε το πλήθος των δηλωμένων πινακίδων από το NUM01.
+    //
+    // Το NUM01 είναι οι ΘΕΣΕΙΣ που έχει κλείσει ο πελάτης, όχι πόσα οχήματα
+    // επιτρέπεται να δηλώσει: με 2 θέσεις μπορεί κάλλιστα να δηλώσει 10
+    // πινακίδες. Υπέρβαση υπάρχει μόνο όταν βρεθούν ΤΑΥΤΟΧΡΟΝΑ μέσα
+    // περισσότερα οχήματα από τις θέσεις — αυτό το δείχνει το dashboard και
+    // η λίστα συμβολαίων, δεν το μπλοκάρει η καταχώριση.
 
     // Get the next INSTLINES ID (max + 1)
     const maxInstLines = await prisma.iNSTLINES.findFirst({
@@ -94,7 +89,8 @@ export async function POST(request: Request) {
     // Only authenticate with ERP if syncToErp is true
     let instLinesIntegration: any = null;
     let authResult: any = null;
-    let objectName = "INSTLINES";
+    // Το έγκυρο αντικείμενο είναι το `INST`· το `INSTLINES` είναι ο πίνακας.
+    let objectName = INST_OBJECT;
     let reverseMappings: Record<string, string> = {};
 
     if (syncToErp) {
@@ -157,10 +153,12 @@ export async function POST(request: Request) {
         );
       }
 
-      objectName = instLinesIntegration.objectName || "INSTLINES";
+      objectName = instLinesIntegration.objectName || INST_OBJECT;
     }
     const createdInstLines: any[] = [];
     const errors: string[] = [];
+    // Το SoftOne αναγνωρίζει τις νέες γραμμές από LINENUM ≥ 9000001.
+    let newLineOffset = 0;
 
     // Create INSTLINES for each MTRL
     for (const mtrl of mtrlList) {
@@ -192,10 +190,8 @@ export async function POST(request: Request) {
         // Prepare data for ERP (only if syncing)
         const erpData: any = {};
 
-        // Set required fields
-        erpData[reverseMappings["INSTLINES"] || "INSTLINES"] = nextInstLinesId;
-        erpData[reverseMappings["INST"] || "INST"] = instId;
-        erpData[reverseMappings["LINENUM"] || "LINENUM"] = nextLineNum;
+        // Το κλειδί της γραμμής (`INSTLINES`) και το `LINENUM` τα ορίζει το
+        // SoftOne όταν γράφουμε μέσω του γονέα — δεν τα στέλνουμε εμείς.
         erpData[reverseMappings["MTRL"] || "MTRL"] = String(mtrl).toUpperCase();
         
         // Set optional fields from INST
@@ -207,15 +203,32 @@ export async function POST(request: Request) {
         }
 
         // Create in SoftOne first (only if syncToErp is true)
+        //
+        // Οι γραμμές ΔΕΝ είναι δικό τους αντικείμενο: το `INSTLINES` είναι
+        // πίνακας-παιδί του αντικειμένου `INST`. Γράφουμε λοιπόν στο `INST`
+        // με KEY το συμβόλαιο και data κλειδωμένα στο όνομα του πίνακα.
+        //
+        // ΠΡΟΣΟΧΗ: το SoftOne διαγράφει κάθε υπάρχουσα γραμμή που ΔΕΝ
+        // περιλαμβάνεται στο payload. Γι' αυτό στέλνουμε ΟΛΕΣ τις γραμμές του
+        // συμβολαίου (διαβασμένες πριν την εγγραφή) και προσθέτουμε τη νέα με
+        // LINENUM ≥ 9000001, όπως ορίζει το API για νέες γραμμές.
         let softOneId: number | undefined;
         if (syncToErp) {
-          const softOneData: any = {};
-          softOneData[objectName] = [erpData];
+          const existingLines = await prisma.iNSTLINES.findMany({
+            where: { INST: instId },
+            orderBy: { LINENUM: "asc" },
+          });
+
+          const lines: Record<string, unknown>[] = existingLines.map((line) => ({
+            LINENUM: line.LINENUM,
+            MTRL: line.MTRL,
+          }));
+          lines.push({ ...erpData, LINENUM: NEW_LINE_BASE + newLineOffset });
 
           const setDataResult = await setSoftOneData(
-            objectName,
-            "", // Empty KEY creates new record
-            softOneData,
+            INST_OBJECT,
+            String(instId), // KEY = το συμβόλαιο· η γραμμή είναι παιδί του
+            { INSTLINES: lines },
             authResult.clientID,
             instLinesIntegration.connection.appId,
             "2", // VERSION 2
@@ -226,6 +239,7 @@ export async function POST(request: Request) {
             errors.push(`Failed to create ${mtrl} in ERP: ${setDataResult.error}`);
             continue;
           }
+          newLineOffset++;
           softOneId = setDataResult.id != null
             ? Number(String(setDataResult.id).replace(/^0+/, '') || 0)
             : undefined;

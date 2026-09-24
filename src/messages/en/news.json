@@ -1,0 +1,26 @@
+{
+  "news": {
+    "meta": {
+      "title": "News",
+      "description": "Announcements, opening-hours changes and news from MEGA Parking in Piraeus."
+    },
+    "index": {
+      "title": "News",
+      "description": "Announcements, opening-hours changes and news from the car park in Piraeus.",
+      "readMore": "Read more",
+      "empty": "We have not published any news yet. Please come back soon.",
+      "paginationNav": "News pagination",
+      "previous": "Previous",
+      "next": "Next",
+      "pageStatus": "Page {page} of {total}"
+    },
+    "article": {
+      "back": "All news",
+      "readingTime": "{minutes, plural, one {# minute read} other {# minutes read}}",
+      "related": "Latest news"
+    }
+  },
+  "cms": {
+    "machineTranslated": "This text was translated automatically and has not been reviewed by a person."
+  }
+}

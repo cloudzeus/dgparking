@@ -15,7 +15,6 @@ const POINTS = [
   { key: "location", icon: MapPin, from: "var(--mega-blue)", to: "#3b82f6" },
   { key: "security", icon: Shield, from: "#16a34a", to: "#22c55e" },
   { key: "space", icon: Car, from: "#9333ea", to: "#a855f7" },
-  { key: "carWash", icon: Droplet, from: "var(--mega-red)", to: "#d97706" },
   { key: "support", icon: Headphones, from: "var(--mega-red)", to: "#f97316" },
 ] as const;
 

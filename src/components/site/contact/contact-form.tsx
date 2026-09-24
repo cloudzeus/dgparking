@@ -18,17 +18,21 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Link } from "@/i18n/navigation";
 
 type ContactValues = {
   name: string;
   email: string;
   subject: string;
   message: string;
+  consent: boolean;
 };
 
 /** Η φόρμα επικοινωνίας — στέλνει στο `/api/send-contact` (ίδιο payload με το παλιό site). */
 export function ContactForm() {
   const t = useTranslations("contact.form");
+  const tConsent = useTranslations("gdpr.consentCheckbox");
 
   // Τα μηνύματα λάθους έρχονται από τα i18n αρχεία, γι' αυτό το schema φτιάχνεται εδώ.
   const schema = z.object({
@@ -36,21 +40,30 @@ export function ContactForm() {
     email: z.string().trim().email(t("errors.email")),
     subject: z.string().trim().min(1, t("errors.subject")),
     message: z.string().trim().min(1, t("errors.message")),
+    consent: z.boolean().refine((value) => value === true, tConsent("required")),
   });
 
   const form = useForm<ContactValues>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", email: "", subject: "", message: "" },
+    defaultValues: { name: "", email: "", subject: "", message: "", consent: false },
   });
 
   const isSubmitting = form.formState.isSubmitting;
 
   async function onSubmit(values: ContactValues) {
     try {
+      // Η συγκατάθεση ταξιδεύει χωριστά (`gdprConsent`): το route την
+      // καταγράφει και τη βγάζει, ώστε το email να μείνει ακριβώς ίδιο.
       const response = await fetch("/api/send-contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          name: values.name,
+          email: values.email,
+          subject: values.subject,
+          message: values.message,
+          gdprConsent: { text: tConsent("contact") },
+        }),
       });
 
       if (!response.ok) throw new Error("Failed to send message");
@@ -148,6 +161,31 @@ export function ContactForm() {
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="consent"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start gap-3">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  </FormControl>
+                  <div className="min-w-0 space-y-1">
+                    <FormLabel className="text-sm leading-snug font-normal">
+                      {tConsent("contact")}{" "}
+                      <Link href="/privacy" className="underline underline-offset-4">
+                        {tConsent("linkText")}
+                      </Link>
+                    </FormLabel>
+                    <FormMessage />
+                  </div>
                 </FormItem>
               )}
             />

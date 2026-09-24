@@ -3,7 +3,8 @@ import NextLink from "next/link";
 import { getTranslations } from "next-intl/server";
 import { MapPin, Clock, LogIn } from "lucide-react";
 import { Link } from "@/i18n/navigation";
-import { LegalLinks } from "@/components/site/legal-links";
+import { CookiePreferencesButton } from "@/components/site/cookie-preferences-button";
+import { NewsletterSignup } from "@/components/site/newsletter-signup";
 
 export async function SiteFooter() {
   const t = await getTranslations();
@@ -31,8 +32,8 @@ export async function SiteFooter() {
           <Link href="/prices" className="text-sm text-muted-foreground hover:text-foreground">
             {t("nav.prices")}
           </Link>
-          <Link href="/car-wash" className="text-sm text-muted-foreground hover:text-foreground">
-            {t("nav.carWash")}
+          <Link href="/news" className="text-sm text-muted-foreground hover:text-foreground">
+            {t("nav.news")}
           </Link>
           <Link href="/contact" className="text-sm text-muted-foreground hover:text-foreground">
             {t("nav.contact")}
@@ -63,11 +64,56 @@ export async function SiteFooter() {
       </div>
 
       <div className="border-t">
+        <div className="mx-auto w-full max-w-7xl px-4 py-6">
+          <div className="max-w-xl">
+            <NewsletterSignup />
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">
             © {year} {t("site.name")}. {t("footer.rights")}
           </p>
-          <LegalLinks />
+          {/* Οι νομικές σελίδες είναι πραγματικές σελίδες — με δική τους
+              διεύθυνση, ώστε να μπορεί κανείς να τις στείλει ή να τις
+              τυπώσει. Δίπλα τους, το κουμπί που ξανανοίγει τις ρυθμίσεις
+              cookie: η ανάκληση πρέπει να είναι εξίσου εύκολη (άρ. 7 §3). */}
+          <nav
+            className="flex flex-wrap items-center gap-x-4 gap-y-1"
+            aria-label={t("gdpr.nav.privacy")}
+          >
+            <Link
+              href="/privacy"
+              className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              {t("gdpr.nav.privacy")}
+            </Link>
+            <Link
+              href="/terms"
+              className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              {t("gdpr.nav.terms")}
+            </Link>
+            <Link
+              href="/cookies"
+              className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              {t("gdpr.nav.cookies")}
+            </Link>
+            <Link
+              href="/data-rights"
+              className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              {t("gdpr.nav.dataRights")}
+            </Link>
+            <CookiePreferencesButton
+              label={t("gdpr.banner.settings")}
+              variant="link"
+              className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+            />
+          </nav>
         </div>
       </div>
     </footer>

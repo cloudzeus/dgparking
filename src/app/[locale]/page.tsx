@@ -3,7 +3,6 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { HeroSection } from "@/components/site/hero-section";
 import { WhyChooseUsSection } from "@/components/site/why-choose-us-section";
 import { FeaturesSection } from "@/components/site/features-section";
-import { CarWashSection } from "@/components/site/car-wash-section";
 import { BusinessSolutionsSection } from "@/components/site/business-solutions-section";
 import { CtaSection } from "@/components/site/cta-section";
 import { TestimonialsSection } from "@/components/site/testimonials-section";
@@ -33,7 +32,6 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <HeroSection />
       <WhyChooseUsSection />
       <FeaturesSection />
-      <CarWashSection />
       <BusinessSolutionsSection />
       <CtaSection />
       <TestimonialsSection />

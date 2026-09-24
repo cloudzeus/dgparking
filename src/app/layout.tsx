@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Inter, Roboto } from "next/font/google";
+import { Commissioner, Geist_Mono, Inter, JetBrains_Mono } from "next/font/google";
 import { getLocale } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -16,9 +16,20 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-/* MEGA Parking: η γραμματοσειρά του δημόσιου site. */
-const roboto = Roboto({
-  variable: "--font-roboto",
+/*
+ * MEGA Parking (οδηγός ταυτότητας v1.0): Commissioner για κείμενο — καλύπτει
+ * ελληνικά και λατινικά σε ένα αρχείο — και JetBrains Mono για τα λειτουργικά
+ * δεδομένα: πινακίδες, ώρες, τιμές, αριθμούς θέσεων.
+ */
+const commissioner = Commissioner({
+  variable: "--font-commissioner",
+  subsets: ["latin", "greek"],
+  weight: ["400", "600", "700"],
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin", "greek"],
   display: "swap",
 });
@@ -46,7 +57,7 @@ export default async function RootLayout({
     // διαβάζουν από το :root του dg-theme.css.
     <html
       lang={locale}
-      className={`${inter.variable} ${geistMono.variable} ${roboto.variable}`}
+      className={`${inter.variable} ${geistMono.variable} ${commissioner.variable} ${jetbrainsMono.variable}`}
       suppressHydrationWarning
     >
       <body className="min-h-screen bg-background font-sans antialiased" suppressHydrationWarning>
