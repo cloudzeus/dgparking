@@ -234,12 +234,27 @@ export default async function DashboardPage() {
       carsInsideNow++;
     }
   }
-  // Plates that have at least one IN event (in full history per plate) — used for "NO IN CAPTURED" badge
+  // Πινακίδες για τις οποίες ΞΕΡΟΥΜΕ πότε μπήκε το όχημα — το σήμα «χωρίς
+  // είσοδο» πρέπει να εμφανίζεται μόνο όταν όντως δεν ξέρουμε.
+  //
+  // Δεν αρκούν τα συμβάντα καμερών: η απογραφή ξεκινά από το ψηφιακό
+  // πελατολόγιο, οπότε ένα όχημα μπορεί να είναι νόμιμα μέσα χωρίς να έχει
+  // περάσει ποτέ IN από τις κάμερές μας. Μετά από μηδενισμό αυτό ισχύει για
+  // ΟΛΑ τα οχήματα, και κάθε έξοδος φαινόταν ορφανή.
   const platesWithIn = new Set<string>(
     [...plateToEvents.entries()]
       .filter(([, evs]) => evs.some((e) => e.direction === "IN"))
       .map(([plate]) => plate)
   );
+  const [insideNow, closedStays] = await Promise.all([
+    prisma.parkingInventory.findMany({ select: { plate: true } }),
+    prisma.parkingStay.findMany({
+      where: { exitedAt: { gte: new Date(Date.now() - 48 * 3600 * 1000) } },
+      select: { plate: true },
+    }),
+  ]);
+  for (const row of insideNow) platesWithIn.add(row.plate);
+  for (const row of closedStays) platesWithIn.add(row.plate);
 
   // Deduplicate by license plate: keep only the most recent event per plate (valid plate >= 2 chars)
   const plateToLatest = new Map<string, (typeof lastTwoDays)[0]>();

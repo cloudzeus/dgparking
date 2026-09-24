@@ -123,6 +123,21 @@ export default async function OutWithoutInReportPage({
     plateToInTimes.get(plate)!.push(new Date(inEvent.recognitionTime));
   }
 
+  // Η απογραφή ξεκινά από το ψηφιακό πελατολόγιο, οπότε ένα όχημα μπορεί να
+  // είναι νόμιμα μέσα χωρίς να έχει περάσει ποτέ IN από τις κάμερές μας. Όταν
+  // κλείσει η στάθμευση, ΞΕΡΟΥΜΕ την ώρα εισόδου — απλώς δεν προήλθε από
+  // συμβάν κάμερας. Χωρίς αυτό, μετά από κάθε μηδενισμό όλες οι έξοδοι
+  // εμφανίζονταν ως ορφανές.
+  const knownStays = await prisma.parkingStay.findMany({
+    where: { exitedAt: { gte: startDate, lte: endDate } },
+    select: { plate: true, enteredAt: true, exitedAt: true },
+  });
+  for (const stay of knownStays) {
+    const plate = stay.plate.trim().toUpperCase();
+    if (!plateToInTimes.has(plate)) plateToInTimes.set(plate, []);
+    plateToInTimes.get(plate)!.push(stay.enteredAt);
+  }
+
   // Find OUT events without matching IN (IN must be before OUT)
   let outWithoutIn = validOutEvents.filter((outEvent) => {
     const plate = (outEvent.licensePlate || "").trim().toUpperCase();
