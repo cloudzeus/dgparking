@@ -4,6 +4,7 @@ import { heroTemplate } from "./hero";
 import { offerTemplate } from "./offer";
 import { priceListTemplate } from "./price-list";
 import { seasonalTemplate } from "./seasonal";
+import { spotlightTemplate } from "./spotlight";
 import { twoColumnsTemplate } from "./two-columns";
 import { htmlToText, type NewsletterRenderer, type NewsletterTemplateInput } from "./shared";
 
@@ -17,7 +18,8 @@ export type NewsletterTemplateId =
   | "offer"
   | "articles"
   | "price-list"
-  | "seasonal";
+  | "seasonal"
+  | "spotlight";
 
 export type NewsletterTemplateMeta = {
   id: NewsletterTemplateId;
@@ -84,6 +86,15 @@ export const NEWSLETTER_TEMPLATES: Record<NewsletterTemplateId, NewsletterTempla
     usesHero: false,
     usesBlocks: true,
     render: priceListTemplate,
+  },
+  spotlight: {
+    id: "spotlight",
+    label: "Spotlight — παρουσίαση υπηρεσίας",
+    description:
+      "Τεράστιος τίτλος σε μπλε πεδίο, φωτογραφία από άκρη σε άκρη, πελώρια αριθμημένα βήματα και κόκκινη ταινία ανακοίνωσης. Για κάτι που ο παραλήπτης δεν έχει ξαναδεί.",
+    usesHero: true,
+    usesBlocks: false,
+    render: spotlightTemplate,
   },
   seasonal: {
     id: "seasonal",

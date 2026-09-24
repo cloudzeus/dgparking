@@ -9,11 +9,11 @@ const HOST = process.env.BUNNY_STORAGE_HOSTNAME || "storage.bunnycdn.com";
 const CDN = process.env.BUNNY_CDN_HOSTNAME!;
 
 const IMAGES = [
-  { file: "events-newsletter", title: "Εκδηλώσεις — εικόνα ενημερωτικού δελτίου",
-    alt: { el: "Δεσμευμένες θέσεις στάθμευσης σε στεγασμένο πάρκινγκ",
-           en: "Reserved parking bays in a covered parking deck",
-           it: "Posti auto riservati in un parcheggio coperto" },
-    url: "https://cdn.openart.ai/openart-ai/production/2026-09/create-image/cXQx4aSR0hj6h2z4EF10/gpt-image-2.5-sunburst-1_1790266936584_634830c1.png" },
+  { file: "portal-devices", title: "Πύλη πελατών — συσκευές",
+    alt: { el: "Κινητό και φορητός υπολογιστής σε σκούρο μπλε φόντο",
+           en: "A phone and a laptop on a deep navy background",
+           it: "Uno smartphone e un portatile su sfondo blu scuro" },
+    url: "https://cdn.openart.ai/openart-ai/production/2026-09/create-image/cXQx4aSR0hj6h2z4EF10/gpt-image-2.5-sunburst-1_1790268113665_ef3272e9.png" },
 ];
 
 async function main() {
