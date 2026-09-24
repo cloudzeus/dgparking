@@ -687,7 +687,7 @@ export async function POST(request: Request) {
         console.log("   ➡️  Direction:", direction);
         
         try {
-          eventId = await processRecognitionEvent(cameraId, requestBody as RecognitionEventData, eventTime);
+          eventId = await processRecognitionEvent(cameraId, requestBody as RecognitionEventData, eventTime, ipAddress ?? null);
           console.log("✅ Recognition event saved successfully, ID:", eventId);
           
           // Verify the event was actually saved
@@ -800,7 +800,9 @@ function extractField(data: any, ...fieldNames: string[]): any {
 async function processRecognitionEvent(
   cameraId: string | null,
   data: RecognitionEventData,
-  eventTime: Date
+  eventTime: Date,
+  /** IP της κάμερας που έστειλε — κρατιέται για διάγνωση όταν δεν είναι καταχωρημένη. */
+  sourceIp: string | null = null
 ): Promise<string> {
   console.log("💾 Storing recognition event in database...");
   console.log("   📋 Payload keys (direction check):", Object.keys(data).filter((k) => /direction/i.test(k)).join(", ") || "none", "| all keys:", Object.keys(data).slice(0, 20).join(", "));
@@ -829,11 +831,35 @@ async function processRecognitionEvent(
     const num = typeof val === "number" ? val : parseInt(String(val));
     return isNaN(num) ? null : num;
   })();
-  // Direction from message: "Approach" = coming in (IN), "Away" = leaving (OUT) — try top-level and nested
+  // ΚΑΤΕΥΘΥΝΣΗ — διαβάζεται από τον ΡΟΛΟ ΤΗΣ ΚΑΜΕΡΑΣ, όχι από το payload.
+  //
+  // Η μία κάμερα είναι πάντα είσοδος και η άλλη πάντα έξοδος. Το πεδίο
+  // `direction` του μηνύματος λέει μόνο αν το όχημα πλησιάζει ή απομακρύνεται
+  // από τον φακό ("Approach"/"Away"), οπότε ΜΙΑ διέλευση από την είσοδο παράγει
+  // πρώτα Approach→IN και μετά Away→OUT. Αυτό δημιουργούσε φαντάσματα: το
+  // όχημα έμπαινε και έβγαινε από την απογραφή μέσα στο ίδιο λεπτό.
+  const deviceName = extractField(data, "device", "Device", "device_name", "deviceName")?.toString() ?? null;
   const rawDirection = extractField(data, "direction", "Direction", "DIRECTION", "vehicle.direction", "data.direction");
-  const direction = mapDirection(rawDirection);
-  if (rawDirection != null) {
-    console.log("   📍 Direction from camera:", rawDirection, "→ stored as:", direction);
+
+  let direction = mapDirection(rawDirection);
+  let directionSource = "payload";
+  if (cameraId) {
+    const cam = await prisma.lprCamera.findUnique({
+      where: { id: cameraId },
+      select: { role: true, name: true },
+    });
+    if (cam?.role === "ENTRY" || cam?.role === "EXIT") {
+      direction = cam.role === "ENTRY" ? LprDirection.IN : LprDirection.OUT;
+      directionSource = "camera-role";
+      console.log(`   📍 Κατεύθυνση από ρόλο κάμερας «${cam.name}»: ${direction}`);
+    }
+  }
+  if (directionSource === "payload") {
+    console.log(
+      `   ⚠️  Κατεύθυνση από payload (${rawDirection ?? "κενό"} → ${direction}).`,
+      `Η κάμερα «${deviceName ?? "άγνωστη"}» δεν είναι καταχωρημένη με ρόλο —`,
+      "μέχρι να καταχωρηθεί, μια διέλευση μπορεί να παράγει ψεύτικο ζεύγος IN/OUT."
+    );
   }
   const region = extractField(data, "region", "Region", "REGION", "detection_region", "detectionRegion")?.toString();
   const roiId = (() => {
@@ -853,6 +879,9 @@ async function processRecognitionEvent(
     confidence,
     speed,
     direction,
+    directionSource,
+    deviceName,
+    sourceIp,
     region,
     roiId,
     coordinateX1: (() => {

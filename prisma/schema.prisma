@@ -496,8 +496,18 @@ enum LprImageType {
   BACKGROUND_SNAPSHOT
 }
 
+/// Ο ρόλος της κάμερας στην μπάρα. Η μία είναι ΠΑΝΤΑ είσοδος και η άλλη ΠΑΝΤΑ
+/// έξοδος, οπότε η κατεύθυνση προκύπτει από εδώ — όχι από το payload, που
+/// αναφέρει απλώς αν το όχημα πλησιάζει ή απομακρύνεται από τον φακό.
+enum CameraRole {
+  ENTRY
+  EXIT
+  UNKNOWN
+}
+
 model LprCamera {
   id                  String            @id @default(cuid())
+  role                CameraRole        @default(UNKNOWN)
   userId              String            @map("user_id")
   name                String            @db.VarChar(255)
   location            String?           @db.VarChar(255)
@@ -558,6 +568,13 @@ model LprRecognitionEvent {
   azimuth          Float?
   vehicleCount     Int?            @map("vehicle_count")
   plateLength      Int?            @map("plate_length")
+  /// Το όνομα συσκευής που έστειλε το συμβάν. Κρατιέται ΠΑΝΤΑ, ακόμα κι αν η
+  /// κάμερα δεν είναι καταχωρημένη — χωρίς αυτό δεν μπορείς να διαγνώσεις ποια
+  /// κάμερα παράγει τι.
+  deviceName       String?         @map("device_name") @db.VarChar(255)
+  sourceIp         String?         @map("source_ip") @db.VarChar(64)
+  /// Πώς προέκυψε η κατεύθυνση: από τον ρόλο της κάμερας ή από το payload.
+  directionSource  String?         @map("direction_source") @db.VarChar(16)
   createdAt        DateTime        @default(now()) @map("created_at")
 
   camera LprCamera? @relation(fields: [cameraId], references: [id], onDelete: Cascade)

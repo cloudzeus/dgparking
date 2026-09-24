@@ -75,6 +75,35 @@ const formatDayClock = (value: Date | string) =>
     timeZone: "Europe/Athens",
   });
 
+/**
+ * ΩΡΕΣ ΚΑΜΕΡΩΝ — ρολόι τοίχου.
+ *
+ * Το `recognitionTime` αποθηκεύεται ως τοπική ώρα Αθήνας γραμμένη στα πεδία UTC
+ * (βλ. lib/parking-time.ts). Οι παραπάνω formatters ΜΕΤΑΤΡΕΠΟΥΝ σε ζώνη Αθήνας,
+ * οπότε πάνω σε τέτοια τιμή πρόσθεταν ξανά το offset: ένα πέρασμα στις 11:45
+ * εμφανιζόταν ως 14:45. Εδώ διαβάζουμε τα μέρη UTC αυτούσια.
+ *
+ * Χρησιμοποίησε αυτούς ΜΟΝΟ για ώρες που προέρχονται από τις κάμερες ή το ERP.
+ * Για πραγματικά timestamps (π.χ. `new Date()` στον φυλλομετρητή) οι από πάνω
+ * είναι οι σωστοί.
+ */
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+const formatWallClock = (value: Date | string) => {
+  const d = new Date(value);
+  return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}`;
+};
+
+const formatWallDayTime = (value: Date | string) => {
+  const d = new Date(value);
+  return `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth() + 1)} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+};
+
+const formatWallDayClock = (value: Date | string) => {
+  const d = new Date(value);
+  return `${formatWallDayTime(d)}:${pad2(d.getUTCSeconds())}`;
+};
+
 interface DashboardStats {
   totalVehicles: number;
   totalIn: number;
@@ -1554,14 +1583,14 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
               <div className="flex items-center gap-1">
                 <Clock className="size-4" aria-hidden />
                 {event.direction === "OUT" ? (
-                  <span className="tabular-nums">Αποχώρησε: {formatDayClock(event.recognitionTime)}</span>
+                  <span className="tabular-nums">Αποχώρησε: {formatWallDayClock(event.recognitionTime)}</span>
                 ) : (
-                  <span className="tabular-nums">Αναγνωρίστηκε: {formatClock(event.recognitionTime)}</span>
+                  <span className="tabular-nums">Αναγνωρίστηκε: {formatWallClock(event.recognitionTime)}</span>
                 )}
               </div>
               {entryTime && event.direction === "OUT" && (
                 <Badge variant="neutral" className="tabular-nums">
-                  Μπήκε: {formatDayTime(entryTime)}
+                  Μπήκε: {formatWallDayTime(entryTime)}
                 </Badge>
               )}
               {isStillInside && (
