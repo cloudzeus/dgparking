@@ -21,6 +21,9 @@ import { prisma } from "@/lib/prisma";
 import { reconcile, fetchErpStays, type ReconRow } from "@/lib/parking-reconcile";
 import { getParkingSessions } from "@/lib/parking-sessions";
 import { wallClockNow, formatWallClock } from "@/lib/parking-time";
+import { fetchDailyRevenue, type DailyRevenue } from "@/lib/daily-revenue";
+import { fetchOpenErpStays } from "@/lib/parking-reconcile";
+import { getInventory } from "@/lib/parking-inventory";
 
 const FONT_DIR = path.join(process.cwd(), "public", "fonts");
 const REGULAR = path.join(FONT_DIR, "NotoSans-Regular.ttf");
@@ -61,6 +64,11 @@ export type ReportStats = {
   ourTotal: number;
   erpTotal: number;
   photos: number;
+  revenue: DailyRevenue;
+  /** Πλήθος ανά κατάσταση αντιπαραβολής — η πρώτη καρτέλα της σελίδας. */
+  byStatus: { status: string; count: number }[];
+  /** Ποια οχήματα είναι μέσα — η δεύτερη καρτέλα. */
+  gate: { both: number; onlyOurs: number; onlyErp: number; inventory: number; erpOpen: number };
 };
 
 /** Η μέρα σε ώρα τοίχου — από τα μεσάνυχτα ως τώρα (ή ως το τέλος της). */
@@ -180,9 +188,27 @@ function pendingLabel(minutes: number | null): string {
 export async function buildDailyReport(day: Date = wallClockNow()): Promise<DailyReport> {
   const { from, to } = dayBounds(day);
 
-  const [sessions, erpStays] = await Promise.all([
+  const [sessions, erpStays, revenue, inventory, erpOpen] = await Promise.all([
     getParkingSessions(from, to),
     fetchErpStays(from, to),
+    // Μια αποτυχία στα παραστατικά δεν πρέπει να ακυρώσει ολόκληρη την
+    // αναφορά — η αντιπαραβολή είναι ο λόγος που υπάρχει.
+    fetchDailyRevenue(from).catch(
+      (e): DailyRevenue => ({
+        income: [],
+        credits: [],
+        collections: [],
+        incomeTotal: 0,
+        creditsTotal: 0,
+        collectionsTotal: 0,
+        unclassified: [],
+        error: e instanceof Error ? e.message : "Τα παραστατικά δεν διαβάστηκαν.",
+      })
+    ),
+    getInventory(),
+    // Χωρίς φίλτρο ημέρας: ένα όχημα που μπήκε χθες και είναι ακόμα μέσα
+    // πρέπει να μετρηθεί, αλλιώς φαίνεται ψευδώς ότι λείπει από το ERP.
+    fetchOpenErpStays().catch(() => []),
   ]);
   const rows = reconcile(sessions, erpStays);
 
@@ -208,6 +234,27 @@ export async function buildDailyReport(day: Date = wallClockNow()): Promise<Dail
     ourTotal: rows.reduce((s, r) => s + (r.ourAmount ?? 0), 0),
     erpTotal: rows.reduce((s, r) => s + (r.erpAmount ?? 0), 0),
     photos: 0,
+    revenue,
+    byStatus: (() => {
+      const m = new Map<string, number>();
+      for (const r of rows) m.set(r.status, (m.get(r.status) ?? 0) + 1);
+      return [...m.entries()]
+        .map(([status, count]) => ({ status, count }))
+        .sort((a, b) => b.count - a.count);
+    })(),
+    gate: (() => {
+      const ours = new Set(inventory.map((i) => i.plate));
+      const erp = new Set(erpOpen.map((e) => e.plate));
+      let both = 0;
+      for (const p of ours) if (erp.has(p)) both++;
+      return {
+        both,
+        onlyOurs: ours.size - both,
+        onlyErp: erp.size - both,
+        inventory: ours.size,
+        erpOpen: erp.size,
+      };
+    })(),
   };
 
   // Οι φωτογραφίες κατεβαίνουν ΜΟΝΟ για τις αποκλίσεις, και με όριο: μια
@@ -476,6 +523,111 @@ function render(
           doc.y,
           { width: W }
         );
+    }
+
+    // ── Τελική σύνοψη ─────────────────────────────────────────────────────
+    //
+    // Είναι η ίδια εικόνα με τη σελίδα αντιπαραβολής, και οι δύο καρτέλες
+    // της: «Εμείς έναντι SoftOne» και «Ποια οχήματα είναι μέσα». Μπαίνει στο
+    // ΤΕΛΟΣ και όχι στην αρχή, γιατί στην αρχή θέλει κανείς να δει αμέσως τι
+    // πήγε στραβά· τα σύνολα τα διαβάζει αφού τα δει.
+    doc.addPage();
+    doc.y = 44;
+
+    const h2 = (title: string, sub?: string) => {
+      doc.font("b").fontSize(13).fillColor(INK).text(title, 40, doc.y, { width: W });
+      if (sub) doc.font("r").fontSize(8.5).fillColor(MUTED).text(sub, 40, doc.y + 1, { width: W });
+      doc.moveDown(0.5);
+    };
+
+    const money = (n: number) => `${n.toFixed(2)} €`;
+
+    /** Γραμμή πίνακα: ετικέτα αριστερά, πλήθος και ποσό δεξιά. */
+    const row3 = (label: string, mid: string, right: string, bold = false, color = INK) => {
+      const y = doc.y;
+      doc.font(bold ? "b" : "r").fontSize(9).fillColor(color);
+      doc.text(label, 40, y, { width: W - 180, lineBreak: false });
+      doc.text(mid, 40 + W - 180, y, { width: 70, align: "right", lineBreak: false });
+      doc.text(right, 40 + W - 105, y, { width: 105, align: "right", lineBreak: false });
+      doc.y = y + 15;
+    };
+
+    const rule = () => {
+      doc.moveTo(40, doc.y + 2).lineTo(40 + W, doc.y + 2).strokeColor(RULE).lineWidth(0.5).stroke();
+      doc.y += 8;
+    };
+
+    h2("Σύνοψη ημέρας", stats.date);
+    rule();
+
+    // ── Καρτέλα 1: Εμείς έναντι SoftOne ───────────────────────────────────
+    h2("Εμείς έναντι SoftOne", "Αντιπαραβολή των στάσεων των καμερών με το ψηφιακό πελατολόγιο.");
+    row3("Κατάσταση", "Στάσεις", "", true, MUTED);
+    for (const { status, count } of stats.byStatus) {
+      const isProblem = PROBLEM_ORDER.includes(status as (typeof PROBLEM_ORDER)[number]);
+      row3(STATUS_LABEL[status] ?? status, String(count), "", false, isProblem ? MEGA_RED : INK);
+    }
+    rule();
+    row3("Σύνολο στάσεων", String(stats.total), "", true);
+    row3("Δικός μας υπολογισμός", "", money(stats.ourTotal));
+    row3("Ψηφιακό πελατολόγιο", "", money(stats.erpTotal));
+    row3("Διαφορά", "", money(stats.ourTotal - stats.erpTotal), true, MEGA_RED);
+    doc.moveDown(1);
+
+    // ── Καρτέλα 2: Ποια οχήματα είναι μέσα ────────────────────────────────
+    h2(
+      "Ποια οχήματα είναι μέσα",
+      "Η απογραφή μας έναντι των ανοιχτών εγγραφών του ψηφιακού πελατολογίου."
+    );
+    row3("Συμφωνούν και οι δύο πλευρές", String(stats.gate.both), "", true);
+    row3("Μόνο στη δική μας απογραφή", String(stats.gate.onlyOurs), "", false, stats.gate.onlyOurs ? MEGA_RED : INK);
+    row3("Μόνο ανοιχτά στο SoftOne", String(stats.gate.onlyErp), "", false, stats.gate.onlyErp ? MEGA_RED : INK);
+    rule();
+    row3("Απογραφή μας", String(stats.gate.inventory), "");
+    row3("Ανοιχτά στο SoftOne", String(stats.gate.erpOpen), "");
+    doc.moveDown(1);
+
+    // ── Παραστατικά και εισπράξεις ────────────────────────────────────────
+    const rev = stats.revenue;
+    h2("Παραστατικά και εισπράξεις", "Ό,τι εκδόθηκε και ό,τι εισπράχθηκε την ίδια ημέρα.");
+
+    if (rev.error) {
+      doc.font("r").fontSize(9).fillColor(MEGA_RED).text(`Δεν διαβάστηκαν: ${rev.error}`, 40, doc.y, { width: W });
+      doc.moveDown(1);
+    } else {
+      row3("Παραστατικό", "Πλήθος", "Αξία", true, MUTED);
+      if (rev.income.length === 0 && rev.credits.length === 0) {
+        row3("Κανένα παραστατικό εσόδου", "0", money(0), false, MUTED);
+      }
+      for (const g of rev.income) row3(`${g.code} — ${g.label}`, String(g.count), money(g.total));
+      for (const g of rev.credits)
+        row3(`${g.code} — ${g.label}`, String(g.count), `−${money(g.total)}`, false, MEGA_RED);
+      rule();
+      row3("Σύνολο εσόδων", "", money(rev.incomeTotal), true);
+      doc.moveDown(0.6);
+
+      row3("Είσπραξη", "Πλήθος", "Ποσό", true, MUTED);
+      if (rev.collections.length === 0) row3("Καμία είσπραξη", "0", money(0), false, MUTED);
+      for (const g of rev.collections) row3(`${g.code} — ${g.label}`, String(g.count), money(g.total));
+      rule();
+      row3("Σύνολο εισπράξεων", "", money(rev.collectionsTotal), true);
+
+      if (rev.unclassified.length > 0) {
+        doc.moveDown(0.6);
+        doc
+          .font("r")
+          .fontSize(7.5)
+          .fillColor(MUTED)
+          .text(
+            "Δεν προσμετρήθηκαν (σειρές εκτός εσόδων/εισπράξεων, π.χ. εμβάσματα): " +
+              rev.unclassified
+                .map((u) => `${u.code || `σειρά ${u.series}`} ${u.total.toFixed(2)} €`)
+                .join(" · "),
+            40,
+            doc.y,
+            { width: W }
+          );
+      }
     }
 
     // ── Αρίθμηση σελίδων ──────────────────────────────────────────────────
