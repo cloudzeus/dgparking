@@ -25,7 +25,8 @@
     "emails:sync": "tsx scripts/sync-customer-emails.ts",
     "typecheck": "tsc --noEmit",
     "newsletter:import": "tsx scripts/import-customers-to-newsletter.ts",
-    "report:daily": "tsx scripts/daily-report.ts"
+    "report:daily": "tsx scripts/daily-report.ts",
+    "campaign:events": "tsx scripts/create-events-campaign.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

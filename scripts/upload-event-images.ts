@@ -9,21 +9,11 @@ const HOST = process.env.BUNNY_STORAGE_HOSTNAME || "storage.bunnycdn.com";
 const CDN = process.env.BUNNY_CDN_HOSTNAME!;
 
 const IMAGES = [
-  { file: "events-hero", title: "Εκδηλώσεις — είσοδος πάρκινγκ το σούρουπο",
-    alt: { el: "Είσοδος του πάρκινγκ με δεσμευμένες θέσεις για εκδήλωση, το σούρουπο",
-           en: "Parking entrance with reserved event bays at dusk",
-           it: "Ingresso del parcheggio con posti riservati per eventi al crepuscolo" },
-    url: "https://cdn.openart.ai/openart-ai/production/2026-09/create-image/cXQx4aSR0hj6h2z4EF10/gpt-image-2.5-sunburst-1_1790266019704_3fa565c2.png" },
-  { file: "events-bays", title: "Εκδηλώσεις — δεσμευμένες θέσεις",
-    alt: { el: "Σειρές άδειων δεσμευμένων θέσεων σε καθαρό στεγασμένο πάρκινγκ",
-           en: "Rows of empty reserved bays in a clean covered parking deck",
-           it: "File di posti riservati vuoti in un parcheggio coperto pulito" },
-    url: "https://cdn.openart.ai/openart-ai/production/2026-09/create-image/cXQx4aSR0hj6h2z4EF10/gpt-image-2.5-sunburst-1_1790266030133_382afbec.png" },
-  { file: "events-arrival", title: "Εκδηλώσεις — άφιξη καλεσμένων",
-    alt: { el: "Καλεσμένοι φτάνουν σε εκδήλωση και τους υποδέχεται υπάλληλος του πάρκινγκ",
-           en: "Guests arriving at an event, welcomed by a parking attendant",
-           it: "Ospiti in arrivo a un evento, accolti da un addetto al parcheggio" },
-    url: "https://cdn.openart.ai/openart-ai/production/2026-09/create-image/cXQx4aSR0hj6h2z4EF10/gpt-image-2.5-sunburst-1_1790266040462_d16d39ae.png" },
+  { file: "events-newsletter", title: "Εκδηλώσεις — εικόνα ενημερωτικού δελτίου",
+    alt: { el: "Δεσμευμένες θέσεις στάθμευσης σε στεγασμένο πάρκινγκ",
+           en: "Reserved parking bays in a covered parking deck",
+           it: "Posti auto riservati in un parcheggio coperto" },
+    url: "https://cdn.openart.ai/openart-ai/production/2026-09/create-image/cXQx4aSR0hj6h2z4EF10/gpt-image-2.5-sunburst-1_1790266936584_634830c1.png" },
 ];
 
 async function main() {
