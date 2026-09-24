@@ -15,7 +15,7 @@
 import { prisma } from "@/lib/prisma";
 import { wallClockNow } from "@/lib/parking-time";
 import { fetchErpStays } from "@/lib/parking-reconcile";
-import { getActiveContractPlates } from "@/lib/parking-sessions";
+import { getActiveContractPlates, MIN_STAY_MINUTES } from "@/lib/parking-sessions";
 import { calculateCharge } from "@/lib/parking-tariff";
 import type { InventorySource } from "@prisma/client";
 
@@ -107,6 +107,17 @@ export async function applyCameraPass(
     if (!current) return { action: "ignored", reason: "δεν βρισκόταν στην απογραφή" };
 
     const minutes = Math.max(0, Math.round((at.getTime() - current.enteredAt.getTime()) / 60000));
+
+    // ΠΕΡΑΣΜΑ, ΟΧΙ ΣΤΑΘΜΕΥΣΗ. Όχημα που το είδαν και οι δύο κάμερες μέσα σε
+    // λίγα λεπτά απλώς πέρασε. Ο τύπος χρέωσης στρογγυλοποιεί ΠΑΝΩ, οπότε μια
+    // διαδρομή τριάντα δευτερολέπτων θα χρεωνόταν ολόκληρη ώρα — 5 €. Το ERP
+    // δεν καταγράφει καν τέτοια, άρα θα φαινόταν και ως ψεύτικη απόκλιση.
+    // Το όχημα φεύγει από την απογραφή, αλλά δεν γράφεται στάθμευση.
+    if (minutes <= MIN_STAY_MINUTES) {
+      await prisma.parkingInventory.delete({ where: { plate: key } });
+      return { action: "removed", reason: `πέρασμα ${minutes}′ — χωρίς χρέωση` };
+    }
+
     const charge = calculateCharge({
       entry: current.enteredAt,
       exit: at,
