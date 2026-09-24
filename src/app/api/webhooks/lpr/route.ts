@@ -318,23 +318,31 @@ async function findCamera(data: any, request: Request): Promise<string | null> {
       return caseInsensitiveMatch.id;
     }
     
-    // Try partial name matching (for cases like "Parking-LPTR-01")
-    const nameParts = deviceName.split(/[-_]/);
-    const firstPart = nameParts[0]?.toLowerCase();
-    
-    if (firstPart) {
-      const partialMatch = allActiveCameras.find(
-        (c) =>
-          c.name?.toLowerCase().includes(firstPart) ||
-          c.deviceId?.toLowerCase().includes(firstPart) ||
-          c.name?.toLowerCase().includes(deviceName.toLowerCase()) ||
-          c.deviceId?.toLowerCase().includes(deviceName.toLowerCase())
+    // ΜΕΡΙΚΟ ΤΑΙΡΙΑΣΜΑ — ΜΟΝΟ ΑΝ ΕΙΝΑΙ ΜΟΝΟΣΗΜΑΝΤΟ.
+    //
+    // Παλιότερα γινόταν ταίριασμα στο πρώτο κομμάτι του ονόματος ("parking"),
+    // οπότε τα «Parking-LPTR-entrance» και «Parking-LPTR-exit» έπεφταν και τα
+    // δύο στην πρώτη κάμερα που θα βρισκόταν. Ήταν αβλαβές όσο η κάμερα ήταν
+    // διακοσμητική· τώρα ΚΑΘΟΡΙΖΕΙ ΤΗΝ ΚΑΤΕΥΘΥΝΣΗ, οπότε ένα λάθος ταίριασμα
+    // αντιστρέφει είσοδο με έξοδο. Αν οι υποψήφιες είναι πάνω από μία,
+    // προτιμάμε να μη βρεθεί καμία.
+    const needle = deviceName.toLowerCase();
+    const partial = allActiveCameras.filter(
+      (c) =>
+        c.name?.toLowerCase().includes(needle) ||
+        c.deviceId?.toLowerCase().includes(needle)
+    );
+    if (partial.length === 1) {
+      console.log("✅ Camera found by unambiguous partial match:", deviceName, "→", partial[0].name);
+      return partial[0].id;
+    }
+    if (partial.length > 1) {
+      console.warn(
+        `⚠️  Το όνομα «${deviceName}» ταιριάζει σε ${partial.length} κάμερες ` +
+          `(${partial.map((c) => c.name).join(", ")}) — δεν επιλέγεται καμία. ` +
+          "Δώσε ακριβές name ή deviceId, αλλιώς η κατεύθυνση δεν μπορεί να καθοριστεί."
       );
-      
-      if (partialMatch) {
-        console.log("✅ Camera found by partial name match:", deviceName, "→", partialMatch.name);
-        return partialMatch.id;
-      }
+      return null;
     }
   }
 
@@ -348,28 +356,33 @@ async function findCamera(data: any, request: Request): Promise<string | null> {
     ipAddress = ipAddress.replace("::ffff:", "");
   }
 
+  // IP — ΜΟΝΟ ΑΝ ΤΗΝ ΕΧΕΙ ΑΚΡΙΒΩΣ ΜΙΑ ΚΑΜΕΡΑ.
+  // Οι κάμερες του parking βγαίνουν στο διαδίκτυο από την ίδια δημόσια IP
+  // (NAT), οπότε η IP από μόνη της ΔΕΝ ξεχωρίζει είσοδο από έξοδο.
   if (ipAddress) {
-    console.log("🌐 Looking for camera by IP address:", ipAddress);
-    const ipMatch = allActiveCameras.find(
-      (c) => c.ipAddress === ipAddress || c.ipAddress?.includes(ipAddress) || ipAddress?.includes(c.ipAddress || "")
-    );
-    
-    if (ipMatch) {
-      console.log("✅ Camera found by IP address:", ipAddress, "→", ipMatch.name);
-      return ipMatch.id;
+    const ipMatches = allActiveCameras.filter((c) => c.ipAddress === ipAddress);
+    if (ipMatches.length === 1) {
+      console.log("✅ Camera found by IP address:", ipAddress, "→", ipMatches[0].name);
+      return ipMatches[0].id;
+    }
+    if (ipMatches.length > 1) {
+      console.warn(
+        `⚠️  Η IP ${ipAddress} αντιστοιχεί σε ${ipMatches.length} κάμερες — δεν επιλέγεται καμία.`
+      );
     }
   }
 
-  // If still not found, try to find any active camera (fallback for testing)
-  // In production, you might want to return null instead
-  if (allActiveCameras.length > 0) {
-    const fallbackCamera = allActiveCameras[0];
-    console.warn("⚠️ Using fallback camera:", fallbackCamera.name, "(device:", deviceName, "not found)");
-    console.warn("⚠️ This means events will be saved but associated with the wrong camera!");
-    return fallbackCamera.id;
-  }
-  
-  console.error("❌ No active cameras found in database at all!");
+  // ΚΑΜΙΑ ΕΠΙΣΤΡΟΦΗ «ΠΡΩΤΗΣ ΔΙΑΘΕΣΙΜΗΣ ΚΑΜΕΡΑΣ».
+  //
+  // Υπήρχε fallback που επέστρεφε `allActiveCameras[0]` όταν δεν ταίριαζε
+  // τίποτα, με δικό του σχόλιο ότι τα συμβάντα συνδέονται με λάθος κάμερα.
+  // Τώρα που η κάμερα καθορίζει την κατεύθυνση, αυτό θα σήμαινε λάθος IN/OUT
+  // σε κάθε ασύνδετο συμβάν — δηλαδή κατεστραμμένη απογραφή. Προτιμάμε άγνωστη
+  // κάμερα και ρητή προειδοποίηση.
+  console.warn(
+    `⚠️  Δεν αναγνωρίστηκε κάμερα (device: ${deviceName ?? "κενό"}, ip: ${ipAddress ?? "κενή"}). ` +
+      "Η κατεύθυνση θα προκύψει από το payload και μπορεί να είναι λανθασμένη."
+  );
   return null;
 }
 
