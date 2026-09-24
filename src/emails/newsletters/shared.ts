@@ -226,7 +226,10 @@ export function navyPanel(inner: string, padding = "48px 32px", align: "left" | 
 
 /** Κελί με τα περιθώρια της σελίδας — για full-bleed σώματα (`bodyPadding:"0"`). */
 export function padded(inner: string, padding = "48px 32px", background: string = BRAND.white): string {
-  const cls = background === BRAND.white ? "mp-pad mp-card" : "mp-pad mp-cloud";
+  // `mp-ink`: βλ. σχόλιο στη `zone()` — η επιφάνεια που σκουραίνει πρέπει
+  // να ανοίγει και το κείμενό της.
+  const cls =
+    background === BRAND.white ? "mp-pad mp-card mp-ink" : "mp-pad mp-cloud mp-ink";
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${background}" style="background-color:${background};">
     <tr><td class="${cls}" style="padding:${padding};background-color:${background};">${inner}</td></tr>
   </table>`;
@@ -252,7 +255,10 @@ export function maybeCta(
 
 /** Μικρή ετικέτα σε monospace με αραιά γράμματα — η «κορδέλα» του εντύπου. */
 export function eyebrowMono(text: string, color: string = BRAND.red): string {
-  return `<p style="margin:0 0 16px;font-family:${MONO_STACK};font-size:11px;line-height:16px;letter-spacing:0.2em;text-transform:uppercase;color:${color};">${escapeHtml(
+  // `mp-accent`: χωρίς αυτό, ο κανόνας `.mp-ink p` του σκοτεινού θέματος θα
+  // έκανε γκρι και το κόκκινο της μάρκας. Κρατά ένα ανοιχτότερο κόκκινο, που
+  // διαβάζεται πάνω στο σκούρο φόντο.
+  return `<p class="mp-accent" style="margin:0 0 16px;font-family:${MONO_STACK};font-size:11px;line-height:16px;letter-spacing:0.2em;text-transform:uppercase;color:${color};">${escapeHtml(
     text
   )}</p>`;
 }
@@ -291,9 +297,14 @@ export function zone(
     align = "left",
     className = "",
   } = options;
+  // ΣΚΟΤΕΙΝΟ ΘΕΜΑ: όποια επιφάνεια σκουραίνει, ΠΡΕΠΕΙ να ανοίγει και το
+  // κείμενό της. Το `mp-cloud` γινόταν #22222E ενώ ο τίτλος έμενε στο inline
+  // σκούρο μπλε — σκούρο σε σκούρο, δηλαδή αόρατο. Οι ίδιοι οι τίτλοι δεν
+  // μπορούν να το λύσουν: τα inline χρώματα δεν αλλάζουν με media query, γι'
+  // αυτό η διόρθωση ανήκει στο περιβάλλον.
   const theme =
     background === BRAND.white ? "mp-card" : background === BRAND.cloud ? "mp-cloud" : "";
-  const cls = ["mp-pad", theme, className].filter(Boolean).join(" ");
+  const cls = ["mp-pad", theme, theme ? "mp-ink" : "", className].filter(Boolean).join(" ");
   return `
     <tr>
       <td class="${cls}" align="${align}" bgcolor="${background}" style="padding:${padding};background-color:${background};">

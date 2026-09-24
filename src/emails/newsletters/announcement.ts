@@ -32,7 +32,7 @@ export const announcementTemplate: NewsletterRenderer = ({
   const body = `
     <!-- Ζώνη 1: ο τίτλος ως γεγονός, πάνω σε Cloud -->
     <tr>
-      <td class="mp-pad mp-cloud" bgcolor="${BRAND.cloud}" style="padding:44px 32px 40px;background-color:${BRAND.cloud};">
+      <td class="mp-pad mp-cloud mp-ink" bgcolor="${BRAND.cloud}" style="padding:44px 32px 40px;background-color:${BRAND.cloud};">
         ${eyebrowMono("Ανακοίνωση")}
         ${displayTitle(title, { size: 44, margin: "0 0 18px" })}
         ${standfirst(lead)}
@@ -43,7 +43,7 @@ export const announcementTemplate: NewsletterRenderer = ({
     ${
       rest
         ? `<tr>
-      <td class="mp-pad mp-card" bgcolor="${BRAND.white}" style="padding:40px 32px 8px;background-color:${BRAND.white};">
+      <td class="mp-pad mp-card mp-ink" bgcolor="${BRAND.white}" style="padding:40px 32px 8px;background-color:${BRAND.white};">
         ${richText(rest, { size: 17, lineHeight: 29 })}
       </td>
     </tr>`
@@ -58,7 +58,7 @@ export const announcementTemplate: NewsletterRenderer = ({
 
     <!-- Επικοινωνία, διακριτικά -->
     <tr>
-      <td class="mp-pad mp-card" bgcolor="${BRAND.white}" style="padding:28px 32px 36px;background-color:${BRAND.white};">
+      <td class="mp-pad mp-card mp-ink" bgcolor="${BRAND.white}" style="padding:28px 32px 36px;background-color:${BRAND.white};">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr>
             <td valign="top" width="108" class="mp-stack" style="width:108px;padding:0 16px 0 0;font-family:${MONO_STACK};font-size:11px;line-height:18px;letter-spacing:0.16em;text-transform:uppercase;color:${BRAND.steel};">

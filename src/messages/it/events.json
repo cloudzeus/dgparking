@@ -44,8 +44,8 @@
       "description": "Il totale è concordato nel preventivo. I vostri ospiti non pagano nulla all'uscita."
     },
     "access": {
-      "title": "Ingresso rapido",
-      "description": "Riconoscimento targa alla sbarra. Nessun biglietto, nessuna coda alla cassa."
+      "title": "Vi accoglie una persona",
+      "description": "All'ingresso c'è sempre personale che indirizza i veicoli ai posti riservati. La targa viene registrata automaticamente, senza biglietti."
     },
     "staff": {
       "title": "Personale in loco",

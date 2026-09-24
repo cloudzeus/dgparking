@@ -167,6 +167,9 @@ export function renderEmail({
     .mp-cloud-alt{background-color:#1B1B26 !important;}
     .mp-hair{border-color:#343446 !important;background-color:#343446 !important;}
     .mp-muted, .mp-muted p, .mp-muted a{color:#9B9BAA !important;}
+    /* Το κόκκινο της μάρκας: ανοίγει αντί να γκριζάρει από τον κανόνα του
+       mp-ink, ώστε ο τόνος να επιβιώνει και στο σκοτεινό θέμα. */
+    .mp-accent, .mp-accent p{color:#E8657F !important;}
   }
 </style>
 </head>
