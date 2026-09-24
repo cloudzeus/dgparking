@@ -13,7 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/encryption";
 import { authenticateSoftOneAPI, getSoftOneTableData } from "@/lib/softone-api";
 import { getParkingSessions, type ParkingSession } from "@/lib/parking-sessions";
-import { formatWallClock, isReadablePlate, parseErpWallClock } from "@/lib/parking-time";
+import { formatWallClock, isReadablePlate, parseErpWallClock, wallClockNow } from "@/lib/parking-time";
 
 /** Μια εγγραφή του ψηφιακού πελατολογίου, όπως τη δίνει το ERP. */
 export type ErpStay = {
@@ -116,6 +116,21 @@ export async function fetchErpStays(from: Date, to: Date): Promise<ErpStay[]> {
       };
     })
     .filter((s) => isReadablePlate(s.plate));
+}
+
+/**
+ * Οι ΑΝΟΙΧΤΕΣ εγγραφές του ψηφιακού πελατολογίου, ανεξάρτητα από την περίοδο
+ * που κοιτάει ο χρήστης.
+ *
+ * Το βιβλίο πόρτας ΔΕΝ πρέπει να περιορίζεται από το φίλτρο ημερών: ένα όχημα
+ * μπορεί να είναι μέσα από πριν δύο εβδομάδες, και με παράθυρο τριών ημερών θα
+ * φαινόταν ψευδώς ότι «λείπει από το ERP».
+ */
+export async function fetchOpenErpStays(lookbackDays = 30): Promise<ErpStay[]> {
+  const now = wallClockNow();
+  const from = new Date(now.getTime() - lookbackDays * 24 * 3600 * 1000);
+  const stays = await fetchErpStays(from, now);
+  return stays.filter((s) => s.exit === null && s.entry !== null);
 }
 
 const driftMin = (a: Date | null, b: Date | null) =>

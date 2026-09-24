@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore } from "next/cache";
 import { auth } from "@/lib/auth";
-import { reconcilePeriod } from "@/lib/parking-reconcile";
+import { reconcilePeriod, fetchOpenErpStays } from "@/lib/parking-reconcile";
 import { formatWallClock, wallClockNow } from "@/lib/parking-time";
 import { ReconciliationClient, type ReconRowDTO, type GateRowDTO } from "@/components/reconciliation/reconciliation-client";
 import { getInventory } from "@/lib/parking-inventory";
@@ -63,12 +63,13 @@ export default async function ReconciliationPage({ searchParams }: PageProps) {
     }));
     // Το βιβλίο πόρτας δεν προκύπτει πια από τα συμβάντα των καμερών αλλά από
     // τη μόνιμη απογραφή — έτσι επιβιώνει ακόμα κι όταν σβηστεί το ιστορικό.
-    const inventory = await getInventory();
-    const erpOpen = new Map(
-      result.rows
-        .filter((r) => r.erp && r.erp.exit === null && r.erp.entry)
-        .map((r) => [r.erp!.plate, r.erp!])
-    );
+    const [inventory, openStays] = await Promise.all([
+      getInventory(),
+      // Ανεξάρτητα από το φίλτρο ημερών — αλλιώς ένα όχημα που μπήκε πριν από
+      // την περίοδο φαίνεται ψευδώς ότι λείπει από το ERP.
+      fetchOpenErpStays(),
+    ]);
+    const erpOpen = new Map(openStays.map((s) => [s.plate, s]));
     const invByPlate = new Map(inventory.map((i) => [i.plate, i]));
     const plates = new Set([...invByPlate.keys(), ...erpOpen.keys()]);
 
