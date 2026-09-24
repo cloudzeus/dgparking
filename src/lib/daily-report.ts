@@ -134,6 +134,41 @@ async function photosFor(
   };
 }
 
+/**
+ * Η επωνυμία του πελάτη πίσω από κάθε σύμβαση.
+ *
+ * Ο αριθμός σύμβασης δεν λέει τίποτα σε όποιον διαβάζει την αναφορά το
+ * βράδυ: για να καταλάβει ποιον αφορά η απόκλιση πρέπει να ανοίξει το ERP.
+ * Με την επωνιμία από κάτω, η γραμμή στέκεται μόνη της.
+ */
+async function customerNames(insts: number[]): Promise<Map<number, string>> {
+  const unique = [...new Set(insts)].filter((n) => Number.isFinite(n));
+  if (unique.length === 0) return new Map();
+
+  const contracts = await prisma.iNST.findMany({
+    where: { INST: { in: unique } },
+    select: { INST: true, TRDR: true, NAME: true },
+  });
+
+  const trdrs = [...new Set(contracts.map((c) => c.TRDR).filter(Boolean))] as string[];
+  const customers = trdrs.length
+    ? await prisma.cUSTORMER.findMany({
+        where: { TRDR: { in: trdrs } },
+        select: { TRDR: true, NAME: true },
+      })
+    : [];
+  const byTrdr = new Map(customers.map((c) => [c.TRDR, (c.NAME ?? "").trim()]));
+
+  const out = new Map<number, string>();
+  for (const c of contracts) {
+    // Πρώτα η επωνυμία του πελάτη· αν λείπει, η ονομασία της σύμβασης, που
+    // συνήθως περιέχει το όνομα μαζί με τον μήνα.
+    const name = (c.TRDR ? byTrdr.get(c.TRDR) : "") || (c.NAME ?? "").trim();
+    if (name) out.set(c.INST, name);
+  }
+  return out;
+}
+
 /** Πόσο διαρκεί μια εκκρεμότητα, σε ανθρώπινη μορφή. */
 function pendingLabel(minutes: number | null): string {
   if (minutes == null) return "—";
@@ -192,14 +227,19 @@ export async function buildDailyReport(day: Date = wallClockNow()): Promise<Dail
     })
   );
 
-  const pdf = await render(stats, problems, shots);
+  const names = await customerNames(
+    problems.map((r) => r.ours?.contractInst ?? r.erp?.inst ?? NaN).filter(Number.isFinite) as number[]
+  );
+
+  const pdf = await render(stats, problems, shots, names);
   return { pdf, stats };
 }
 
 function render(
   stats: ReportStats,
   problems: ReconRow[],
-  shots: { row: ReconRow; inImg: Buffer | null; outImg: Buffer | null }[]
+  shots: { row: ReconRow; inImg: Buffer | null; outImg: Buffer | null }[],
+  names: Map<number, string>
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });
@@ -296,7 +336,7 @@ function render(
     for (const row of problems) {
       const shot = shotByPlate.get(row.plate);
       const hasImages = !!(shot?.inImg || shot?.outImg);
-      const blockH = hasImages ? IMG_H + 66 : 78;
+      const blockH = hasImages ? IMG_H + 78 : 92;
 
       if (doc.y + blockH > doc.page.height - 50) {
         doc.addPage();
@@ -306,12 +346,29 @@ function render(
       const y0 = doc.y;
 
       doc.font("b").fontSize(11).fillColor(INK).text(row.plate, 40, y0, { continued: false });
-      if (row.ours?.contractInst) {
+      const inst = row.ours?.contractInst ?? row.erp?.inst ?? null;
+      const customer = inst != null ? names.get(inst) : undefined;
+      if (inst != null) {
         doc
           .font("r")
           .fontSize(8)
           .fillColor(MUTED)
-          .text(`σύμβαση ${row.ours.contractInst}`, 40, y0 + 14);
+          .text(`σύμβαση ${inst}`, 40, y0 + 13, { width: 200, lineBreak: false });
+        if (customer) {
+          // Η επωνυμία κόβεται ΜΕ ΜΕΤΡΗΣΗ και όχι με `ellipsis`: το τελευταίο
+          // δεν εμποδίζει την αναδίπλωση, και οι μακριές εταιρικές επωνυμίες
+          // έπεφταν σε τρεις σειρές πάνω στα στοιχεία από κάτω.
+          doc.font("b").fontSize(8);
+          const maxW = W - 2 * IMG_W - 16;
+          let label = customer;
+          if (doc.widthOfString(label) > maxW) {
+            while (label.length > 1 && doc.widthOfString(`${label}…`) > maxW) {
+              label = label.slice(0, -1);
+            }
+            label = `${label.trimEnd()}…`;
+          }
+          doc.fillColor(MEGA_BLUE).text(label, 40, y0 + 23, { lineBreak: false });
+        }
       }
 
       // Η κατάσταση, δεξιά, σε χρώμα που ξεχωρίζει χωρίς να κραυγάζει.
@@ -337,7 +394,7 @@ function render(
         `${minutes != null ? `  ${minutes}′` : ""}  ·  ${amount.toFixed(2)} €` +
         `${ref ? `  #${ref}` : ""}`;
 
-      let ty = y0 + (row.ours?.contractInst ? 28 : 22);
+      let ty = y0 + (inst != null ? (customer ? 38 : 28) : 22);
       const pair = (label: string, value: string) => {
         doc.font("r").fontSize(7.5).fillColor(MUTED).text(label, 40, ty, { width: leftW, lineBreak: false });
         doc.font("r").fontSize(8.5).fillColor(INK).text(value, 40, ty + 9, { width: leftW, lineBreak: false });

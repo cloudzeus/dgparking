@@ -149,6 +149,75 @@ export function scheduleDeviationMonitoring() {
   }
 }
 
+/* ── Ημερήσια αναφορά ────────────────────────────────────────────────────── */
+
+export const DAILY_REPORT_JOB_ID = "internal:daily-report";
+/**
+ * Στις 23:00, ΑΦΟΥ κλείσει ουσιαστικά η μέρα.
+ *
+ * Η ώρα δεν είναι αυθαίρετη: αν η αναφορά έβγαινε νωρίτερα, κάθε όχημα που
+ * βρίσκεται ακόμα μέσα θα μετριόταν ως απόκλιση — στη δοκιμή του απογεύματος
+ * οι περισσότερες από τις 104 «αποκλίσεις» ήταν απλώς αυτοκίνητα που δεν
+ * είχαν φύγει ακόμα. Στις 23:00 το πάρκινγκ έχει αδειάσει και ό,τι μένει
+ * ανοιχτό είναι πραγματικό εύρημα.
+ */
+const DAILY_REPORT_CRON = "0 23 * * *";
+
+async function runDailyReport(trigger: string) {
+  const { buildDailyReport } = await import("@/lib/daily-report");
+  const { sendDailyReport, DAILY_REPORT_ENABLED, reportRecipients } = await import(
+    "@/lib/daily-report-mail"
+  );
+
+  try {
+    const { pdf, stats } = await buildDailyReport();
+    console.log(
+      `[CRON] ${DAILY_REPORT_JOB_ID} (${trigger}): ${stats.total} στάσεις, ` +
+        `${stats.problems} αποκλίσεις, ${stats.photos} φωτογραφίες, ${(pdf.length / 1024).toFixed(0)} KB`
+    );
+
+    if (!DAILY_REPORT_ENABLED) {
+      console.log(
+        `[CRON] ${DAILY_REPORT_JOB_ID}: η αποστολή είναι ΚΛΕΙΣΤΗ — όρισε DAILY_REPORT_ENABLED=true.`
+      );
+      return;
+    }
+    const result = await sendDailyReport(pdf, stats);
+    console.log(
+      result.success
+        ? `[CRON] ${DAILY_REPORT_JOB_ID}: στάλθηκε σε ${reportRecipients().join(", ")} (${result.id})`
+        : `[CRON] ${DAILY_REPORT_JOB_ID}: ΑΠΕΤΥΧΕ — ${result.error}`
+    );
+  } catch (error) {
+    console.error(`[CRON] ${DAILY_REPORT_JOB_ID}: σφάλμα`, error);
+  }
+}
+
+/**
+ * Ο προγραμματισμός γίνεται ΠΑΝΤΑ, ακόμα κι όταν η αποστολή είναι κλειστή:
+ * έτσι η αναφορά παράγεται κάθε βράδυ και τυχόν σφάλμα φαίνεται στα logs
+ * πριν ανοίξει ο διακόπτης, αντί να ανακαλυφθεί την πρώτη νύχτα αποστολής.
+ */
+export function scheduleDailyReport() {
+  const existing = cronJobs.get(DAILY_REPORT_JOB_ID);
+  if (existing) {
+    existing.stop();
+    cronJobs.delete(DAILY_REPORT_JOB_ID);
+  }
+  const task = cron.schedule(DAILY_REPORT_CRON, () => { void runDailyReport("προγραμματισμένη"); }, {
+    timezone: "Europe/Athens",
+  });
+  cronJobs.set(DAILY_REPORT_JOB_ID, task);
+  console.log(
+    `[CRON] ${DAILY_REPORT_JOB_ID}: προγραμματίστηκε (${DAILY_REPORT_CRON}) — ` +
+      `αποστολή ${process.env.DAILY_REPORT_ENABLED === "true" ? "ΕΝΕΡΓΗ" : "κλειστή"}`
+  );
+}
+
+export async function runDailyReportNow() {
+  await runDailyReport("χειροκίνητη");
+}
+
 /* ── Ειδοποιήσεις λήξης συμβάσεων ────────────────────────────────────────── */
 
 export const EXPIRY_JOB_ID = "internal:contract-expiry";
@@ -281,6 +350,7 @@ export async function initializeCronJobs() {
     scheduleContractCarsRefresh();
     scheduleDeviationMonitoring();
     scheduleExpiryNotices();
+    scheduleDailyReport();
 
     isInitialized = true;
     console.log(`[CRON] All cron jobs initialized successfully - scheduled ${scheduledCount}/${integrations.length} integrations`);
