@@ -25,7 +25,8 @@
     "support": {
       "title": "Customer Support",
       "description": "Our friendly staff is always available to assist you with any queries or concerns regarding our parking services."
-    }
+    },
+    "eyebrow": "Our facility"
   },
   "features": {
     "title": "What the platform does",
@@ -53,7 +54,8 @@
     "reports": {
       "title": "Reports and history",
       "description": "Movements per day, exits without an entry, and the full recognition history for every plate."
-    }
+    },
+    "eyebrow": "The technology"
   },
   "business": {
     "title": "Business Solutions",
@@ -157,5 +159,24 @@
     "alt": "EU Funding Banner — Click to view funding information PDF",
     "label": "EU Funding Information — Opens in new window",
     "region": "EU Funding Information"
+  },
+  "stats": {
+    "eyebrow": "By the numbers",
+    "spaces": {
+      "value": "180",
+      "label": "parking spaces"
+    },
+    "hours": {
+      "value": "24/7",
+      "label": "surveillance and cameras"
+    },
+    "port": {
+      "value": "5′",
+      "label": "from Piraeus port"
+    },
+    "years": {
+      "value": "25+",
+      "label": "years in operation"
+    }
   }
 }

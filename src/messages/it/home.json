@@ -25,7 +25,8 @@
     "support": {
       "title": "Supporto Clienti",
       "description": "Il nostro personale amichevole è sempre disponibile per assisterti con qualsiasi domanda o preoccupazione riguardante i nostri servizi di parcheggio."
-    }
+    },
+    "eyebrow": "La struttura"
   },
   "features": {
     "title": "Cosa fa la piattaforma",
@@ -53,7 +54,8 @@
     "reports": {
       "title": "Report e storico",
       "description": "Movimenti per giorno, uscite senza ingresso e lo storico completo dei riconoscimenti per ogni targa."
-    }
+    },
+    "eyebrow": "La tecnologia"
   },
   "business": {
     "title": "Soluzioni Aziendali",
@@ -157,5 +159,24 @@
     "alt": "Banner Finanziamento UE — Clicca per visualizzare le informazioni di finanziamento PDF",
     "label": "Informazioni Finanziamento UE — Si apre in una nuova finestra",
     "region": "Informazioni Finanziamento UE"
+  },
+  "stats": {
+    "eyebrow": "In numeri",
+    "spaces": {
+      "value": "180",
+      "label": "posti auto"
+    },
+    "hours": {
+      "value": "24/7",
+      "label": "sorveglianza e telecamere"
+    },
+    "port": {
+      "value": "5′",
+      "label": "dal porto del Pireo"
+    },
+    "years": {
+      "value": "25+",
+      "label": "anni di attività"
+    }
   }
 }

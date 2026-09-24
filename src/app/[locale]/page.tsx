@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { HeroSection } from "@/components/site/hero-section";
+import { StatsBand } from "@/components/site/stats-band";
 import { WhyChooseUsSection } from "@/components/site/why-choose-us-section";
 import { FeaturesSection } from "@/components/site/features-section";
 import { BusinessSolutionsSection } from "@/components/site/business-solutions-section";
@@ -30,6 +31,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     <>
       <EuBanner />
       <HeroSection />
+      <StatsBand />
       <WhyChooseUsSection />
       <FeaturesSection />
       <BusinessSolutionsSection />
