@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { unstable_noStore } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getPortalGateBook } from "@/lib/portal-gatebook";
 import { activeContractWhere } from "@/lib/contract-active";
 import { nextContractPeriod, proposedContractName, formatPeriod } from "@/lib/contract-period";
 import { ClientPortal, type ContractDTO, type InvoiceDTO, type RequestDTO } from "@/components/portal/client-portal";
@@ -84,6 +85,10 @@ export default async function ClientPreviewPage() {
     : null;
   const period = nextContractPeriod(contract.WDATEFROM, contract.WDATETO);
 
+  // Πραγματικές κινήσεις των πινακίδων της σύμβασης — η προεπισκόπηση δείχνει
+  // ακριβώς ό,τι θα δει ο πελάτης, όχι δείγμα.
+  const gateBook = await getPortalGateBook(plates);
+
   const contracts: ContractDTO[] = [
     {
       inst: contract.INST,
@@ -94,7 +99,7 @@ export default async function ClientPreviewPage() {
       isActive: true,
       daysLeft,
       plates,
-      carsInside: Math.min(plates.length, contract.NUM01 != null ? Number(contract.NUM01) : 1),
+      carsInside: gateBook.insideCount,
       nextPeriod: formatPeriod(period),
       nextName: proposedContractName(contract.NAME ?? customer?.NAME ?? "", period),
     },
@@ -153,6 +158,7 @@ export default async function ClientPreviewPage() {
           contracts={contracts}
           invoices={invoices}
           invoiceError={null}
+          gateBook={gateBook}
           requests={requests}
           readOnly
         />

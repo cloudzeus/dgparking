@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { PortalGateBook } from "@/lib/portal-gatebook";
 import {
   Table,
   TableBody,
@@ -95,6 +96,7 @@ export function ClientPortal({
   invoices,
   invoiceError,
   requests,
+  gateBook,
   readOnly = false,
 }: {
   customerName: string;
@@ -103,6 +105,8 @@ export function ClientPortal({
   invoices: InvoiceDTO[];
   invoiceError: string | null;
   requests: RequestDTO[];
+  /** Οι κινήσεις των οχημάτων του πελάτη — μόνο ανάγνωση. */
+  gateBook: PortalGateBook;
   /** Προεπισκόπηση: όλα φαίνονται, τίποτα δεν εκτελείται. */
   readOnly?: boolean;
 }) {
@@ -150,6 +154,7 @@ export function ClientPortal({
         <TabsList>
           <TabsTrigger value="contract">Σύμβαση</TabsTrigger>
           <TabsTrigger value="plates">Πινακίδες</TabsTrigger>
+          <TabsTrigger value="movements">Κινήσεις</TabsTrigger>
           <TabsTrigger value="invoices">Τιμολόγια</TabsTrigger>
           {requests.length > 0 && <TabsTrigger value="requests">Αιτήματα</TabsTrigger>}
         </TabsList>
@@ -312,6 +317,88 @@ export function ClientPortal({
               </CardContent>
             </Card>
           ))}
+        </TabsContent>
+
+        <TabsContent value="movements" className="mt-3 space-y-3">
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle className="flex flex-wrap items-center gap-2">
+                Οχήματα στον χώρο
+                {gateBook.insideCount > 0 && (
+                  <Badge variant="outline" className="border-chart-2/40 bg-chart-2/10 text-chart-2">
+                    {gateBook.insideCount} μέσα
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>
+                Τι βρίσκεται αυτή τη στιγμή στο πάρκινγκ, από τις κάμερες εισόδου και εξόδου.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {gateBook.inside.length === 0 ? (
+                <EmptyState
+                  icon={Car}
+                  title="Κανένα όχημα μέσα"
+                  description="Αυτή τη στιγμή δεν βρίσκεται κανένα από τα οχήματά σας στον χώρο."
+                />
+              ) : (
+                <div className="divide-y">
+                  {gateBook.inside.map((m) => (
+                    <div
+                      key={`in-${m.plate}`}
+                      className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+                    >
+                      <span className="font-mono font-medium">{m.plate}</span>
+                      <span className="text-sm text-muted-foreground">
+                        Είσοδος {m.entry} · {m.duration}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle>Πρόσφατες κινήσεις</CardTitle>
+              <CardDescription>Οι σταθμεύσεις των οχημάτων σας τον τελευταίο μήνα.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {gateBook.history.length === 0 ? (
+                <EmptyState
+                  icon={Car}
+                  title="Καμία κίνηση"
+                  description="Δεν καταγράφηκε στάθμευση των οχημάτων σας τον τελευταίο μήνα."
+                />
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Πινακίδα</TableHead>
+                        <TableHead>Είσοδος</TableHead>
+                        <TableHead>Έξοδος</TableHead>
+                        <TableHead>Παραμονή</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {gateBook.history.map((m, i) => (
+                        <TableRow key={`h-${m.plate}-${i}`}>
+                          <TableCell className="font-mono font-medium">{m.plate}</TableCell>
+                          <TableCell className="whitespace-nowrap">{m.entry}</TableCell>
+                          <TableCell className="whitespace-nowrap">{m.exit}</TableCell>
+                          <TableCell className="whitespace-nowrap text-muted-foreground">
+                            {m.duration}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="invoices" className="mt-3">

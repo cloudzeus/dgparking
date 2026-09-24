@@ -23,7 +23,8 @@
     "parking:deviations": "tsx scripts/parking-deviations.ts",
     "parking:inventory": "tsx scripts/parking-seed-inventory.ts",
     "emails:sync": "tsx scripts/sync-customer-emails.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "newsletter:import": "tsx scripts/import-customers-to-newsletter.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

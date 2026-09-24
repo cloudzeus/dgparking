@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { unstable_noStore } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getPortalGateBook } from "@/lib/portal-gatebook";
 import {
   getPortalCustomer,
   getPortalContracts,
@@ -80,6 +81,12 @@ export default async function ClientPortalPage() {
     error: r.error,
   }));
 
+  // Οι κινήσεις αφορούν τις πινακίδες ΟΛΩΝ των ενεργών συμβάσεων του πελάτη:
+  // το όχημα είναι ένα, η σύμβαση κάτω από την οποία μπήκε δεν τον ενδιαφέρει.
+  const gateBook = await getPortalGateBook(
+    contractRows.filter((c) => c.isActive).flatMap((c) => c.plates)
+  );
+
   return (
     <ClientPortal
       customerName={customer.name}
@@ -88,6 +95,7 @@ export default async function ClientPortalPage() {
       invoices={invoiceRows}
       invoiceError={invoiceError}
       requests={requestRows}
+      gateBook={gateBook}
     />
   );
 }
