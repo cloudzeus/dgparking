@@ -95,6 +95,7 @@ export function ClientPortal({
   invoices,
   invoiceError,
   requests,
+  readOnly = false,
 }: {
   customerName: string;
   afm: string | null;
@@ -102,6 +103,8 @@ export function ClientPortal({
   invoices: InvoiceDTO[];
   invoiceError: string | null;
   requests: RequestDTO[];
+  /** Προεπισκόπηση: όλα φαίνονται, τίποτα δεν εκτελείται. */
+  readOnly?: boolean;
 }) {
   const active = contracts.filter((c) => c.isActive);
   const expiring = active.filter((c) => c.daysLeft !== null && c.daysLeft <= WARN_DAYS);
@@ -109,12 +112,17 @@ export function ClientPortal({
   const [newPlate, setNewPlate] = useState<Record<number, string>>({});
   const [renewSlots, setRenewSlots] = useState<Record<number, string>>({});
 
-  const run = (fn: () => Promise<{ success?: boolean; error?: string }>, okMessage: string) =>
-    startTransition(async () => {
+  const run = (fn: () => Promise<{ success?: boolean; error?: string }>, okMessage: string) => {
+    if (readOnly) {
+      toast.info("Προεπισκόπηση — καμία ενέργεια δεν εκτελείται.");
+      return;
+    }
+    return startTransition(async () => {
       const r = await fn();
       if (r.error) toast.error(r.error);
       else toast.success(okMessage);
     });
+  };
 
   return (
     <div className="space-y-4">

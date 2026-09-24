@@ -58,6 +58,7 @@ import {
   Images,
   UserCheck,
   ClipboardCheck,
+  Eye,
 } from "lucide-react";
 import { logout } from "@/lib/actions/auth";
 import { Badge } from "@/components/ui/badge";
@@ -134,6 +135,12 @@ const menuGroups: MenuGroup[] = [
         href: "/reconciliation",
         icon: Scale,
         roles: ["ADMIN", "MANAGER", "EMPLOYEE"],
+      },
+      {
+        title: "Portal πελάτη (προεπισκόπηση)",
+        href: "/client-preview",
+        icon: Eye,
+        roles: ["ADMIN", "MANAGER"],
       },
       {
         title: "Αιτήματα συμβάσεων",
