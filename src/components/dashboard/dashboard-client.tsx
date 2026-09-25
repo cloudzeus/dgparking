@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import gsap from "gsap";
 import type { Role, LprRecognitionEvent, LprImage, LprCamera } from "@prisma/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -326,29 +327,45 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
       return new Set<string>();
     }
   });
+  const router = useRouter();
   const [platesWithInSet, setPlatesWithInSet] = useState<Set<string>>(() => new Set(platesWithInProp));
 
   /**
-   * Ποια οχήματα είναι μέσα, και πόσα ανά σύμβαση.
+   * Ποια οχήματα είναι μέσα, και πόσα ανά σύμβαση — ΑΠΟ ΤΟΝ SERVER.
    *
-   * Κατάσταση και όχι σταθερό prop: υπολογιζόταν μία φορά στον server όταν
-   * φορτωνόταν η σελίδα, οπότε δύο αυτοκίνητα έμπαιναν και η κάρτα τους
-   * εξακολουθούσε να δείχνει 16/48. Τώρα το poll των 5 δευτερολέπτων φέρνει και
-   * την απογραφή — τη στιγμή που διαβάζεται η πινακίδα, ο μετρητής κινείται.
+   * Οι μετρητές δεν κρατιούνται σε κατάσταση του browser. Ο server τους
+   * υπολογίζει από την απογραφή, τα δίνει ως props, και το poll απλώς
+   * ζητά νέο render όταν η απογραφή αλλάξει. Έτσι το νούμερο που βλέπει ο
+   * χρήστης είναι πάντα αυτό που μόλις υπολόγισε ο server — ποτέ κάτι που
+   * συντήρησε ο browser και μπορεί να έχει ξεμείνει.
    */
-  const [insideSet, setInsideSet] = useState<Set<string>>(
-    () => new Set(insidePlates.map(normalizePlate))
+  const insideSet = useMemo(
+    () => new Set(insidePlates.map(normalizePlate)),
+    [insidePlates]
   );
-  const [contractInfoState, setContractInfo] = useState(contractInfoByPlate);
+  const contractInfoState = contractInfoByPlate;
 
-  const applyInside = (inside: {
-    plates?: string[];
-    contracts?: Record<string, ContractInfo>;
-  } | null | undefined) => {
-    if (!inside) return;
-    if (Array.isArray(inside.plates)) setInsideSet(new Set(inside.plates.map(normalizePlate)));
-    if (inside.contracts) setContractInfo(inside.contracts);
+  /**
+   * Η υπογραφή της απογραφής: πόσα και ποια είναι μέσα.
+   *
+   * Το poll τρέχει κάθε 5 δευτερόλεπτα, αλλά νέο render ζητάμε ΜΟΝΟ όταν
+   * αυτή αλλάξει. Η σελίδα διαβάζει και το ERP, οπότε ένα refresh ανά πέρασμα
+   * είναι φθηνό· ένα refresh ανά πεντάλεπτο θα ήταν σπατάλη.
+   */
+  const insideSignature = useRef<string | null>(null);
+
+  const applyInside = (inside: { plates?: string[]; count?: number } | null | undefined) => {
+    if (!inside || !Array.isArray(inside.plates)) return;
+    const signature = `${inside.plates.length}|${[...inside.plates].sort().join(",")}`;
+    if (insideSignature.current === null) {
+      insideSignature.current = signature;
+      return;
+    }
+    if (insideSignature.current === signature) return;
+    insideSignature.current = signature;
+    router.refresh();
   };
+
   // Πινακίδες με εγγραφή στο ψηφιακό πελατολόγιο. Κενό σύνολο σημαίνει ότι η
   // ανάγνωση του ERP απέτυχε — τότε δεν δείχνουμε σήμα, αντί να σημάνουμε τα πάντα.
   const platesInErpSet = useMemo(

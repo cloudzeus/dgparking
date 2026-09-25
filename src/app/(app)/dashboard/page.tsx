@@ -9,6 +9,17 @@ import { getContractInfoByPlate } from "@/lib/contract-cars";
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
 
 /**
+ * Ο πίνακας ελέγχου υπολογίζεται ΠΑΝΤΑ από την αρχή.
+ *
+ * Οι μετρητές του («μέσα τώρα», σειρά οχήματος ανά σύμβαση) βγαίνουν από την
+ * απογραφή αυτή τη στιγμή, και το ταμπλό ζητά νέο render σε κάθε πέρασμα
+ * κάμερας. Ένα αποθηκευμένο render θα έδινε παλιό νούμερο — ακριβώς αυτό που
+ * θέλαμε να πάψει να συμβαίνει.
+ */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+/**
  * Deduplicates recognition events by combining events with the same license plate,
  * same direction, and within a time window (60 seconds).
  * Keeps the most recent event from each group.
