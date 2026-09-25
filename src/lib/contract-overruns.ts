@@ -86,6 +86,28 @@ const dayLabel = (d: Date) =>
 export type Pass = { plate: string; entry: Date; exit: Date | null };
 
 /**
+ * Ενώνει την απογραφή των καμερών με τις στάσεις του ERP.
+ *
+ * Η ίδια άφιξη γράφεται δύο φορές: η κάμερα τη βλέπει τη στιγμή που γίνεται,
+ * το ERP όταν προλάβει να την περάσει ο υπάλληλος — συνήθως λίγα λεπτά μετά.
+ * Κρατάμε την ώρα της κάμερας, γιατί αυτή είναι το φυσικό γεγονός και αυτή
+ * δείχνει η φωτογραφία στο αποδεικτικό· αλλιώς το ίδιο έγγραφο λέει δύο ώρες.
+ */
+function mergeInventory(
+  passes: Pass[],
+  inventory: { plate: string; enteredAt: Date }[]
+): Pass[] {
+  for (const i of inventory) {
+    const same = passes.find(
+      (p) => p.plate === i.plate && Math.abs(p.entry.getTime() - i.enteredAt.getTime()) < 10 * 60_000
+    );
+    if (same) same.entry = i.enteredAt;
+    else passes.push({ plate: i.plate, entry: i.enteredAt, exit: null });
+  }
+  return passes;
+}
+
+/**
  * Οι υπερβάσεις μιας σύμβασης.
  *
  * Τα οχήματα που δεν έχουν βγει παίρνουν τέλος «τώρα», αλλιώς μια ανοιχτή
@@ -200,13 +222,7 @@ export async function buildOverrunReport(days = 7): Promise<OverrunReport> {
   for (const i of inventory) {
     const inst = i.contractInst!;
     if (!slotsByInst.has(inst)) continue;
-    const list = byInst.get(inst) ?? [];
-    // Αν το ERP έχει ήδη την ίδια στάθμευση ανοιχτή, δεν τη διπλομετράμε.
-    const already = list.some(
-      (p) => p.plate === i.plate && Math.abs(p.entry.getTime() - i.enteredAt.getTime()) < 10 * 60_000
-    );
-    if (!already) list.push({ plate: i.plate, entry: i.enteredAt, exit: null });
-    byInst.set(inst, list);
+    byInst.set(inst, mergeInventory(byInst.get(inst) ?? [], [i]));
   }
 
   // Οι αποφάσεις που έχουν ήδη παρθεί, ώστε να μην ξανακοιτάζεται το ίδιο.
@@ -341,11 +357,5 @@ export async function contractPasses(inst: number, from: Date, to: Date): Promis
     .filter((s) => s.inst === inst && s.entry)
     .map((s) => ({ plate: s.plate, entry: s.entry!, exit: s.exit }));
 
-  for (const i of inventory) {
-    const already = passes.some(
-      (p) => p.plate === i.plate && Math.abs(p.entry.getTime() - i.enteredAt.getTime()) < 10 * 60_000
-    );
-    if (!already) passes.push({ plate: i.plate, entry: i.enteredAt, exit: null });
-  }
-  return passes;
+  return mergeInventory(passes, inventory);
 }

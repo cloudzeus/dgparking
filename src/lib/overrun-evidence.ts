@@ -111,15 +111,41 @@ export async function buildOverrunEvidence(
   const plates = [...new Set(contract.windows.flatMap((w) => w.plates))];
   const chargeByPlate = new Map(contract.chargeable.map((c) => [c.plate, c]));
 
+  // Το αποδεικτικό αφορά ΤΟ ΠΕΡΙΣΤΑΤΙΚΟ, όχι το όχημα γενικά: μας ενδιαφέρει η
+  // παρουσία που συνέπεσε με την υπέρβαση. Ένα όχημα που μπήκε ξανά σήμερα έχει
+  // και χθεσινές κλειστές στάσεις — αν πάρουμε την τελευταία κλειστή, το έγγραφο
+  // δείχνει ώρες και φωτογραφίες άλλης ημέρας, και μια έξοδο που δεν έγινε.
+  const periodStart = contract.windows[0].start;
+  const periodEnd = contract.windows.reduce<Date>(
+    (latest, w) => (w.end && w.end > latest ? w.end : latest),
+    contract.windows[contract.windows.length - 1].start
+  );
+
   const vehicles: EvidenceVehicle[] = [];
   for (const plate of plates) {
-    const stay = await prisma.parkingStay.findFirst({
-      where: { plate, contractInst: inst },
-      orderBy: { exitedAt: "desc" },
-    });
+    // Πρώτα το όχημα που είναι ΑΚΟΜΑ μέσα και μπήκε πριν τελειώσει η υπέρβαση.
     const inv = await prisma.parkingInventory.findUnique({ where: { plate } });
-    const entry = stay?.enteredAt ?? inv?.enteredAt ?? contract.windows[0].start;
-    const exit = stay?.exitedAt ?? null;
+    const insideNow = inv && inv.enteredAt <= periodEnd ? inv : null;
+
+    // Αλλιώς η κλειστή στάση που επικαλύπτει το διάστημα της υπέρβασης.
+    const stay = insideNow
+      ? null
+      : ((await prisma.parkingStay.findFirst({
+          where: {
+            plate,
+            contractInst: inst,
+            enteredAt: { lte: periodEnd },
+            exitedAt: { gte: periodStart },
+          },
+          orderBy: { enteredAt: "desc" },
+        })) ??
+        (await prisma.parkingStay.findFirst({
+          where: { plate, contractInst: inst },
+          orderBy: { exitedAt: "desc" },
+        })));
+
+    const entry = insideNow?.enteredAt ?? stay?.enteredAt ?? contract.windows[0].start;
+    const exit = insideNow ? null : (stay?.exitedAt ?? null);
     const ch = chargeByPlate.get(plate);
 
     vehicles.push({
