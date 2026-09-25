@@ -1428,3 +1428,37 @@ model ExemptPlate {
   @@index([isActive])
   @@map("exempt_plates")
 }
+
+/// Αρχείο διαγραμμένων συμβάντων αναγνώρισης.
+///
+/// Η διαγραφή είναι απαραίτητη — η κάμερα πιάνει πεζούς και θόρυβο — αλλά
+/// σβήνει συμβάν, εικόνες, απογραφή και στάσεις μαζί. Χωρίς αυτόν τον πίνακα
+/// δεν μένει κανένα ίχνος: ούτε ποιος έσβησε, ούτε τι, ούτε γιατί το όχημα
+/// έλειπε ξαφνικά από την αντιπαραβολή.
+///
+/// Τα αρχεία των εικόνων ΔΕΝ σβήνονται πια από το CDN, ώστε η αναφορά να
+/// μπορεί να τις δείξει. Κοστίζει χώρο· το εναλλακτικό είναι μια αναφορά
+/// διαγραφών χωρίς τις φωτογραφίες, που δεν αποδεικνύει τίποτα.
+model DeletedRecognitionEvent {
+  id              String   @id @default(cuid())
+  eventId         String   @map("event_id") @db.VarChar(40)
+  plate           String   @db.VarChar(50)
+  normalizedPlate String   @map("normalized_plate") @db.VarChar(50)
+  direction       String?  @db.VarChar(10)
+  recognitionTime DateTime @map("recognition_time")
+  deviceName      String?  @map("device_name") @db.VarChar(255)
+  cameraName      String?  @map("camera_name") @db.VarChar(255)
+  vehicleType     String?  @map("vehicle_type") @db.VarChar(30)
+  /// [{ url, imageType }] — τα αρχεία μένουν στο CDN.
+  images          Json?
+  /// Μη αναγνώσιμη πινακίδα: σβήστηκε ΚΑΘΕ παράγωγο, όχι μόνο αυτού του περάσματος.
+  junk            Boolean  @default(false)
+  inventoryGone   Int      @default(0) @map("inventory_gone")
+  staysGone       Int      @default(0) @map("stays_gone")
+  deletedBy       String?  @map("deleted_by") @db.VarChar(255)
+  deletedAt       DateTime @default(now()) @map("deleted_at")
+
+  @@index([deletedAt])
+  @@index([normalizedPlate])
+  @@map("deleted_recognition_events")
+}

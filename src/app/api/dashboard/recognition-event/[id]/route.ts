@@ -92,7 +92,15 @@ export async function DELETE(
 
     const event = await prisma.lprRecognitionEvent.findUnique({
       where: { id },
-      select: { id: true, licensePlate: true, direction: true, recognitionTime: true },
+      select: {
+        id: true,
+        licensePlate: true,
+        direction: true,
+        recognitionTime: true,
+        deviceName: true,
+        vehicleType: true,
+        camera: { select: { name: true } },
+      },
     });
     if (!event) {
       return NextResponse.json({ success: false, error: "Το συμβάν δεν βρέθηκε." }, { status: 404 });
@@ -100,29 +108,15 @@ export async function DELETE(
 
     const images = await prisma.lprImage.findMany({
       where: { eventType: "recognition", eventId: id },
-      select: { id: true, url: true },
+      select: { id: true, url: true, imageType: true },
     });
 
-    // Τα ίδια αρχεία μπορεί να μοιράζονται URL (full image και snapshot), οπότε
-    // σβήνουμε κάθε μοναδικό μονοπάτι μία φορά.
-    const zone = process.env.BUNNY_STORAGE_ZONE;
-    const key = process.env.BUNNY_ACCESS_KEY;
-    const host = process.env.BUNNY_STORAGE_HOSTNAME || "storage.bunnycdn.com";
-    let cdnDeleted = 0;
-    if (zone && key) {
-      for (const url of [...new Set(images.map((i) => i.url))]) {
-        try {
-          const path = new URL(url).pathname.replace(/^\/+/, "");
-          const res = await fetch(`https://${host}/${zone}/${path}`, {
-            method: "DELETE",
-            headers: { AccessKey: key },
-          });
-          if (res.ok || res.status === 404) cdnDeleted++;
-        } catch {
-          // Ένα αρχείο που δεν σβήστηκε δεν εμποδίζει τη διαγραφή του συμβάντος.
-        }
-      }
-    }
+    // ΤΑ ΑΡΧΕΙΑ ΜΕΝΟΥΝ ΣΤΟ CDN.
+    //
+    // Σβήνονταν μαζί με το συμβάν, για να μη μένουν ορφανά. Το τίμημα ήταν ότι
+    // μια διαγραφή δεν άφηνε κανένα ίχνος: η αναφορά διαγραφών θα έδειχνε μια
+    // γραμμή κειμένου και τίποτα να την τεκμηριώνει. Κρατάμε τα αρχεία και
+    // αρχειοθετούμε τα URL τους παρακάτω.
 
     await prisma.lprImage.deleteMany({ where: { eventType: "recognition", eventId: id } });
     await prisma.lprRecognitionEvent.delete({ where: { id } });
@@ -152,9 +146,33 @@ export async function DELETE(
       }),
     ]);
 
+    // Το ίχνος. Γράφεται ΜΕΤΑ τις διαγραφές ώστε να καταγράφει τι όντως έφυγε.
+    try {
+      await prisma.deletedRecognitionEvent.create({
+        data: {
+          eventId: id,
+          plate: event.licensePlate,
+          normalizedPlate: plate,
+          direction: event.direction ?? null,
+          recognitionTime: event.recognitionTime,
+          deviceName: event.deviceName ?? null,
+          cameraName: event.camera?.name ?? null,
+          vehicleType: event.vehicleType ?? null,
+          images: images.map((i) => ({ url: i.url, imageType: i.imageType })),
+          junk,
+          inventoryGone: invGone.count,
+          staysGone: stayGone.count,
+          deletedBy: session.user.email ?? null,
+        },
+      });
+    } catch (error) {
+      // Η αποτυχία του αρχείου δεν ακυρώνει τη διαγραφή που ήδη έγινε.
+      console.error("[EVENT-DELETE] Το ίχνος δεν γράφτηκε:", error);
+    }
+
     console.log(
       `[EVENT-DELETE] ${session.user.email}: «${event.licensePlate}» ${event.direction} ` +
-        `${event.recognitionTime.toISOString()} — ${images.length} εικόνες, ${cdnDeleted} από CDN, ` +
+        `${event.recognitionTime.toISOString()} — ${images.length} εικόνες διατηρήθηκαν, ` +
         `${invGone.count} από απογραφή, ${stayGone.count} στάσεις${junk ? " (μη αναγνώσιμη — πλήρης εκκαθάριση)" : ""}`
     );
 
@@ -164,7 +182,6 @@ export async function DELETE(
         id,
         plate: event.licensePlate,
         images: images.length,
-        cdnDeleted,
         inventory: invGone.count,
         stays: stayGone.count,
       },

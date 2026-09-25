@@ -57,6 +57,7 @@ import {
   Settings,
   ShieldCheck,
   ShieldOff,
+  Trash2,
   TrendingUp,
   TriangleAlert,
   User,
@@ -150,6 +151,12 @@ const menuGroups: MenuGroup[] = [
         title: "Υπερβάσεις",
         href: "/overruns",
         icon: TriangleAlert,
+        roles: ["ADMIN", "MANAGER"],
+      },
+      {
+        title: "Διαγραφές συμβάντων",
+        href: "/reports/deleted-events",
+        icon: Trash2,
         roles: ["ADMIN", "MANAGER"],
       },
       {
