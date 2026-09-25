@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AlertCircle, CheckCircle2, Clock, TriangleAlert } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, FileDown, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -147,6 +147,15 @@ export default async function OverrunsPage({
                 <Badge variant="destructive">
                   κορύφωση {c.worstPeak}/{c.slots}
                 </Badge>
+                <a
+                  href={`/api/overruns/${c.inst}/evidence?days=${days}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted"
+                >
+                  <FileDown className="size-4" aria-hidden />
+                  Αποδεικτικό
+                </a>
               </CardTitle>
               <CardDescription>
                 {c.slots} {c.slots === 1 ? "θέση" : "θέσεις"} · {c.windows.length}{" "}
