@@ -24,6 +24,7 @@ import { prisma } from "@/lib/prisma";
 import { activeContractWhere } from "@/lib/contract-active";
 import { fetchErpStays } from "@/lib/parking-reconcile";
 import { wallClockNow } from "@/lib/parking-time";
+import { calculateCharge } from "@/lib/parking-tariff";
 
 export type OverrunWindow = {
   /** Ημέρα σε μορφή ΗΗ/ΜΜ, για ομαδοποίηση. */
@@ -55,6 +56,15 @@ export type ContractOverrun = {
   windows: OverrunWindow[];
   totalMinutes: number;
   worstPeak: number;
+  /**
+   * Τι ΘΑ χρεωνόταν, ανά όχημα, αν ίσχυε χρέωση υπέρβασης.
+   *
+   * Σήμερα δεν χρεώνεται: ο τιμοκατάλογος επιστρέφει μηδέν για κάθε όχημα
+   * σύμβασης. Ο αριθμός υπάρχει για να φαίνεται το μέγεθος πριν παρθεί η
+   * απόφαση, όχι επειδή κόβεται.
+   */
+  chargeable: { plate: string; minutes: number; amount: number }[];
+  chargeableAmount: number;
 };
 
 export type OverrunReport = {
@@ -62,14 +72,14 @@ export type OverrunReport = {
   to: Date;
   contractsChecked: number;
   contracts: ContractOverrun[];
-  totals: { contracts: number; windows: number; minutes: number };
+  totals: { contracts: number; windows: number; minutes: number; amount: number };
   error?: string;
 };
 
 const dayLabel = (d: Date) =>
   `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 
-type Pass = { plate: string; entry: Date; exit: Date | null };
+export type Pass = { plate: string; entry: Date; exit: Date | null };
 
 /**
  * Οι υπερβάσεις μιας σύμβασης.
@@ -147,7 +157,7 @@ export async function buildOverrunReport(days = 7): Promise<OverrunReport> {
     to,
     contractsChecked: 0,
     contracts: [],
-    totals: { contracts: 0, windows: 0, minutes: 0 },
+    totals: { contracts: 0, windows: 0, minutes: 0, amount: 0 },
   };
 
   const contracts = await prisma.iNST.findMany({
@@ -197,6 +207,24 @@ export async function buildOverrunReport(days = 7): Promise<OverrunReport> {
     const slots = slotsByInst.get(inst)!;
     const windows = scan(passes, slots, now);
     if (windows.length === 0) continue;
+
+    // Τι θα χρεωνόταν κάθε όχημα για τον χρόνο που ήταν πέρα από τις θέσεις.
+    const chargeable: { plate: string; minutes: number; amount: number }[] = [];
+    for (const p of passes) {
+      const exit = p.exit ?? now;
+      const minutes = chargeableOverrunMinutes(passes, slots, p.plate, p.entry, exit, now);
+      if (minutes <= 0) continue;
+      // Ο τιμοκατάλογος δουλεύει σε διάστημα, οπότε ο χρεώσιμος χρόνος
+      // τιμολογείται σαν αυτοτελής στάθμευση απλού πελάτη.
+      const base = new Date(0);
+      const amount = calculateCharge({
+        entry: base,
+        exit: new Date(minutes * 60_000),
+        hasContract: false,
+      }).amount;
+      chargeable.push({ plate: p.plate, minutes, amount });
+    }
+
     result.push({
       inst,
       name: nameByInst.get(inst) ?? "—",
@@ -204,6 +232,8 @@ export async function buildOverrunReport(days = 7): Promise<OverrunReport> {
       windows: windows.sort((a, b) => b.start.getTime() - a.start.getTime()),
       totalMinutes: windows.reduce((s, w) => s + w.minutes, 0),
       worstPeak: Math.max(...windows.map((w) => w.peak)),
+      chargeable: chargeable.sort((a, b) => b.minutes - a.minutes),
+      chargeableAmount: chargeable.reduce((s, c) => s + c.amount, 0),
     });
   }
 
@@ -216,6 +246,80 @@ export async function buildOverrunReport(days = 7): Promise<OverrunReport> {
       contracts: result.length,
       windows: result.reduce((s, c) => s + c.windows.length, 0),
       minutes: result.reduce((s, c) => s + c.totalMinutes, 0),
+      amount: result.reduce((s, c) => s + c.chargeableAmount, 0),
     },
   };
+}
+
+/* ── Χρεώσιμος χρόνος υπέρβασης ──────────────────────────────────────────── */
+
+/**
+ * Πόσα λεπτά ένα όχημα σύμβασης ήταν ΠΕΡΑ από τις πληρωμένες θέσεις.
+ *
+ * Ο ΚΑΝΟΝΑΣ
+ * Οι θέσεις πιάνονται κατά σειρά άφιξης. Αν η σύμβαση έχει δύο θέσεις και
+ * μέσα βρίσκονται τρία οχήματα, καλυμμένα είναι τα δύο που ήρθαν πρώτα και
+ * χρεώσιμο το τρίτο. Μόλις φύγει ένα από τα δύο πρώτα, το τρίτο ανεβαίνει σε
+ * καλυμμένη θέση και η χρέωσή του ΣΤΑΜΑΤΑ.
+ *
+ * ΓΙΑΤΙ ΕΤΣΙ ΚΑΙ ΟΧΙ «ΠΛΗΡΩΝΕΙ ΟΠΟΙΟΣ ΠΡΟΚΑΛΕΣΕ»
+ * Το «ποιος προκάλεσε» είναι χρήσιμο για εξήγηση, αλλά άδικο ως χρέωση: αν το
+ * όχημα που ήρθε τρίτο μείνει δέκα λεπτά και φύγει ένα από τα προηγούμενα
+ * στο πέμπτο, δεν υπάρχει λόγος να πληρώνει για τα υπόλοιπα πέντε. Η σειρά
+ * άφιξης δίνει κανόνα που στέκει και εξηγείται στον πελάτη.
+ */
+export function chargeableOverrunMinutes(
+  passes: Pass[],
+  slots: number,
+  plate: string,
+  entry: Date,
+  exit: Date,
+  now: Date
+): number {
+  // Όλες οι χρονικές στιγμές όπου αλλάζει η σύνθεση.
+  const points = new Set<number>([entry.getTime(), exit.getTime()]);
+  for (const p of passes) {
+    points.add(p.entry.getTime());
+    points.add((p.exit ?? now).getTime());
+  }
+  const sorted = [...points].sort((a, b) => a - b);
+
+  let minutes = 0;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const from = sorted[i];
+    const to = sorted[i + 1];
+    if (to <= entry.getTime() || from >= exit.getTime()) continue;
+
+    // Ποια ήταν μέσα σε αυτό το διάστημα, κατά σειρά άφιξης.
+    const inside = passes
+      .filter((p) => p.entry.getTime() <= from && (p.exit ?? now).getTime() > from)
+      .sort((a, b) => a.entry.getTime() - b.entry.getTime());
+
+    const rank = inside.findIndex((p) => p.plate === plate);
+    // `rank` μετρά από το μηδέν: με δύο θέσεις, καλυμμένα είναι τα 0 και 1.
+    if (rank >= slots) {
+      minutes += Math.round((Math.min(to, exit.getTime()) - Math.max(from, entry.getTime())) / 60000);
+    }
+  }
+  return Math.max(0, minutes);
+}
+
+/** Τα περάσματα μιας σύμβασης — για τον υπολογισμό χρέωσης τη στιγμή της εξόδου. */
+export async function contractPasses(inst: number, from: Date, to: Date): Promise<Pass[]> {
+  const [erp, inventory] = await Promise.all([
+    fetchErpStays(from, to).catch(() => []),
+    prisma.parkingInventory.findMany({ where: { contractInst: inst } }),
+  ]);
+
+  const passes: Pass[] = erp
+    .filter((s) => s.inst === inst && s.entry)
+    .map((s) => ({ plate: s.plate, entry: s.entry!, exit: s.exit }));
+
+  for (const i of inventory) {
+    const already = passes.some(
+      (p) => p.plate === i.plate && Math.abs(p.entry.getTime() - i.enteredAt.getTime()) < 10 * 60_000
+    );
+    if (!already) passes.push({ plate: i.plate, entry: i.enteredAt, exit: null });
+  }
+  return passes;
 }

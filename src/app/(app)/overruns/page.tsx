@@ -111,6 +111,21 @@ export default async function OverrunsPage({
             <Tile label="Περιστατικά" value={report.totals.windows} />
             <Tile label="Συνολικός χρόνος" value={duration(report.totals.minutes)} />
           </div>
+
+          {report.totals.amount > 0 && (
+            <Alert className="mt-4">
+              <AlertCircle />
+              <AlertTitle>
+                Αν ίσχυε χρέωση υπέρβασης: {report.totals.amount.toFixed(2)} €
+              </AlertTitle>
+              <AlertDescription>
+                Σήμερα τα οχήματα σύμβασης <strong>δεν χρεώνονται ποτέ</strong>, ούτε όταν
+                ξεπερνούν τις θέσεις τους. Ο αριθμός υπολογίζεται με τον κανόνα «οι θέσεις
+                πιάνονται κατά σειρά άφιξης»: χρεώνεται μόνο το όχημα που περισσεύει, και μόνο
+                όσο περισσεύει — μόλις φύγει άλλο, η χρέωση σταματά.
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 
@@ -137,6 +152,14 @@ export default async function OverrunsPage({
                 {c.slots} {c.slots === 1 ? "θέση" : "θέσεις"} · {c.windows.length}{" "}
                 {c.windows.length === 1 ? "περιστατικό" : "περιστατικά"} ·{" "}
                 {duration(c.totalMinutes)} συνολικά
+                {c.chargeableAmount > 0 && (
+                  <>
+                    {" · "}
+                    <span className="font-medium text-foreground">
+                      θα χρεωνόταν {c.chargeableAmount.toFixed(2)} €
+                    </span>
+                  </>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -198,6 +221,24 @@ export default async function OverrunsPage({
                   </TableBody>
                 </Table>
               </div>
+              {c.chargeable.length > 0 && (
+                <div className="border-t bg-muted/30 px-4 py-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Χρεώσιμος χρόνος ανά όχημα
+                  </p>
+                  <ul className="space-y-1 text-sm">
+                    {c.chargeable.map((ch) => (
+                      <li key={ch.plate} className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono font-medium">{ch.plate}</span>
+                        <span className="text-muted-foreground">
+                          {duration(ch.minutes)} πέρα από τις θέσεις
+                        </span>
+                        <span className="font-medium tabular-nums">{ch.amount.toFixed(2)} €</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))
