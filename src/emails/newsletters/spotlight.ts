@@ -5,6 +5,7 @@ import {
   redRule,
   richText,
   splitBlocks,
+  splitParagraphs,
   zone,
   type NewsletterRenderer,
 } from "./shared";
@@ -40,18 +41,38 @@ function hardBlock(inner: string, background: string, padding = "44px 32px"): st
 }
 
 /**
- * Μια λειτουργία, με πελώριο αριθμό αριστερά.
+ * Μια λειτουργία: εικόνα, πελώριος αριθμός, κείμενο.
  *
- * Ο αριθμός είναι ο ρυθμός της σελίδας: ο αναγνώστης καταλαβαίνει με μια
- * ματιά ότι υπάρχουν τέσσερα πράγματα και πού βρίσκεται. Στο κινητό οι δύο
- * στήλες γίνονται μία (`mp-stack`), με τον αριθμό από πάνω.
+ * Ο αριθμός είναι ο ρυθμός της σελίδας — ο αναγνώστης καταλαβαίνει με μια
+ * ματιά ότι υπάρχουν τέσσερα πράγματα και πού βρίσκεται.
+ *
+ * Η εικόνα μπαίνει ΠΑΝΩ από το κείμενο και όχι δίπλα του. Το Outlook αγνοεί
+ * το `max-width` σε πίνακες με εικόνα, οπότε οι δύο στήλες έσπαγαν και η
+ * φωτογραφία ξεχείλιζε· μια εικόνα πλήρους πλάτους δουλεύει παντού και
+ * κρατά την ίδια ανάγνωση και στο κινητό.
  */
-function featureRow(index: number, html: string, last: boolean): string {
-  const blocks = splitBlocks(html);
+function featureRow(index: number, html: string, imageUrl: string | null, last: boolean): string {
+  // ΑΝΑ ΠΑΡΑΓΡΑΦΟ, όχι ανά ενότητα. Οι τομές `<hr>` έχουν ήδη καταναλωθεί για
+  // να ξεχωρίσουν οι λειτουργίες μεταξύ τους· μέσα σε μία λειτουργία δεν
+  // υπάρχει `<hr>`, οπότε το `splitBlocks` επέστρεφε ΕΝΑ κομμάτι: ο τίτλος
+  // κολλούσε στο κείμενο και έβγαινε όλο έντονο, σαν μία πρόταση.
+  const blocks = splitParagraphs(html);
   const heading = blocks[0] ?? "";
   const body = blocks.slice(1).join("");
+  const alt = heading.replace(/<[^>]+>/g, "").trim();
+
+  const picture = imageUrl
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">
+         <tr>
+           <td style="font-size:0;line-height:0;">
+             <img src="${imageUrl}" alt="${alt}" width="536" style="display:block;width:100%;max-width:536px;height:auto;border:0;outline:none;text-decoration:none;" />
+           </td>
+         </tr>
+       </table>`
+    : "";
 
   return `
+    ${picture}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
         <td valign="top" width="92" class="mp-stack" style="width:92px;padding:0 20px 0 0;">
@@ -73,7 +94,7 @@ function featureRow(index: number, html: string, last: boolean): string {
         : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
              <tr><td class="mp-hair" height="1" style="height:1px;line-height:1px;font-size:0;background-color:${BRAND.cloud};">&nbsp;</td></tr>
            </table>
-           <div style="height:28px;line-height:28px;font-size:0;">&nbsp;</div>`
+           <div style="height:36px;line-height:36px;font-size:0;">&nbsp;</div>`
     }`;
 }
 
@@ -84,6 +105,7 @@ export const spotlightTemplate: NewsletterRenderer = ({
   ctaLabel,
   ctaUrl,
   heroImageUrl,
+  featureImageUrls,
   unsubscribeUrl,
 }) => {
   // Ο ΔΙΑΧΩΡΙΣΜΟΣ ΓΙΝΕΤΑΙ ΠΡΩΤΟΣ, πάνω στο ακατέργαστο κείμενο: η `splitLead`
@@ -130,7 +152,7 @@ export const spotlightTemplate: NewsletterRenderer = ({
                Τι θα μπορείτε να κάνετε
              </p>
              ${features
-               .map((f, i) => featureRow(i + 1, f, i === features.length - 1))
+               .map((f, i) => featureRow(i + 1, f, featureImageUrls?.[i] ?? null, i === features.length - 1))
                .join("")}`,
             { padding: "48px 32px 52px", className: "mp-air" }
           )

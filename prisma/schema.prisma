@@ -1462,3 +1462,31 @@ model DeletedRecognitionEvent {
   @@index([normalizedPlate])
   @@map("deleted_recognition_events")
 }
+
+/// Εκδήλωση ενδιαφέροντος για την πύλη πελατών.
+///
+/// Ο σύνδεσμος στο δελτίο είναι προσωπικός: φέρει το token του συνδρομητή,
+/// οπότε η φόρμα ανοίγει ήδη συμπληρωμένη με την επωνυμία, τις συμβάσεις και
+/// τις πινακίδες του. Ο πελάτης επιβεβαιώνει ή διορθώνει — δεν ξαναγράφει
+/// στοιχεία που ήδη έχουμε.
+model PortalInterest {
+  id           String   @id @default(cuid())
+  subscriberId String?  @map("subscriber_id")
+  email        String   @db.VarChar(255)
+  /// Το TRDR του ERP, όταν ταυτοποιήθηκε από το email.
+  trdr         String?  @db.VarChar(50)
+  company      String?  @db.VarChar(255)
+  contactName  String?  @map("contact_name") @db.VarChar(255)
+  phone        String?  @db.VarChar(50)
+  /// Οι συμβάσεις και πινακίδες όπως τις είδε ο πελάτης τη στιγμή της υποβολής.
+  snapshot     Json?
+  note         String?  @db.Text
+  /// Απαντήθηκε από εμάς;
+  handledAt    DateTime? @map("handled_at")
+  handledBy    String?   @map("handled_by") @db.VarChar(255)
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([email])
+  @@map("portal_interests")
+}

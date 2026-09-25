@@ -12,6 +12,7 @@ import {
   newSubscriberToken,
   readCampaignContent,
   unsubscribeUrl,
+  personalizeUrl,
 } from "@/lib/newsletter";
 import { renderNewsletter, renderNewsletterText } from "@/emails/newsletters";
 import type { CampaignStatus } from "@prisma/client";
@@ -60,6 +61,8 @@ const campaignSchema = z.object({
   ctaLabel: z.string().trim().max(120).optional(),
   ctaUrl: z.string().trim().max(500).optional(),
   heroImageUrl: z.string().trim().max(500).optional(),
+  /** Μία εικόνα ανά ενότητα· `null` = ενότητα χωρίς εικόνα. */
+  featureImageUrls: z.array(z.string().trim().max(500).nullable()).optional(),
 });
 
 type CampaignInput = z.infer<typeof campaignSchema>;
@@ -76,6 +79,10 @@ function parseCampaign(formData: FormData) {
     ctaLabel: formData.get("ctaLabel")?.toString() || undefined,
     ctaUrl: formData.get("ctaUrl")?.toString() || undefined,
     heroImageUrl: formData.get("heroImageUrl")?.toString() || undefined,
+    // Οι εικόνες ενοτήτων δεν έχουν ακόμα πεδίο στον επεξεργαστή· μπαίνουν
+    // προγραμματιστικά στο `contentJson`. Το `undefined` εδώ δεν τις σβήνει:
+    // η αποθήκευση διαβάζει ό,τι υπάρχει ήδη.
+    featureImageUrls: undefined,
   });
 }
 
@@ -86,8 +93,9 @@ function buildHtml(input: CampaignInput, token: string): string {
     preheader: input.preheader ?? "",
     contentHtml: input.contentHtml,
     ctaLabel: input.ctaLabel,
-    ctaUrl: input.ctaUrl,
+    ctaUrl: personalizeUrl(input.ctaUrl, token),
     heroImageUrl: input.heroImageUrl,
+    featureImageUrls: input.featureImageUrls,
     unsubscribeUrl: unsubscribeUrl(token),
   });
 }
@@ -98,8 +106,9 @@ function buildText(input: CampaignInput, token: string): string {
     preheader: input.preheader ?? "",
     contentHtml: input.contentHtml,
     ctaLabel: input.ctaLabel,
-    ctaUrl: input.ctaUrl,
+    ctaUrl: personalizeUrl(input.ctaUrl, token),
     heroImageUrl: input.heroImageUrl,
+    featureImageUrls: input.featureImageUrls,
     unsubscribeUrl: unsubscribeUrl(token),
   });
 }
@@ -122,7 +131,7 @@ export async function saveCampaign(
   }
   const input = parsed.data;
 
-  const data = {
+  const buildData = (featureImageUrls?: (string | null)[]) => ({
     name: input.name,
     subject: input.subject,
     preheader: input.preheader ?? null,
@@ -133,8 +142,9 @@ export async function saveCampaign(
       ctaLabel: input.ctaLabel ?? "",
       ctaUrl: input.ctaUrl ?? "",
       heroImageUrl: input.heroImageUrl ?? "",
+      ...(featureImageUrls ? { featureImageUrls } : {}),
     },
-  };
+  });
 
   try {
     if (input.id) {
@@ -143,10 +153,18 @@ export async function saveCampaign(
       if (existing.status === "SENT" || existing.status === "SENDING") {
         return { error: "Η εκστρατεία έχει ήδη σταλεί και δεν αλλάζει." };
       }
-      await prisma.newsletterCampaign.update({ where: { id: input.id }, data });
+      // Οι εικόνες ενοτήτων δεν έχουν πεδίο στη φόρμα. Η αποθήκευση γράφει
+      // ολόκληρο το `contentJson`, οπότε χωρίς αυτό μια απλή διόρθωση
+      // κειμένου θα τις έσβηνε σιωπηλά.
+      const kept =
+        input.featureImageUrls ?? readCampaignContent(existing.contentJson).featureImageUrls;
+      await prisma.newsletterCampaign.update({
+        where: { id: input.id },
+        data: buildData(kept),
+      });
     } else {
       const created = await prisma.newsletterCampaign.create({
-        data: { ...data, createdById: user.id },
+        data: { ...buildData(input.featureImageUrls), createdById: user.id },
       });
       revalidatePath("/newsletter");
       return { success: "Το πρόχειρο αποθηκεύτηκε.", campaignId: created.id };
@@ -279,6 +297,7 @@ export async function sendCampaign(
     ctaLabel: content.ctaLabel,
     ctaUrl: content.ctaUrl,
     heroImageUrl: content.heroImageUrl,
+    featureImageUrls: content.featureImageUrls,
   };
 
   if (!input.contentHtml.trim()) return { error: "Το περιεχόμενο είναι κενό." };

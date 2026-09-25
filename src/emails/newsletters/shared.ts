@@ -18,6 +18,13 @@ export type NewsletterTemplateInput = {
   ctaLabel?: string;
   ctaUrl?: string;
   heroImageUrl?: string;
+  /**
+   * Μία εικόνα ανά ενότητα, στη σειρά που εμφανίζονται.
+   *
+   * Κενό στοιχείο σημαίνει «αυτή η ενότητα χωρίς εικόνα» — έτσι μπορεί να
+   * εικονογραφηθεί η τρίτη χωρίς να χρειάζεται εικόνα η πρώτη.
+   */
+  featureImageUrls?: (string | null)[];
   /** Υποχρεωτικός σε κάθε ενημερωτικό δελτίο (GDPR / CAN-SPAM). */
   unsubscribeUrl: string;
 };

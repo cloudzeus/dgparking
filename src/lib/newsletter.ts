@@ -27,6 +27,21 @@ export function unsubscribeUrl(token: string): string {
   return `${appBaseUrl()}/api/newsletter/unsubscribe?token=${encodeURIComponent(token)}`;
 }
 
+/**
+ * Ο σύνδεσμος δράσης ενός δελτίου, προσωποποιημένος για τον παραλήπτη.
+ *
+ * Ο συντάκτης γράφει `{token}` μέσα στο URL και εδώ μπαίνει το token του κάθε
+ * συνδρομητή. Έτσι η σελίδα που ανοίγει ξέρει ΠΟΙΟΣ την άνοιξε και εμφανίζει
+ * τα δικά του στοιχεία, χωρίς να χρειαστεί να συνδεθεί.
+ *
+ * Το token δεν δίνει πρόσβαση σε τίποτα — μόνο ταυτοποιεί τη διεύθυνση στην
+ * οποία στάλθηκε το μήνυμα.
+ */
+export function personalizeUrl(url: string | undefined, token: string): string | undefined {
+  if (!url) return url;
+  return url.replace(/\{token\}/g, encodeURIComponent(token));
+}
+
 export function confirmUrl(token: string): string {
   return `${appBaseUrl()}/api/newsletter/confirm?token=${encodeURIComponent(token)}`;
 }
@@ -77,6 +92,8 @@ export type CampaignContent = {
   ctaLabel?: string;
   ctaUrl?: string;
   heroImageUrl?: string;
+  /** Μία εικόνα ανά ενότητα, στη σειρά· `null` = ενότητα χωρίς εικόνα. */
+  featureImageUrls?: (string | null)[];
 };
 
 /** Ασφαλής ανάγνωση του `contentJson` (είναι `Json`, μπορεί να είναι οτιδήποτε). */
@@ -88,5 +105,8 @@ export function readCampaignContent(value: unknown): CampaignContent {
     ctaLabel: typeof record.ctaLabel === "string" ? record.ctaLabel : undefined,
     ctaUrl: typeof record.ctaUrl === "string" ? record.ctaUrl : undefined,
     heroImageUrl: typeof record.heroImageUrl === "string" ? record.heroImageUrl : undefined,
+    featureImageUrls: Array.isArray(record.featureImageUrls)
+      ? record.featureImageUrls.map((u) => (typeof u === "string" && u.trim() ? u.trim() : null))
+      : undefined,
   };
 }
