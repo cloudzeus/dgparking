@@ -30,7 +30,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { runDclSync } from "@/lib/actions/dcl";
+import { runDclSync, runDclVerify } from "@/lib/actions/dcl";
+import type { VerifyResult, VerifyStatus } from "@/lib/dcl/verify";
 import { cn } from "@/lib/utils";
 
 export type DclRowDTO = {
@@ -63,6 +64,19 @@ const STATUS: Record<
   FAILED: { label: "Απέτυχε", variant: "destructive" },
 };
 
+
+/** Πώς διαβάζεται κάθε απόκλιση της επαλήθευσης. */
+const VERIFY_META: Record<
+  VerifyStatus,
+  { label: string; variant: "default" | "secondary" | "outline" | "destructive"; className?: string }
+> = {
+  MATCH: { label: "Συμφωνούν", variant: "outline", className: "border-chart-2/40 text-chart-2" },
+  OPEN_IN_AADE: { label: "Ανοιχτή στην ΑΑΔΕ", variant: "destructive" },
+  TIME_DIFF: { label: "Διαφορά ώρας", variant: "destructive" },
+  ONLY_IN_CAMERAS: { label: "Δεν στάλθηκε", variant: "outline", className: "border-chart-4/40 text-chart-4" },
+  ONLY_IN_AADE: { label: "Μόνο στην ΑΑΔΕ", variant: "secondary" },
+};
+
 const KIND_ICON = {
   CONTRACT: FileText,
   WALK_IN: CircleParking,
@@ -82,6 +96,22 @@ export function DclClient({
 }) {
   const [pending, startTransition] = useTransition();
   const [lastRun, setLastRun] = useState<string | null>(null);
+  const [verify, setVerify] = useState<VerifyResult | null>(null);
+  const [verifying, startVerify] = useTransition();
+
+  function runVerify() {
+    startVerify(async () => {
+      const v = await runDclVerify();
+      if (v.error) {
+        toast.error(v.error);
+        return;
+      }
+      setVerify(v);
+      toast.success(
+        `ΑΑΔΕ ${v.aadeTotal} · συμφωνούν ${v.counts.MATCH} · αποκλίσεις ${v.rows.length - v.counts.MATCH}`
+      );
+    });
+  }
 
   const counts = {
     total: rows.length,
@@ -152,6 +182,74 @@ export function DclClient({
             <Stat label="Απέτυχαν" value={counts.failed} icon={AlertCircle} tone={counts.failed ? "bad" : undefined} />
           </div>
         </CardContent>
+      </Card>
+
+      {/* ── Αντιπαραβολή με ό,τι κρατά ΟΝΤΩΣ η ΑΑΔΕ ──────────────────── */}
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle className="flex flex-wrap items-center justify-between gap-3">
+            <span>Επαλήθευση με την ΑΑΔΕ</span>
+            <Button variant="outline" onClick={runVerify} disabled={verifying || !configured}>
+              <RefreshCw className={cn("size-4", verifying && "animate-spin")} />
+              {verifying ? "Ανάκτηση…" : "Τράβα από ΑΑΔΕ"}
+            </Button>
+          </CardTitle>
+          <CardDescription>
+            Τραβά πίσω τις εγγραφές από την ΑΑΔΕ και τις συγκρίνει με τις κάμερες. Δεν διαβάζει
+            τον δικό μας πίνακα — εκείνος λέει τι νομίζουμε ότι στείλαμε, όχι τι έφτασε.
+          </CardDescription>
+        </CardHeader>
+        {verify && (
+          <CardContent className="pt-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <Stat label="Συμφωνούν" value={verify.counts.MATCH} icon={CheckCircle2} tone="good" />
+              <Stat
+                label="Ανοιχτές στην ΑΑΔΕ"
+                value={verify.counts.OPEN_IN_AADE}
+                icon={Clock}
+                tone={verify.counts.OPEN_IN_AADE ? "bad" : undefined}
+              />
+              <Stat
+                label="Διαφορά ώρας"
+                value={verify.counts.TIME_DIFF}
+                icon={Clock}
+                tone={verify.counts.TIME_DIFF ? "bad" : undefined}
+              />
+              <Stat label="Μόνο στις κάμερες" value={verify.counts.ONLY_IN_CAMERAS} icon={AlertCircle} />
+              <Stat label="Μόνο στην ΑΑΔΕ" value={verify.counts.ONLY_IN_AADE} icon={AlertCircle} />
+            </div>
+
+            {verify.rows.filter((r) => r.status !== "MATCH").length > 0 && (
+              <div className="mt-4 overflow-x-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Πινακίδα</TableHead>
+                      <TableHead>Κατάσταση</TableHead>
+                      <TableHead>Εξήγηση</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {verify.rows
+                      .filter((r) => r.status !== "MATCH")
+                      .slice(0, 60)
+                      .map((r, i) => (
+                        <TableRow key={`v-${r.plate}-${i}`}>
+                          <TableCell className="font-mono font-medium">{r.plate}</TableCell>
+                          <TableCell>
+                            <Badge variant={VERIFY_META[r.status].variant} className={VERIFY_META[r.status].className}>
+                              {VERIFY_META[r.status].label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{r.note}</TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        )}
       </Card>
 
       <Card>
