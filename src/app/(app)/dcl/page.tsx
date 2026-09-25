@@ -8,6 +8,8 @@ import { formatWallClock, wallClockNow } from "@/lib/parking-time";
 import { getExemptPlates } from "@/lib/exempt-plates";
 import { isSubmitEnabled, loadDclConfig } from "@/lib/dcl/client";
 import { describeKind, type CustomerKind } from "@/lib/dcl/policy";
+import { fetchErpStays } from "@/lib/parking-reconcile";
+import { fetchInvoiceLinks } from "@/lib/dcl/invoice-links";
 import { FileCheck2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +42,45 @@ export default async function DclPage() {
     getExemptPlates(now),
   ]);
 
+  // ── Παραστατικά ─────────────────────────────────────────────────────────
+  // Το βιβλίο πόρτας του ERP κρατά το FINDOC της απόδειξης· ο σύνδεσμος ζει
+  // στο MTRDOC. Μια αποτυχία εδώ δεν πρέπει να ρίξει τη σελίδα — τα
+  // παραστατικά είναι συμπλήρωμα, η αντιπαράθεση είναι ο λόγος που υπάρχει.
+  const invoiceByPlateEntry = new Map<string, { code: string | null; url: string }>();
+  try {
+    const erpStays = await fetchErpStays(dayStart, now);
+    const links = await fetchInvoiceLinks(erpStays.map((s) => s.invoiceFindoc));
+    for (const s of erpStays) {
+      const link = links.get(s.invoiceFindoc);
+      if (link && s.entry) {
+        invoiceByPlateEntry.set(`${s.plate}|${s.entry.toISOString()}`, {
+          code: link.code,
+          url: link.url,
+        });
+      }
+    }
+  } catch (error) {
+    console.error("[DCL] Τα παραστατικά δεν διαβάστηκαν:", error);
+  }
+
+  /**
+   * Το παραστατικό μιας στάθμευσης.
+   *
+   * Η ώρα εισόδου του ERP και η δική μας διαφέρουν κατά λεπτά, οπότε η
+   * αντιστοίχιση γίνεται με ανοχή αντί για ακριβές ταίριασμα — αλλιώς
+   * σχεδόν καμία γραμμή δεν θα έβρισκε το παραστατικό της.
+   */
+  const invoiceFor = (plate: string, entry: Date) => {
+    const exact = invoiceByPlateEntry.get(`${plate}|${entry.toISOString()}`);
+    if (exact) return exact;
+    for (const [key, value] of invoiceByPlateEntry) {
+      const [p, iso] = key.split("|");
+      if (p !== plate) continue;
+      if (Math.abs(new Date(iso).getTime() - entry.getTime()) <= 10 * 60_000) return value;
+    }
+    return null;
+  };
+
   const byKey = new Map(records.map((r) => [r.stayKey, r]));
   const key = (plate: string, entry: Date) => `${plate}|${entry.toISOString()}`;
   const kindOf = (plate: string, inst: number | null): CustomerKind =>
@@ -63,6 +104,7 @@ export default async function DclPage() {
       idDcl: r?.idDcl != null ? String(r.idDcl) : null,
       updateId: r?.updateId != null ? String(r.updateId) : null,
       error: r?.error ?? null,
+      invoice: invoiceFor(s.plate, s.enteredAt),
     });
   }
 
@@ -82,6 +124,7 @@ export default async function DclPage() {
       idDcl: r?.idDcl != null ? String(r.idDcl) : null,
       updateId: r?.updateId != null ? String(r.updateId) : null,
       error: r?.error ?? null,
+      invoice: invoiceFor(i.plate, i.enteredAt),
     });
   }
 

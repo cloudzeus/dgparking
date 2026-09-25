@@ -7,9 +7,10 @@ import {
   CheckCircle2,
   CircleParking,
   Clock,
+  ExternalLink,
+  FileText,
   RefreshCw,
   ShieldOff,
-  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,8 @@ export type DclRowDTO = {
   idDcl: string | null;
   updateId: string | null;
   error: string | null;
+  /** Το παραστατικό που εκδόθηκε, αν εκδόθηκε. */
+  invoice: { code: string | null; url: string } | null;
 };
 
 const STATUS: Record<
@@ -169,14 +172,15 @@ export function DclClient({
                   <TableHead>Είσοδος</TableHead>
                   <TableHead>Έξοδος</TableHead>
                   <TableHead className="text-right">Ποσό</TableHead>
-                  <TableHead className="border-l">Αναγν. ΑΑΔΕ</TableHead>
+                  <TableHead className="border-l">Παραστατικό</TableHead>
+                  <TableHead>Αναγν. ΑΑΔΕ</TableHead>
                   <TableHead>Κατάσταση</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                       Καμία στάθμευση σήμερα.
                     </TableCell>
                   </TableRow>
@@ -209,7 +213,22 @@ export function DclClient({
                       <TableCell className="text-right tabular-nums">
                         {r.amount > 0 ? `${r.amount.toFixed(2)} €` : "—"}
                       </TableCell>
-                      <TableCell className="border-l font-mono text-xs">
+                      <TableCell className="border-l">
+                        {r.invoice ? (
+                          <a
+                            href={r.invoice.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-mono text-xs font-medium text-primary hover:underline"
+                          >
+                            {r.invoice.code ?? "παραστατικό"}
+                            <ExternalLink className="size-3" aria-hidden />
+                          </a>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
                         {r.idDcl ? (
                           <span title={r.updateId ? `ολοκλήρωση ${r.updateId}` : undefined}>
                             {r.idDcl}
