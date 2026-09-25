@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { AlertCircle, CheckCircle2, Clock, FileDown, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { OverrunDecision } from "@/components/overruns/overrun-decision";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -108,8 +109,12 @@ export default async function OverrunsPage({
               value={report.totals.contracts}
               tone={report.totals.contracts ? "bad" : "good"}
             />
+            <Tile
+              label="Εκκρεμούν απόφαση"
+              value={report.totals.pending}
+              tone={report.totals.pending ? "bad" : "good"}
+            />
             <Tile label="Περιστατικά" value={report.totals.windows} />
-            <Tile label="Συνολικός χρόνος" value={duration(report.totals.minutes)} />
           </div>
 
           {report.totals.amount > 0 && (
@@ -181,6 +186,7 @@ export default async function OverrunsPage({
                       <TableHead>Διάρκεια</TableHead>
                       <TableHead className="text-center">Οχήματα</TableHead>
                       <TableHead>Αιτιολόγηση</TableHead>
+                      <TableHead>Απόφαση</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -224,6 +230,16 @@ export default async function OverrunsPage({
                               Μέσα: {w.plates.join(", ")}
                             </span>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <OverrunDecision
+                            inst={c.inst}
+                            windowAt={w.start.toISOString()}
+                            amount={c.chargeableAmount}
+                            status={w.decision}
+                            note={w.decisionNote}
+                            decidedBy={w.decidedBy}
+                          />
                         </TableCell>
                       </TableRow>
                     ))}

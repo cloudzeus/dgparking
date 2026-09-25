@@ -47,6 +47,10 @@ export type OverrunWindow = {
   alreadyInside: string[];
   /** Ανοιχτή τώρα — το τέλος δεν έχει έρθει ακόμα. */
   ongoing: boolean;
+  /** Τι αποφασίστηκε: PENDING | INVOICED | WAIVED. */
+  decision: "PENDING" | "INVOICED" | "WAIVED";
+  decisionNote: string | null;
+  decidedBy: string | null;
 };
 
 export type ContractOverrun = {
@@ -72,7 +76,7 @@ export type OverrunReport = {
   to: Date;
   contractsChecked: number;
   contracts: ContractOverrun[];
-  totals: { contracts: number; windows: number; minutes: number; amount: number };
+  totals: { contracts: number; windows: number; minutes: number; amount: number; pending: number };
   error?: string;
 };
 
@@ -121,6 +125,9 @@ function scan(passes: Pass[], slots: number, now: Date): OverrunWindow[] {
           causedBy: e.delta > 0 ? e.plate : null,
           alreadyInside: [...active].filter((p) => p !== e.plate),
           ongoing: false,
+          decision: "PENDING",
+          decisionNote: null,
+          decidedBy: null,
         };
       } else {
         current.peak = Math.max(current.peak, count);
@@ -157,7 +164,7 @@ export async function buildOverrunReport(days = 7): Promise<OverrunReport> {
     to,
     contractsChecked: 0,
     contracts: [],
-    totals: { contracts: 0, windows: 0, minutes: 0, amount: 0 },
+    totals: { contracts: 0, windows: 0, minutes: 0, amount: 0, pending: 0 },
   };
 
   const contracts = await prisma.iNST.findMany({
@@ -202,11 +209,26 @@ export async function buildOverrunReport(days = 7): Promise<OverrunReport> {
     byInst.set(inst, list);
   }
 
+  // Οι αποφάσεις που έχουν ήδη παρθεί, ώστε να μην ξανακοιτάζεται το ίδιο.
+  const decisions = await prisma.overrunDecision.findMany({
+    where: { windowAt: { gte: from } },
+  });
+  const decisionKey = (inst: number, at: Date) => `${inst}|${at.toISOString()}`;
+  const byWindow = new Map(decisions.map((d) => [decisionKey(d.inst, d.windowAt), d]));
+
   const result: ContractOverrun[] = [];
   for (const [inst, passes] of byInst) {
     const slots = slotsByInst.get(inst)!;
     const windows = scan(passes, slots, now);
     if (windows.length === 0) continue;
+
+    for (const w of windows) {
+      const d = byWindow.get(decisionKey(inst, w.start));
+      if (!d) continue;
+      w.decision = (d.status as OverrunWindow["decision"]) ?? "PENDING";
+      w.decisionNote = d.note;
+      w.decidedBy = d.decidedBy;
+    }
 
     // Τι θα χρεωνόταν κάθε όχημα για τον χρόνο που ήταν πέρα από τις θέσεις.
     const chargeable: { plate: string; minutes: number; amount: number }[] = [];
@@ -243,6 +265,10 @@ export async function buildOverrunReport(days = 7): Promise<OverrunReport> {
     ...base,
     contracts: result,
     totals: {
+      pending: result.reduce(
+        (n, c) => n + c.windows.filter((w) => w.decision === "PENDING").length,
+        0
+      ),
       contracts: result.length,
       windows: result.reduce((s, c) => s + c.windows.length, 0),
       minutes: result.reduce((s, c) => s + c.totalMinutes, 0),
