@@ -225,17 +225,6 @@ export default async function DashboardPage() {
     if (!plateToEvents.has(plate)) plateToEvents.set(plate, []);
     plateToEvents.get(plate)!.push(e);
   }
-  // Cars inside now: valid plate, at least one IN, latest IN with no OUT after
-  let carsInsideNow = 0;
-  for (const [, evs] of plateToEvents) {
-    const hasIn = evs.some((e) => e.direction === "IN");
-    if (!hasIn) continue;
-    const sorted = [...evs].sort((a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime());
-    const latest = sorted[0];
-    if (latest?.direction === "IN" && !sorted.some((e) => e.direction === "OUT" && new Date(e.recognitionTime).getTime() > new Date(latest.recognitionTime).getTime())) {
-      carsInsideNow++;
-    }
-  }
   // Πινακίδες για τις οποίες ΞΕΡΟΥΜΕ πότε μπήκε το όχημα — το σήμα «χωρίς
   // είσοδο» πρέπει να εμφανίζεται μόνο όταν όντως δεν ξέρουμε.
   //
@@ -255,6 +244,10 @@ export default async function DashboardPage() {
       select: { plate: true },
     }),
   ]);
+  // Πόσα είναι μέσα — από την απογραφή, την ίδια που διαβάζουν το βιβλίο
+  // πόρτας, το ψηφιακό πελατολόγιο και ο τζίρος.
+  const carsInsideNow = insideNow.length;
+
   for (const row of insideNow) platesWithIn.add(row.plate);
   for (const row of closedStays) platesWithIn.add(row.plate);
 
@@ -359,6 +352,7 @@ export default async function DashboardPage() {
       materialLicensePlates={erpLicensePlates}
       platesInItems={platesInItems}
       contractInfoByPlate={contractInfoByPlate}
+      insidePlates={insideNow.map((r) => r.plate)}
         platesWithIn={Array.from(platesWithIn)}
         platesInErp={platesInErp}
       />

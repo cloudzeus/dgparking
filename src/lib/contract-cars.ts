@@ -13,45 +13,41 @@
  *     και ανήκει στο cron / στο webhook της κάμερας, όχι στη φόρτωση σελίδας.
  */
 
+import { normalizePlate } from "@/lib/plate";
 import { prisma } from "@/lib/prisma";
 
-const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
-
 /**
- * Plates still inside with their entry time (latest IN with no OUT after).
- * Used to order cars by entry time: first NUM01 = contract slots, rest = visitor (regular fee).
+ * Ποιες από αυτές τις πινακίδες βρίσκονται μέσα, με την ώρα εισόδου τους.
+ *
+ * Πηγή είναι η απογραφή — ο πίνακας που γράφει το `applyCameraPass` τη στιγμή
+ * που διαβάζεται η πινακίδα, και που διαβάζουν το βιβλίο πόρτας, το ψηφιακό
+ * πελατολόγιο, ο τζίρος και οι υπερβάσεις.
+ *
+ * Παλιότερα εδώ ξαναπαίζαμε τα περάσματα δύο ημερών. Έβγαζε άλλο αποτέλεσμα από
+ * την υπόλοιπη εφαρμογή σε τρεις περιπτώσεις: όχημα που μπήκε πριν από δύο
+ * μέρες, όχημα που ήρθε από το ψηφιακό πελατολόγιο χωρίς πέρασμα κάμερας, και
+ * πινακίδα γραμμένη αλλιώς στο συμβάν απ' ό,τι στην απογραφή.
  */
 async function getPlatesStillInsideWithEntryTime(
   plates: Set<string>
 ): Promise<Map<string, Date>> {
   if (plates.size === 0) return new Map();
-  const twoDaysAgo = new Date(Date.now() - TWO_DAYS_MS);
-  const events = await prisma.lprRecognitionEvent.findMany({
-    where: {
-      licensePlate: { in: Array.from(plates) },
-      recognitionTime: { gte: twoDaysAgo },
-    },
-    select: { licensePlate: true, direction: true, recognitionTime: true },
-    orderBy: { recognitionTime: "asc" },
+
+  // Η απογραφή κρατά κανονικοποιημένες πινακίδες· το ERP δίνει ό,τι έχει
+  // καταχωρήσει ο χρήστης. Συγκρίνουμε μόνο κανονικοποιημένες.
+  const wanted = new Map<string, string>();
+  for (const p of plates) wanted.set(normalizePlate(p), p);
+
+  const inside = await prisma.parkingInventory.findMany({
+    select: { plate: true, enteredAt: true },
   });
-  const byPlate = new Map<string, { direction: string | null; time: Date }[]>();
-  for (const e of events) {
-    const plate = (e.licensePlate || "").trim().toUpperCase();
-    if (!plate || !plates.has(plate)) continue;
-    if (!byPlate.has(plate)) byPlate.set(plate, []);
-    byPlate.get(plate)!.push({
-      direction: e.direction,
-      time: e.recognitionTime,
-    });
+
+  const result = new Map<string, Date>();
+  for (const row of inside) {
+    const original = wanted.get(normalizePlate(row.plate));
+    if (original) result.set(original, row.enteredAt);
   }
-  const stillInsideWithTime = new Map<string, Date>();
-  for (const [plate, evs] of byPlate.entries()) {
-    // Τα events έρχονται ήδη ταξινομημένα κατά χρόνο από τη βάση.
-    const latest = evs[evs.length - 1];
-    if (latest?.direction !== "IN") continue;
-    stillInsideWithTime.set(plate, latest.time);
-  }
-  return stillInsideWithTime;
+  return result;
 }
 
 type ContractState = {

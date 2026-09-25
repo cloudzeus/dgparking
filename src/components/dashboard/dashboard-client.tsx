@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState, KpiTile, PageHeader } from "@/components/admin/page";
 import { BarTrendChart, ChartCard } from "@/components/admin/charts";
 import { Badge } from "@/components/ui/badge";
+import { normalizePlate } from "@/lib/plate";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -250,9 +251,11 @@ interface DashboardClientProps {
   platesWithIn?: string[];
   /** Πινακίδες που υπάρχουν στο ψηφιακό πελατολόγιο του ERP. */
   platesInErp?: string[];
+  /** Οι πινακίδες που βρίσκονται μέσα, από την απογραφή. */
+  insidePlates?: string[];
 }
 
-export function DashboardClient({ user, stats, recentEvents, materialLicensePlates, platesInItems = new Set(), contractInfoByPlate = {}, platesWithIn: platesWithInProp = [], platesInErp = [] }: DashboardClientProps) {
+export function DashboardClient({ user, stats, recentEvents, materialLicensePlates, platesInItems = new Set(), contractInfoByPlate = {}, platesWithIn: platesWithInProp = [], platesInErp = [], insidePlates = [] }: DashboardClientProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Debug: Log material license plates on mount
@@ -272,28 +275,6 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   const [markingAllAsLeft, setMarkingAllAsLeft] = useState(false);
 
   /** Set of plates that are still inside (last 2 days, dedupe by plate, latest event IN and no OUT after). */
-  const platesStillInsideSet = useMemo(() => {
-    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-    const recent = (events || []).filter((e) => new Date(e.recognitionTime) >= twoDaysAgo);
-    const plateToAllEvents = new Map<string, RecognitionEventWithRelations[]>();
-    for (const e of recent) {
-      const plate = (e.licensePlate || "").trim().toUpperCase();
-      if (plate.length < 2) continue;
-      if (!plateToAllEvents.has(plate)) plateToAllEvents.set(plate, []);
-      plateToAllEvents.get(plate)!.push(e);
-    }
-    const stillInside = new Set<string>();
-    for (const [, allEvs] of plateToAllEvents) {
-      const sorted = [...allEvs].sort((a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime());
-      const latest = sorted[0];
-      const isStillInside = latest?.direction === "IN" && !sorted.some((e) => e.direction === "OUT" && new Date(e.recognitionTime).getTime() > new Date(latest.recognitionTime).getTime());
-      if (isStillInside && latest) {
-        const plate = (latest.licensePlate || "").trim().toUpperCase();
-        if (plate.length >= 2) stillInside.add(plate);
-      }
-    }
-    return stillInside;
-  }, [events]);
   
   // Debug: Log events on mount
   useEffect(() => {
@@ -344,6 +325,28 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
     }
   });
   const [platesWithInSet, setPlatesWithInSet] = useState<Set<string>>(() => new Set(platesWithInProp));
+
+  /**
+   * Ποια οχήματα είναι μέσα, και πόσα ανά σύμβαση.
+   *
+   * Κατάσταση και όχι σταθερό prop: υπολογιζόταν μία φορά στον server όταν
+   * φορτωνόταν η σελίδα, οπότε δύο αυτοκίνητα έμπαιναν και η κάρτα τους
+   * εξακολουθούσε να δείχνει 16/48. Τώρα το poll των 5 δευτερολέπτων φέρνει και
+   * την απογραφή — τη στιγμή που διαβάζεται η πινακίδα, ο μετρητής κινείται.
+   */
+  const [insideSet, setInsideSet] = useState<Set<string>>(
+    () => new Set(insidePlates.map(normalizePlate))
+  );
+  const [contractInfoState, setContractInfo] = useState(contractInfoByPlate);
+
+  const applyInside = (inside: {
+    plates?: string[];
+    contracts?: Record<string, ContractInfo>;
+  } | null | undefined) => {
+    if (!inside) return;
+    if (Array.isArray(inside.plates)) setInsideSet(new Set(inside.plates.map(normalizePlate)));
+    if (inside.contracts) setContractInfo(inside.contracts);
+  };
   // Πινακίδες με εγγραφή στο ψηφιακό πελατολόγιο. Κενό σύνολο σημαίνει ότι η
   // ανάγνωση του ERP απέτυχε — τότε δεν δείχνουμε σήμα, αντί να σημάνουμε τα πάντα.
   const platesInErpSet = useMemo(
@@ -362,15 +365,15 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   const [refreshingStatus, setRefreshingStatus] = useState(false);
 
   const handleSelectAll = () => {
-    if (selectedPlates.size === platesStillInsideSet.size) {
+    if (selectedPlates.size === insideSet.size) {
       setSelectedPlates(new Set());
     } else {
-      setSelectedPlates(new Set(platesStillInsideSet));
+      setSelectedPlates(new Set(insideSet));
     }
   };
 
   const handleMarkAllAsLeft = async () => {
-    const toMark = [...selectedPlates].filter((p) => platesStillInsideSet.has(p));
+    const toMark = [...selectedPlates].filter((p) => insideSet.has(p));
     if (toMark.length === 0) {
       toast.info("Δεν έχεις επιλέξει κάρτες οχημάτων που βρίσκονται μέσα.");
       return;
@@ -512,6 +515,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
       );
       if (!response.ok) return;
       const data = await response.json().catch(() => null);
+      applyInside(data?.inside);
       if (!data?.success || !Array.isArray(data.events)) return;
 
       setEvents((prev) => {
@@ -546,28 +550,8 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
     }
   };
 
-  /** Live count of cars currently inside (from current events state). */
-  const liveCarsInsideCount = useMemo(() => {
-    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-    const recent = (events || []).filter((e) => new Date(e.recognitionTime) >= twoDaysAgo);
-    const plateToAllEvents = new Map<string, RecognitionEventWithRelations[]>();
-    for (const e of recent) {
-      const plate = (e.licensePlate || "").trim().toUpperCase();
-      if (plate.length < 2) continue;
-      if (!plateToAllEvents.has(plate)) plateToAllEvents.set(plate, []);
-      plateToAllEvents.get(plate)!.push(e);
-    }
-    let count = 0;
-    for (const [, allEvs] of plateToAllEvents) {
-      const sorted = [...allEvs].sort((a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime());
-      const latest = sorted[0];
-      const isStillInside = latest?.direction === "IN" && !sorted.some(
-        (e) => e.direction === "OUT" && new Date(e.recognitionTime).getTime() > new Date(latest.recognitionTime).getTime()
-      );
-      if (isStillInside) count++;
-    }
-    return count;
-  }, [events]);
+  /** Πόσα οχήματα είναι μέσα — από την απογραφή, όπως παντού αλλού. */
+  const liveCarsInsideCount = insideSet.size;
 
   // Fetch hourly statistics
   useEffect(() => {
@@ -621,7 +605,12 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
 
         const data = await response.json().catch(() => null);
         if (!data) return;
-        
+
+        // Πρώτα η απογραφή: πρέπει να ενημερώνεται ΚΑΙ όταν δεν ήρθε κανένα νέο
+        // συμβάν, γιατί ένα όχημα μπορεί να βγήκε και ο μετρητής να πρέπει να
+        // πέσει χωρίς να εμφανιστεί καινούρια κάρτα.
+        applyInside(data.inside);
+
         if (data.success && data.events && Array.isArray(data.events) && data.events.length > 0) {
           console.log(`[DASHBOARD] Found ${data.events.length} new event(s)`);
           
@@ -856,7 +845,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
             <div className="flex shrink-0 items-center gap-2">
               <Button type="button" variant="outline" size="sm" onClick={handleSelectAll}>
                 <Check aria-hidden />
-                {selectedPlates.size === platesStillInsideSet.size && platesStillInsideSet.size > 0
+                {selectedPlates.size === insideSet.size && insideSet.size > 0
                   ? "Αποεπιλογή όλων"
                   : "Επιλογή όλων"}
               </Button>
@@ -865,10 +854,10 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
                 variant="default"
                 size="sm"
                 onClick={handleMarkAllAsLeft}
-                disabled={markingAllAsLeft || selectedPlates.size === 0 || [...selectedPlates].filter((p) => platesStillInsideSet.has(p)).length === 0}
+                disabled={markingAllAsLeft || selectedPlates.size === 0 || [...selectedPlates].filter((p) => insideSet.has(p)).length === 0}
               >
                 {markingAllAsLeft ? <Spinner data-icon="inline-start" /> : <LogOut aria-hidden />}
-                Αποχώρηση επιλεγμένων ({numberFormat.format([...selectedPlates].filter((p) => platesStillInsideSet.has(p)).length)})
+                Αποχώρηση επιλεγμένων ({numberFormat.format([...selectedPlates].filter((p) => insideSet.has(p)).length)})
               </Button>
             </div>
           </div>
@@ -952,17 +941,8 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
           
           // Calculate which cars are still inside before sorting
           const plateToStillInside = new Map<string, boolean>();
-          for (const [plate, allEvents] of plateToAllEvents.entries()) {
-            const sortedEvents = [...allEvents].sort(
-              (a, b) => new Date(b.recognitionTime).getTime() - new Date(a.recognitionTime).getTime()
-            );
-            const latestEvent = sortedEvents[0];
-            const isStillInside = latestEvent && latestEvent.direction === "IN" && 
-              !sortedEvents.some(e => 
-                e.direction === "OUT" && 
-                new Date(e.recognitionTime).getTime() > new Date(latestEvent.recognitionTime).getTime()
-              );
-            plateToStillInside.set(plate, isStillInside || false);
+          for (const plate of plateToAllEvents.keys()) {
+            plateToStillInside.set(plate, insideSet.has(normalizePlate(plate)));
           }
 
           // Exclude cars that left (OUT) on a past date — show only OUT from same date (today)
@@ -1025,7 +1005,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
                 }
               }
               
-              const contractInfo = contractInfoByPlate[normalizedPlate];
+              const contractInfo = contractInfoState[normalizedPlate];
               const contractNum01 = contractInfo?.num01 ?? 0;
               const contractCarsIn = contractInfo?.carsIn ?? 0;
               const slotType = contractInfo?.slotType;

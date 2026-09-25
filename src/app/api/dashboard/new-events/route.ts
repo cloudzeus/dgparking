@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getContractInfoByPlate } from "@/lib/contract-cars";
 
 /**
  * GET /api/dashboard/new-events
@@ -177,10 +178,36 @@ export async function GET(request: Request) {
       durationMinutes: null,
     }));
 
+    // Η κατάσταση «ποια είναι μέσα», μαζί με τα συμβάντα.
+    //
+    // Χωρίς αυτό, η κάρτα εμφανιζόταν αμέσως αλλά ο μετρητής του συμβολαίου
+    // έμενε στο νούμερο που είχε υπολογιστεί όταν φορτώθηκε η σελίδα: δύο
+    // αυτοκίνητα έμπαιναν και η κάρτα τους εξακολουθούσε να λέει 16/48.
+    // Αστοχία εδώ δεν ρίχνει το poll — τα συμβάντα είναι το κύριο.
+    let inside: {
+      plates: string[];
+      count: number;
+      contracts: Record<string, { num01: number; carsIn: number; slotType?: string }>;
+    } | null = null;
+    try {
+      const [rows, info] = await Promise.all([
+        prisma.parkingInventory.findMany({ select: { plate: true } }),
+        getContractInfoByPlate(),
+      ]);
+      const contracts: Record<string, { num01: number; carsIn: number; slotType?: string }> = {};
+      for (const [plate, i] of info) {
+        contracts[plate] = { num01: i.num01, carsIn: i.carsIn, slotType: i.slotType };
+      }
+      inside = { plates: rows.map((r) => r.plate), count: rows.length, contracts };
+    } catch (error) {
+      console.error("[DASHBOARD-NEW-EVENTS] Inside state failed:", error);
+    }
+
     return NextResponse.json({
       success: true,
       events,
       count: events.length,
+      inside,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
