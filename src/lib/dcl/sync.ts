@@ -24,6 +24,7 @@ import {
   updateClient,
   isSubmitEnabled,
 } from "./client";
+import { isValidGreekVat } from "./vat";
 import {
   buildSendClient,
   buildUpdateClient,
@@ -77,7 +78,11 @@ async function vatByInst(insts: number[]): Promise<Map<number, string>> {
   const out = new Map<number, string>();
   for (const c of contracts) {
     const afm = c.TRDR ? afmByTrdr.get(c.TRDR) : "";
-    if (afm) out.set(c.INST, afm);
+    // ΜΟΝΟ έγκυρα ΑΦΜ. Το ERP κρατά «999999999» για ιδιώτες, και η ΑΑΔΕ
+    // απορρίπτει ΟΛΟΚΛΗΡΗ την εγγραφή με σφάλμα 202 — για ένα πεδίο που
+    // είναι προαιρετικό. Η στάθμευση στέλνεται κανονικά, απλώς χωρίς
+    // δήλωση επαναλαμβανόμενης υπηρεσίας.
+    if (afm && isValidGreekVat(afm)) out.set(c.INST, afm);
   }
   return out;
 }

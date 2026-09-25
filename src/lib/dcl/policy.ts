@@ -148,13 +148,17 @@ export function buildUpdateClient(
   }
 
   if (stay.kind === "CONTRACT") {
-    // Κανένα παραστατικό ανά στάθμευση: το ΤΠΥ βγαίνει μηνιαίο και συνδέεται
-    // αργότερα με `ClientCorrelations`.
+    // ΔΕΝ δηλώνεται «μη έκδοση παραστατικού»: το ΤΠΥ όντως εκδίδεται, απλώς
+    // μηνιαίο, και συνδέεται αργότερα με `ClientCorrelations`. Το
+    // `nonIssueInvoice` αφορά στάσεις που δεν τιμολογούνται ΠΟΤΕ.
+    //
+    // Το `invoiceKind` είναι ΥΠΟΧΡΕΩΤΙΚΟ όταν η κατηγορία είναι 7 ή 8 — η
+    // τεκμηρίωση το εμφανίζει ως προαιρετικό, αλλά η ΑΑΔΕ το απαιτεί
+    // (σφάλμα 203). Το ίδιο και για τον απλό πελάτη παρακάτω.
     return {
       ...base,
-      nonIssueInvoice: true,
-      amount: 0,
       providedServiceCategory: ProvidedServiceCategory.BY_AGREEMENT,
+      invoiceKind: InvoiceKind.INVOICE,
       comments: stay.contractInst ? `Σύμβαση ${stay.contractInst}` : undefined,
     };
   }

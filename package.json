@@ -28,7 +28,8 @@
     "report:daily": "tsx scripts/daily-report.ts",
     "campaign:events": "tsx scripts/create-events-campaign.ts",
     "campaign:portal": "tsx scripts/create-portal-campaign.ts",
-    "encryption:rotate": "tsx scripts/rotate-encryption-key.ts"
+    "encryption:rotate": "tsx scripts/rotate-encryption-key.ts",
+    "report:vat": "tsx scripts/vat-gaps.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
