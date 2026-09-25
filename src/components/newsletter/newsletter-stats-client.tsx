@@ -52,7 +52,21 @@ function shortUrl(value: string | number): string {
 export function NewsletterStatsClient({ view }: { view: NewsletterStatsView }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const { totals, options, campaigns, timeline, topLinks, clients, devices } = view;
+  const {
+    totals,
+    options,
+    campaigns,
+    timeline,
+    topLinks,
+    clients,
+    devices,
+    geo,
+    byHour,
+    timeToOpen,
+    failures,
+    growth,
+    mix,
+  } = view;
 
   function selectCampaign(value: string) {
     startTransition(() => {
@@ -259,7 +273,122 @@ export function NewsletterStatsClient({ view }: { view: NewsletterStatsView }) {
         </>
       )}
 
+
+          {/* ── Πότε ανοίγουν ──────────────────────────────────────────── */}
+          <ChartCard
+            title="Ανοίγματα ανά ώρα"
+            description="Πότε διαβάζει το κοινό σας, σε ώρα Ελλάδας. Απαντά πρακτικά στο τι ώρα να φύγει το επόμενο δελτίο."
+          >
+            {byHour.every((h) => h.opens === 0) ? (
+              <EmptyNote />
+            ) : (
+              <BarTrendChart
+                data={byHour.map((h) => ({
+                  label: `${String(h.hour).padStart(2, "0")}:00`,
+                  opens: h.opens,
+                }))}
+                xKey="label"
+                height={220}
+                series={[{ key: "opens", label: "Ανοίγματα" }]}
+              />
+            )}
+          </ChartCard>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ChartCard
+              title="Ταχύτητα ανοίγματος"
+              description="Πόσο γρήγορα ανοίγεται ένα δελτίο μετά την παράδοση — δείχνει πόσο νωρίς έχει νόημα να κριθεί μια αποστολή."
+            >
+              {timeToOpen.every((t) => t.value === 0) ? (
+                <EmptyNote />
+              ) : (
+                <BarTrendChart
+                  data={timeToOpen.map((t) => ({ label: t.label, count: t.value }))}
+                  xKey="label"
+                  horizontal
+                  height={220}
+                  categoryWidth={100}
+                  series={[{ key: "count", label: "Παραλήπτες" }]}
+                />
+              )}
+            </ChartCard>
+
+            <ChartCard
+              title="Από πού ανοίγουν"
+              description="Οι πόλεις των παραληπτών που άνοιξαν. Όσα ανοίγματα δεν εντοπίζονται γεωγραφικά δεν μετρούνται."
+            >
+              {geo.length === 0 ? (
+                <EmptyNote />
+              ) : (
+                <BarTrendChart
+                  data={geo.map((g) => ({ label: g.label, count: g.value }))}
+                  xKey="label"
+                  horizontal
+                  height={220}
+                  categoryWidth={110}
+                  series={[{ key: "count", label: "Ανοίγματα" }]}
+                />
+              )}
+            </ChartCard>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ChartCard
+              title="Η λίστα στον χρόνο"
+              description="Νέες εγγραφές και διαγραφές ανά μήνα. Η διαφορά τους είναι η πραγματική ανάπτυξη."
+            >
+              <AreaTrendChart
+                data={growth}
+                xKey="month"
+                height={220}
+                series={[
+                  { key: "subscribed", label: "Εγγραφές" },
+                  { key: "unsubscribed", label: "Διαγραφές" },
+                ]}
+              />
+            </ChartCard>
+
+            <ChartCard
+              title="Σύνθεση λίστας"
+              description="Πού βρίσκονται σήμερα οι συνδρομητές."
+            >
+              {mix.length === 0 ? (
+                <EmptyNote />
+              ) : (
+                <DonutChart
+                  data={mix.map((m, i) => ({ key: `mix-${i}`, label: m.label, value: m.value }))}
+                  centerLabel="συνδρομητές"
+                />
+              )}
+            </ChartCard>
+          </div>
+
+          {failures.length > 0 && (
+            <ChartCard
+              title="Γιατί απέτυχαν"
+              description="Η αιτιολογία του παρόχου, όχι απλώς το πλήθος — εκεί φαίνεται αν φταίει η λίστα ή το μήνυμα."
+            >
+              <BarTrendChart
+                data={failures.map((f) => ({ label: f.label, count: f.value }))}
+                xKey="label"
+                horizontal
+                height={Math.max(160, failures.length * 34)}
+                categoryWidth={220}
+                series={[{ key: "count", label: "Συμβάντα", color: "var(--chart-5)" }]}
+              />
+            </ChartCard>
+          )}
+
       <StatsCampaignsTable campaigns={campaigns} />
     </div>
+  );
+}
+
+/** Κενό γράφημα: λέει ΓΙΑΤΙ δεν υπάρχει τίποτα, αντί για άδειο πλαίσιο. */
+function EmptyNote() {
+  return (
+    <p className="py-10 text-center text-sm text-muted-foreground">
+      Δεν υπάρχουν ακόμα αρκετά συμβάντα για αυτό το γράφημα.
+    </p>
   );
 }

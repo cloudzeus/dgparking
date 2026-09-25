@@ -617,3 +617,175 @@ export async function recipientDetails(campaignId: string, take = 50): Promise<R
 
   return [...byEmail.values()];
 }
+
+/* ── Πρόσθετες αναλύσεις για τη σελίδα στατιστικών ────────────────────────── */
+
+/**
+ * Γεωγραφική κατανομή, από τα ανοίγματα.
+ *
+ * Το Mailgun δίνει πόλη και χώρα μόνο όταν τα αναγνωρίσει· τα κενά δεν
+ * μετριούνται ως «άγνωστο», γιατί θα κυριαρχούσαν στο γράφημα και δεν λένε
+ * τίποτα.
+ */
+export async function geoBreakdown(campaignId?: string, take = 8): Promise<LabelledCount[]> {
+  const rows = await prisma.newsletterEvent.groupBy({
+    by: ["city"],
+    where: {
+      event: { in: ["opened", "clicked"] },
+      city: { not: null },
+      ...(campaignId ? { campaignId } : {}),
+    },
+    _count: { _all: true },
+    orderBy: { _count: { city: "desc" } },
+    take,
+  });
+  return rows
+    .filter((r): r is typeof r & { city: string } => typeof r.city === "string" && r.city.trim() !== "")
+    .map((r) => ({ label: r.city, value: r._count._all }));
+}
+
+/**
+ * Πότε μέσα στο εικοσιτετράωρο ανοίγουν οι παραλήπτες.
+ *
+ * Απαντά σε πρακτική ερώτηση: τι ώρα να φύγει το επόμενο δελτίο. Επιστρέφει
+ * πάντα και τις 24 ώρες, ακόμα και τις κενές — αλλιώς το γράφημα δείχνει
+ * ψευδή συνέχεια ανάμεσα σε ώρες που απέχουν.
+ */
+export async function opensByHour(campaignId?: string): Promise<{ hour: number; opens: number }[]> {
+  const events = await prisma.newsletterEvent.findMany({
+    where: { event: "opened", ...(campaignId ? { campaignId } : {}) },
+    select: { timestamp: true },
+  });
+  const buckets = Array.from({ length: 24 }, (_, hour) => ({ hour, opens: 0 }));
+  for (const e of events) {
+    // Ώρα Ελλάδας: ο παραλήπτης διαβάζει στη δική του ώρα, όχι σε UTC.
+    const h = Number(
+      e.timestamp.toLocaleString("en-GB", { timeZone: "Europe/Athens", hour: "2-digit", hour12: false })
+    );
+    if (h >= 0 && h < 24) buckets[h].opens++;
+  }
+  return buckets;
+}
+
+/**
+ * Πόσο γρήγορα ανοίγεται ένα δελτίο μετά την παράδοση.
+ *
+ * Δείχνει αν το κοινό αντιδρά αμέσως ή σε βάθος ημερών — που καθορίζει πόσο
+ * νωρίς έχει νόημα να κρίνει κανείς μια αποστολή.
+ */
+export async function timeToOpen(campaignId?: string): Promise<LabelledCount[]> {
+  const where = campaignId ? { campaignId } : {};
+  const [delivered, opened] = await Promise.all([
+    prisma.newsletterEvent.findMany({
+      where: { ...where, event: "delivered" },
+      select: { email: true, timestamp: true },
+    }),
+    prisma.newsletterEvent.findMany({
+      where: { ...where, event: "opened" },
+      select: { email: true, timestamp: true },
+      orderBy: { timestamp: "asc" },
+    }),
+  ]);
+
+  const deliveredAt = new Map<string, Date>();
+  for (const d of delivered) {
+    const prev = deliveredAt.get(d.email);
+    if (!prev || d.timestamp < prev) deliveredAt.set(d.email, d.timestamp);
+  }
+  const firstOpen = new Map<string, Date>();
+  for (const o of opened) if (!firstOpen.has(o.email)) firstOpen.set(o.email, o.timestamp);
+
+  const buckets = [
+    { label: "< 1 ώρα", max: 60 },
+    { label: "1–6 ώρες", max: 360 },
+    { label: "6–24 ώρες", max: 1440 },
+    { label: "1–3 ημέρες", max: 4320 },
+    { label: "> 3 ημέρες", max: Infinity },
+  ];
+  const counts = buckets.map((b) => ({ label: b.label, value: 0 }));
+
+  for (const [email, open] of firstOpen) {
+    const sent = deliveredAt.get(email);
+    if (!sent) continue;
+    const minutes = (open.getTime() - sent.getTime()) / 60000;
+    if (minutes < 0) continue;
+    const i = buckets.findIndex((b) => minutes < b.max);
+    if (i >= 0) counts[i].value++;
+  }
+  return counts;
+}
+
+/** Οι λόγοι αποτυχίας — τι ακριβώς πήγε στραβά, όχι απλώς πόσα. */
+export async function failureReasons(campaignId?: string, take = 6): Promise<LabelledCount[]> {
+  const rows = await prisma.newsletterEvent.findMany({
+    where: { event: { in: ["failed", "complained"] }, ...(campaignId ? { campaignId } : {}) },
+    select: { reason: true },
+  });
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    // Οι αιτιολογίες του Mailgun είναι ελεύθερο κείμενο με μοναδικά στοιχεία
+    // μέσα (διευθύνσεις, ids). Κρατάμε την πρώτη πρόταση, αλλιώς κάθε
+    // αποτυχία γίνεται δική της κατηγορία και το γράφημα δεν λέει τίποτα.
+    const raw = (r.reason ?? "Άγνωστη αιτία").split(/[.:;]/)[0].trim().slice(0, 70);
+    counts.set(raw || "Άγνωστη αιτία", (counts.get(raw) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, take);
+}
+
+/** Η πορεία της λίστας συνδρομητών στον χρόνο. */
+export async function subscriberGrowth(
+  months = 6
+): Promise<{ month: string; subscribed: number; unsubscribed: number }[]> {
+  const from = new Date();
+  from.setMonth(from.getMonth() - months + 1);
+  from.setDate(1);
+  from.setHours(0, 0, 0, 0);
+
+  const subs = await prisma.newsletterSubscriber.findMany({
+    where: { createdAt: { gte: from } },
+    select: { createdAt: true, unsubscribedAt: true },
+  });
+
+  const keyOf = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const buckets = new Map<string, { subscribed: number; unsubscribed: number }>();
+  for (let i = 0; i < months; i++) {
+    const d = new Date(from);
+    d.setMonth(from.getMonth() + i);
+    buckets.set(keyOf(d), { subscribed: 0, unsubscribed: 0 });
+  }
+  for (const s of subs) {
+    const k = keyOf(s.createdAt);
+    if (buckets.has(k)) buckets.get(k)!.subscribed++;
+    if (s.unsubscribedAt) {
+      const u = keyOf(s.unsubscribedAt);
+      if (buckets.has(u)) buckets.get(u)!.unsubscribed++;
+    }
+  }
+  const NAMES = ["Ιαν","Φεβ","Μάρ","Απρ","Μάι","Ιούν","Ιούλ","Αύγ","Σεπ","Οκτ","Νοέ","Δεκ"];
+  return [...buckets.entries()].map(([k, v]) => ({
+    month: NAMES[Number(k.split("-")[1]) - 1],
+    ...v,
+  }));
+}
+
+/** Η σύνθεση της λίστας αυτή τη στιγμή. */
+export async function subscriberMix(): Promise<LabelledCount[]> {
+  const rows = await prisma.newsletterSubscriber.groupBy({
+    by: ["status"],
+    _count: { _all: true },
+  });
+  const LABEL: Record<string, string> = {
+    SUBSCRIBED: "Εγγεγραμμένοι",
+    PENDING: "Εκκρεμείς",
+    UNSUBSCRIBED: "Διαγραμμένοι",
+    BOUNCED: "Μη παραδοτέοι",
+    COMPLAINED: "Καταγγελίες",
+  };
+  return rows
+    .map((r) => ({ label: LABEL[r.status] ?? r.status, value: r._count._all }))
+    .sort((a, b) => b.value - a.value);
+}

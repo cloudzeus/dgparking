@@ -10,6 +10,12 @@ import {
   eventTimeline,
   recipientDetails,
   topClickedLinks,
+  geoBreakdown,
+  opensByHour,
+  timeToOpen,
+  failureReasons,
+  subscriberGrowth,
+  subscriberMix,
 } from "@/lib/mailgun-analytics";
 import { PageHeader } from "@/components/admin/page";
 import { NewsletterStatsClient } from "@/components/newsletter/newsletter-stats-client";
@@ -40,12 +46,32 @@ export default async function NewsletterStatsPage({
     ? campaigns.filter((c) => c.id === selectedCampaignId)
     : campaigns;
 
-  const [totals, timeline, topLinks, clients, devices, eventCount, details] = await Promise.all([
+  const [
+    totals,
+    timeline,
+    topLinks,
+    clients,
+    devices,
+    geo,
+    byHour,
+    openSpeed,
+    failures,
+    growth,
+    mix,
+    eventCount,
+    details,
+  ] = await Promise.all([
     campaignStats(scope),
     eventTimeline(scope),
     topClickedLinks(scope),
     clientBreakdown(scope),
     deviceBreakdown(scope),
+    geoBreakdown(scope),
+    opensByHour(scope),
+    timeToOpen(scope),
+    failureReasons(scope),
+    subscriberGrowth(),
+    subscriberMix(),
     prisma.newsletterEvent.count({ where: scope ? { campaignId: scope } : {} }),
     Promise.all(
       listed.slice(0, DETAILED_CAMPAIGNS).map(async (c) => ({
@@ -88,6 +114,12 @@ export default async function NewsletterStatsPage({
     topLinks,
     clients,
     devices,
+    geo,
+    byHour,
+    timeToOpen: openSpeed,
+    failures,
+    growth,
+    mix,
     hasEvents: eventCount > 0,
   };
 

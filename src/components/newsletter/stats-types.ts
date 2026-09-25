@@ -39,6 +39,18 @@ export type NewsletterStatsView = {
   topLinks: LabelledCount[];
   clients: LabelledCount[];
   devices: LabelledCount[];
+  /** Πού βρίσκονται οι παραλήπτες που άνοιξαν. */
+  geo: LabelledCount[];
+  /** Ανοίγματα ανά ώρα της ημέρας — πότε να φύγει το επόμενο δελτίο. */
+  byHour: { hour: number; opens: number }[];
+  /** Πόσο γρήγορα ανοίγεται ένα δελτίο μετά την παράδοση. */
+  timeToOpen: LabelledCount[];
+  /** Τι ακριβώς πήγε στραβά στις αποτυχίες. */
+  failures: LabelledCount[];
+  /** Η πορεία της λίστας στον χρόνο. */
+  growth: { month: string; subscribed: number; unsubscribed: number }[];
+  /** Η σύνθεση της λίστας τώρα. */
+  mix: LabelledCount[];
   /** Υπάρχει έστω ένα συμβάν στη βάση. */
   hasEvents: boolean;
 };
