@@ -57,6 +57,7 @@ import {
   Settings,
   ShieldCheck,
   ShieldOff,
+  TrendingUp,
   User,
   UserCheck,
   UserCog,
@@ -143,6 +144,12 @@ const menuGroups: MenuGroup[] = [
         href: "/reconciliation",
         icon: Scale,
         roles: ["ADMIN", "MANAGER", "EMPLOYEE"],
+      },
+      {
+        title: "Έσοδα",
+        href: "/revenue",
+        icon: TrendingUp,
+        roles: ["ADMIN", "MANAGER"],
       },
       {
         title: "Ψηφιακό Πελατολόγιο",
