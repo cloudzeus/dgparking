@@ -75,6 +75,23 @@ export async function sendWithMailgun(
      * Τα ενημερωτικά δελτία το χρειάζονται για το `List-Unsubscribe`.
      */
     headers?: Record<string, string>;
+    /**
+     * Παρακολούθηση ανοιγμάτων και κλικ. ΕΝΕΡΓΗ ΕΞ ΟΡΙΣΜΟΥ.
+     *
+     * Ο τομέας την έχει κλειστή και το κλειδί που έχουμε δεν έχει δικαίωμα να
+     * την αλλάξει — είναι κλειδί αποστολής. Τη ζητάμε λοιπόν ανά μήνυμα, όπου
+     * οι επιλογές του μηνύματος υπερισχύουν της ρύθμισης του τομέα.
+     *
+     * Χωρίς αυτό, τα στατιστικά έδειχναν μηδέν ανοίγματα σε κάθε αποστολή:
+     * το Mailgun δεν κατέγραφε ποτέ `opened`, οπότε δεν υπήρχε τίποτα να
+     * τραβήξουμε — και το μηδέν διαβαζόταν σαν «κανείς δεν το άνοιξε».
+     *
+     * Περάστε `{ clicks: false }` σε μήνυμα με σύνδεσμο μιας χρήσης
+     * (επαναφορά κωδικού, επιβεβαίωση): η παρακολούθηση κλικ ξαναγράφει τους
+     * συνδέσμους, και σαρωτές ασφαλείας που τους ανοίγουν προληπτικά μπορεί να
+     * καταναλώσουν το εισιτήριο πριν προλάβει ο παραλήπτης.
+     */
+    tracking?: { opens?: boolean; clicks?: boolean };
   }
 ): Promise<SendResult> {
   const body = new URLSearchParams();
@@ -89,6 +106,10 @@ export async function sendWithMailgun(
   for (const [name, value] of Object.entries(message.headers ?? {})) {
     if (value) body.set(`h:${name}`, value);
   }
+  body.set("o:tracking-opens", message.tracking?.opens === false ? "no" : "yes");
+  // `htmlonly`: τα κλικ μετρώνται στο HTML, αλλά οι σύνδεσμοι του απλού
+  // κειμένου μένουν αναγνώσιμοι αντί να γίνουν ακαταλαβίστικες ανακατευθύνσεις.
+  body.set("o:tracking-clicks", message.tracking?.clicks === false ? "no" : "htmlonly");
 
   const url = `${mailgunBaseUrl(config.region)}/${encodeURIComponent(config.domain)}/messages`;
 
@@ -137,6 +158,8 @@ export async function sendEmail(message: {
   replyTo?: string;
   /** Περνά αυτούσιο στο Mailgun — π.χ. `List-Unsubscribe` στα δελτία. */
   headers?: Record<string, string>;
+  /** Ενεργή εξ ορισμού· δες `sendWithMailgun` για το πότε να την κλείσεις. */
+  tracking?: { opens?: boolean; clicks?: boolean };
 }): Promise<SendResult> {
   const config = await getMailgunConfig();
 

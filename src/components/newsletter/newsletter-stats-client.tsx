@@ -2,7 +2,8 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { MailCheck, MousePointerClick, Send, Inbox, MailOpen } from "lucide-react";
+import { MailCheck, MousePointerClick, Send, Inbox, MailOpen, Info } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AreaTrendChart,
   BarTrendChart,
@@ -115,19 +116,44 @@ export function NewsletterStatsClient({ view }: { view: NewsletterStatsView }) {
         />
         <KpiTile
           label="Ανοίγματα"
-          value={num(totals.openedUnique)}
-          hint={`Ποσοστό ανοίγματος ${percent(totals.openRate)}`}
+          value={totals.openTracked ? num(totals.openedUnique) : "—"}
+          hint={
+            totals.openTracked
+              ? `Ποσοστό ανοίγματος ${percent(totals.openRate)}`
+              : "Δεν μετρήθηκαν"
+          }
           icon={MailOpen}
           tone="amber"
         />
         <KpiTile
           label="Κλικ"
-          value={num(totals.clickedUnique)}
-          hint={`Ποσοστό κλικ ${percent(totals.clickRate)} · CTOR ${percent(totals.ctor)}`}
+          value={totals.openTracked ? num(totals.clickedUnique) : "—"}
+          hint={
+            totals.openTracked
+              ? `Ποσοστό κλικ ${percent(totals.clickRate)} · CTOR ${percent(totals.ctor)}`
+              : "Δεν μετρήθηκαν"
+          }
           icon={MousePointerClick}
           tone="violet"
         />
       </div>
+
+      {/*
+        «Μηδέν ανοίγματα» και «δεν μετρήθηκαν ανοίγματα» είναι δύο τελείως
+        διαφορετικά πράγματα. Χωρίς αυτή τη διάκριση η σελίδα έδειχνε 0% και
+        διαβαζόταν σαν να μην άνοιξε κανείς το δελτίο.
+      */}
+      {!totals.openTracked && totals.delivered > 0 && (
+        <Alert>
+          <Info />
+          <AlertTitle>Τα ανοίγματα δεν μετρήθηκαν σε αυτή την αποστολή</AlertTitle>
+          <AlertDescription>
+            Η παρακολούθηση ήταν κλειστή όταν έφυγε το μήνυμα, οπότε δεν υπάρχει
+            καταγραφή — όχι μηδέν αναγνώστες. Είναι πλέον ενεργή και μετράει από την
+            επόμενη αποστολή. Για όσα έχουν ήδη σταλεί, τα ανοίγματα δεν ανακτώνται.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardContent className="flex flex-wrap items-end gap-3">

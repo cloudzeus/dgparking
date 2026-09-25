@@ -355,6 +355,15 @@ export type CampaignStats = {
   failedTotal: number;
   complained: number;
   unsubscribed: number;
+  /**
+   * Μετρήθηκαν καθόλου ανοίγματα;
+   *
+   * «Μηδέν ανοίγματα» και «δεν μετρήθηκαν ανοίγματα» είναι δύο τελείως
+   * διαφορετικά πράγματα, και το δεύτερο ίσχυε: η παρακολούθηση ήταν κλειστή
+   * στον τομέα, οπότε το Mailgun δεν κατέγραφε ποτέ `opened`. Η σελίδα
+   * έδειχνε 0% και διαβαζόταν σαν «κανείς δεν το άνοιξε».
+   */
+  openTracked: boolean;
   /** Ποσοστά 0–100. */
   deliveryRate: number;
   openRate: number;
@@ -426,6 +435,8 @@ function buildStats(campaignId: string | null, sent: number, rows: EventCountRow
     failedTotal,
     complained: unique("complained"),
     unsubscribed: unique("unsubscribed"),
+    // Ένα και μόνο συμβάν ανοίγματος αρκεί για να ξέρουμε ότι μετρήθηκε.
+    openTracked: rows.some((r) => r.event === "opened"),
     deliveryRate: rate(delivered, sent),
     openRate: rate(openedUnique, base),
     clickRate: rate(clickedUnique, base),
