@@ -19,6 +19,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { findStayPhotos } from "@/lib/pass-photo";
 import { activeContractWhere } from "@/lib/contract-active";
 import { wallClockNow } from "@/lib/parking-time";
 import { getExemptPlates } from "@/lib/exempt-plates";
@@ -48,6 +49,11 @@ export type RevenueOverview = {
     walkInStays: number;
     alp: { count: number; total: number };
     collections: number;
+    /** Η ανάλυση της διαφοράς — ποια στάση και ποιο παραστατικό την κάνουν. */
+    breakdown: {
+      stays: TillStay[];
+      docs: TillDoc[];
+    };
   };
   /** Συμβάσεις μήνα — μηνιαία υποχρέωση, ξεχωριστά από το ταμείο. */
   month: {
@@ -61,7 +67,28 @@ export type RevenueOverview = {
   error?: string;
 };
 
-type Doc = { series: string; amount: number; trdr: string };
+type Doc = { series: string; amount: number; trdr: string; code?: string };
+
+/** Μια στάση απλού πελάτη που έκλεισε σήμερα, με ό,τι χρειάζεται για έλεγχο. */
+export type TillStay = {
+  plate: string;
+  enteredAt: Date;
+  exitedAt: Date;
+  minutes: number;
+  amount: number;
+  /** Ο κωδικός του παραστατικού που ταίριαξε, αν βρέθηκε. */
+  matched: string | null;
+  photoIn: string | null;
+  photoOut: string | null;
+};
+
+/** Ένα ΑΛΠ της ημέρας. */
+export type TillDoc = {
+  code: string;
+  amount: number;
+  /** Η πινακίδα της στάσης που ταίριαξε, αν βρέθηκε. */
+  matched: string | null;
+};
 
 async function fetchMonthDocs(from: Date): Promise<Doc[]> {
   const company = Number(process.env.PARKING_COMPANY ?? 1002);
@@ -82,7 +109,7 @@ async function fetchMonthDocs(from: Date): Promise<Doc[]> {
   if (!auth.success || !auth.clientID) throw new Error(auth.error || "Αποτυχία ταυτοποίησης SoftOne.");
 
   const iso = `${from.getUTCFullYear()}-${String(from.getUTCMonth() + 1).padStart(2, "0")}-01`;
-  const fields = "FINDOC,TRNDATE,SUMAMNT,SERIES,TRDR";
+  const fields = "FINDOC,TRNDATE,SUMAMNT,SERIES,TRDR,FINCODE";
   const res = await getSoftOneTableData(
     "FINDOC",
     fields,
@@ -100,6 +127,7 @@ async function fetchMonthDocs(from: Date): Promise<Doc[]> {
       amount: Number(o.SUMAMNT) || 0,
       trdr: String(o.TRDR ?? ""),
       date: String(o.TRNDATE ?? ""),
+      code: String(o.FINCODE ?? ""),
     }))
     .filter((d) => d.amount > 0) as Doc[];
 }
@@ -156,6 +184,7 @@ export async function buildRevenueOverview(): Promise<RevenueOverview> {
       walkInStays: walkInStays.length,
       alp: { count: 0, total: 0 },
       collections: 0,
+      breakdown: { stays: [], docs: [] },
     },
     month: {
       label: `${MONTHS[now.getUTCMonth()]} ${now.getUTCFullYear()}`,
@@ -190,6 +219,48 @@ export async function buildRevenueOverview(): Promise<RevenueOverview> {
       out.today.collections += d.amount;
     }
   }
+
+  // ── Η ανάλυση της διαφοράς ─────────────────────────────────────────────
+  //
+  // Το σύνολο δεν εξηγεί τίποτα: «λείπουν 7,50 €» μπορεί να είναι μια στάση
+  // που δεν τιμολογήθηκε ή μια που τιμολογήθηκε με άλλο ποσό. Ταιριάζουμε
+  // στάσεις με παραστατικά ΣΤΟ ΠΟΣΟ — τα ΑΛΠ πάνε όλα στον ίδιο γενικό
+  // πελάτη, οπότε δεν υπάρχει πινακίδα να συγκρίνουμε. Ό,τι μείνει
+  // αταίριαστο στις δύο στήλες είναι ακριβώς η διαφορά.
+  const todayDocs = docs.filter(
+    (d) => d.series === SERIES.ALP && String(d.date ?? "").startsWith(todayIso)
+  );
+  const docsLeft = todayDocs.map((d, i) => ({
+    key: i,
+    code: d.code || `ΑΛΠ #${i + 1}`,
+    amount: d.amount,
+    matched: null as string | null,
+  }));
+
+  const tillStays: TillStay[] = [];
+  for (const s of walkInStays) {
+    if (!s.exitedAt) continue;
+    const amount = s.amount ?? 0;
+    const hit = docsLeft.find((d) => d.matched === null && Math.abs(d.amount - amount) < 0.01);
+    if (hit) hit.matched = s.plate;
+
+    const photos = await findStayPhotos(s.plate, s.enteredAt, s.exitedAt);
+    tillStays.push({
+      plate: s.plate,
+      enteredAt: s.enteredAt,
+      exitedAt: s.exitedAt,
+      minutes: Math.round((s.exitedAt.getTime() - s.enteredAt.getTime()) / 60_000),
+      amount,
+      matched: hit?.code ?? null,
+      photoIn: photos.in?.url ?? null,
+      photoOut: photos.out?.url ?? null,
+    });
+  }
+
+  out.today.breakdown = {
+    stays: tillStays.sort((a, b) => b.exitedAt.getTime() - a.exitedAt.getTime()),
+    docs: docsLeft.map((d) => ({ code: d.code, amount: d.amount, matched: d.matched })),
+  };
 
   // ── Κάλυψη ανά σύμβαση ─────────────────────────────────────────────────
   const seriesByTrdr = new Map<string, Set<string>>();

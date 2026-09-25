@@ -15,12 +15,23 @@ import {
   FileText,
   ShieldOff,
   TrendingUp,
+  Scale,
   Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatWallClock } from "@/lib/parking-time";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+/** Λεπτά σε ανθρώπινη διάρκεια — οι ώρες κρύβουν τα τετράλεπτα. */
+function duration(minutes: number): string {
+  if (minutes < 60) return `${minutes}′`;
+  const h = Math.floor(minutes / 60);
+  if (h < 24) return minutes % 60 === 0 ? `${h}ω` : `${h}ω ${minutes % 60}′`;
+  const d = Math.floor(h / 24);
+  return h % 24 === 0 ? `${d} ημέρες` : `${d} ημ. ${h % 24}ω`;
+}
 
 const eur = (n: number) =>
   `${n.toLocaleString("el-GR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
@@ -141,6 +152,122 @@ export default async function RevenuePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Από πού προκύπτει η διαφορά ─────────────────────────────────── */}
+      {(r.today.breakdown.stays.length > 0 || r.today.breakdown.docs.length > 0) && (
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle className="flex items-center gap-2">
+              <Scale className="size-4" aria-hidden />
+              Από πού προκύπτει η διαφορά
+            </CardTitle>
+            <CardDescription>
+              Κάθε στάση απλού πελάτη δίπλα στο παραστατικό της. Τα ΑΛΠ κόβονται όλα στον
+              ίδιο γενικό πελάτη, οπότε δεν υπάρχει πινακίδα να συγκριθεί — το ταίριασμα
+              γίνεται στο ποσό. Ό,τι μένει αταίριαστο στις δύο στήλες είναι η διαφορά.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 pt-4 lg:grid-cols-2">
+            {/* Οι στάσεις μας */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Στάσεις που χρεώσαμε
+              </p>
+              {r.today.breakdown.stays.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Καμία στάση απλού πελάτη σήμερα.</p>
+              ) : (
+                r.today.breakdown.stays.map((s) => (
+                  <div
+                    key={`${s.plate}-${s.exitedAt.toISOString()}`}
+                    className={cn(
+                      "rounded-lg border p-3",
+                      s.matched ? "bg-muted/30" : "border-destructive/40 bg-destructive/5"
+                    )}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-sm font-semibold">{s.plate}</span>
+                      <span className="text-sm font-medium tabular-nums">{eur(s.amount)}</span>
+                      {s.matched ? (
+                        <Badge variant="outline" className="font-normal">
+                          {s.matched}
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive">χωρίς παραστατικό</Badge>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+                      {formatWallClock(s.enteredAt)} – {formatWallClock(s.exitedAt)} ·{" "}
+                      {duration(s.minutes)}
+                    </p>
+                    {(s.photoIn || s.photoOut) && (
+                      <div className="mt-2 flex gap-2">
+                        {([["Είσοδος", s.photoIn], ["Έξοδος", s.photoOut]] as const).map(
+                          ([label, url]) =>
+                            url ? (
+                              <a
+                                key={label}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group"
+                                title={`${s.plate} — ${label}`}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={url}
+                                  alt={`${s.plate} — ${label}`}
+                                  loading="lazy"
+                                  className="h-24 w-auto rounded-md border object-cover transition-opacity group-hover:opacity-80"
+                                />
+                              </a>
+                            ) : (
+                              <div
+                                key={label}
+                                className="flex h-24 w-32 items-center justify-center rounded-md border bg-muted/40 text-xs text-muted-foreground"
+                              >
+                                {label}: χωρίς φωτογραφία
+                              </div>
+                            )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Τα παραστατικά */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                ΑΛΠ που κόπηκαν
+              </p>
+              {r.today.breakdown.docs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Κανένα ΑΛΠ σήμερα.</p>
+              ) : (
+                r.today.breakdown.docs.map((d) => (
+                  <div
+                    key={d.code}
+                    className={cn(
+                      "flex flex-wrap items-center gap-2 rounded-lg border p-3",
+                      d.matched ? "bg-muted/30" : "border-destructive/40 bg-destructive/5"
+                    )}
+                  >
+                    <span className="font-mono text-sm font-semibold">{d.code}</span>
+                    <span className="text-sm font-medium tabular-nums">{eur(d.amount)}</span>
+                    {d.matched ? (
+                      <Badge variant="outline" className="font-mono font-normal">
+                        {d.matched}
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive">χωρίς αντίστοιχη στάση</Badge>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Συμβάσεις μήνα ─────────────────────────────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-3">
