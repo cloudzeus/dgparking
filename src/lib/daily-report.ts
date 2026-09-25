@@ -603,6 +603,7 @@ function render(
     // βγαίνουν από τη λωρίδα της εισόδου — και κανείς δεν θα το μάθαινε.
     const ANOMALY_LABEL: Record<string, string> = {
       EXIT_THROUGH_ENTRANCE: "Έξοδος από τη λωρίδα εισόδου",
+      MANUAL_EXIT: "Χειροκίνητη καταγραφή αποχώρησης",
     };
 
     if (stats.anomalies.length > 0) {
