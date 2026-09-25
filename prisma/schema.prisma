@@ -1209,6 +1209,41 @@ model ParkingAnomaly {
   @@map("parking_anomalies")
 }
 
+/// Καθρέφτης των εγγραφών Ψηφιακού Πελατολογίου ΑΑΔΕ.
+///
+/// Η ΑΑΔΕ δεν έχει idempotency: δύο `SendClient` = δύο εγγραφές. Αυτός ο
+/// πίνακας είναι το κλειδί μας — μία γραμμή ανά στάθμευση, ώστε να ξέρουμε
+/// ΠΡΙΝ στείλουμε αν έχει ήδη σταλεί.
+model DclRecord {
+  id           String    @id @default(cuid())
+  /// Το δικό μας κλειδί στάθμευσης: πινακίδα + ώρα εισόδου.
+  stayKey      String    @unique @map("stay_key") @db.VarChar(120)
+  plate        String    @db.VarChar(50)
+  enteredAt    DateTime  @map("entered_at")
+  exitedAt     DateTime? @map("exited_at")
+  /// CONTRACT | WALK_IN | EXEMPT
+  kind         String    @db.VarChar(20)
+  amount       Float     @default(0)
+  contractInst Int?      @map("contract_inst")
+
+  /// DRAFT → SENT → COMPLETED · ή FAILED
+  status       String    @default("DRAFT") @db.VarChar(20)
+  /// Το αναγνωριστικό που επέστρεψε η ΑΑΔΕ στο άνοιγμα.
+  idDcl        BigInt?   @map("id_dcl")
+  /// Το αναγνωριστικό της ολοκλήρωσης.
+  updateId     BigInt?   @map("update_id")
+  error        String?   @db.Text
+  /// Τα payloads όπως στάλθηκαν — για έλεγχο χωρίς νέα κλήση.
+  sentPayload  Json?     @map("sent_payload")
+
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([enteredAt])
+  @@map("dcl_records")
+}
+
 model ParkingStay {
   id           String          @id @default(cuid())
   plate        String          @db.VarChar(50)
