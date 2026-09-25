@@ -180,13 +180,16 @@ export type ContractSlotType = "contract" | "visitor";
  * βοηθητικό πίνακα, οπότε είναι πάντα φρέσκο και δεν χρειάζεται καμία εγγραφή.
  */
 export async function getContractInfoByPlate(): Promise<
-  Map<string, { num01: number; carsIn: number; inst: number; slotType?: ContractSlotType }>
+  Map<
+    string,
+    { num01: number; carsIn: number; rank: number | null; inst: number; slotType?: ContractSlotType }
+  >
 > {
   const { activeInst, mtrlToPlate, platesInside } = await loadContractState();
 
   const result = new Map<
     string,
-    { num01: number; carsIn: number; inst: number; slotType?: ContractSlotType }
+    { num01: number; carsIn: number; rank: number | null; inst: number; slotType?: ContractSlotType }
   >();
 
   for (const inst of activeInst) {
@@ -203,13 +206,24 @@ export async function getContractInfoByPlate(): Promise<
     const contractSlots = new Set(insideOrdered.slice(0, num01).map((x) => x.plate));
     const visitorSlots = new Set(insideOrdered.slice(num01).map((x) => x.plate));
 
+    // Η σειρά άφιξης του κάθε οχήματος μέσα στη σύμβαση. Αυτή απαντά στο
+    // «πιάνει θέση ή όχι;» — και είναι αυτό που διαβάζει κανείς κοιτώντας μια
+    // κάρτα εισόδου. Το σύνολο `carsIn` μένει διαθέσιμο για τα σύνολα.
+    const rankByPlate = new Map(insideOrdered.map((x, i) => [x.plate, i + 1]));
+
     for (const plate of contractPlates) {
       const slotType = visitorSlots.has(plate)
         ? ("visitor" as const)
         : contractSlots.has(plate)
           ? ("contract" as const)
           : undefined;
-      result.set(plate, { num01, carsIn, inst: inst.INST, slotType });
+      result.set(plate, {
+        num01,
+        carsIn,
+        rank: rankByPlate.get(plate) ?? null,
+        inst: inst.INST,
+        slotType,
+      });
     }
   }
 

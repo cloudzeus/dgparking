@@ -187,16 +187,16 @@ export async function GET(request: Request) {
     let inside: {
       plates: string[];
       count: number;
-      contracts: Record<string, { num01: number; carsIn: number; slotType?: string }>;
+      contracts: Record<string, { num01: number; carsIn: number; rank: number | null; slotType?: string }>;
     } | null = null;
     try {
       const [rows, info] = await Promise.all([
         prisma.parkingInventory.findMany({ select: { plate: true } }),
         getContractInfoByPlate(),
       ]);
-      const contracts: Record<string, { num01: number; carsIn: number; slotType?: string }> = {};
+      const contracts: Record<string, { num01: number; carsIn: number; rank: number | null; slotType?: string }> = {};
       for (const [plate, i] of info) {
-        contracts[plate] = { num01: i.num01, carsIn: i.carsIn, slotType: i.slotType };
+        contracts[plate] = { num01: i.num01, carsIn: i.carsIn, rank: i.rank, slotType: i.slotType };
       }
       inside = { plates: rows.map((r) => r.plate), count: rows.length, contracts };
     } catch (error) {

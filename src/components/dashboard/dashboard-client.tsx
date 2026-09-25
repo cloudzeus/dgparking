@@ -230,6 +230,8 @@ function getDisplayPlate(event: { licensePlate?: string | null } & { license_pla
 interface ContractInfo {
   num01: number;
   carsIn: number;
+  /** Η σειρά άφιξης αυτού του οχήματος μέσα στη σύμβαση· `null` αν δεν είναι μέσα. */
+  rank?: number | null;
   /** "contract" = within NUM01 limit; "visitor" = over limit, pays regular fee */
   slotType?: "contract" | "visitor";
 }
@@ -1008,6 +1010,12 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
               const contractInfo = contractInfoState[normalizedPlate];
               const contractNum01 = contractInfo?.num01 ?? 0;
               const contractCarsIn = contractInfo?.carsIn ?? 0;
+              // Στην κάρτα δείχνουμε τη ΣΕΙΡΑ αυτού του οχήματος, όχι το σύνολο
+              // της σύμβασης. Το σύνολο ήταν το ίδιο σε κάθε κάρτα — τρία
+              // αυτοκίνητα έμπαιναν και έγραφαν όλα «29/48», που διαβαζόταν σαν
+              // «ο μετρητής κόλλησε». Η σειρά απαντά στο ερώτημα που κοιτάς:
+              // πιάνει θέση σύμβασης αυτό το αυτοκίνητο ή όχι;
+              const contractRank = contractInfo?.rank ?? null;
               const slotType = contractInfo?.slotType;
               const isExceeded = isInContract && isStillInside && contractNum01 > 0 && contractCarsIn > contractNum01;
               const isVisitorOverLimit = slotType === "visitor";
@@ -1043,6 +1051,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
                   entryTime={entryTime}
                   contractNum01={contractNum01}
                   contractCarsIn={contractCarsIn}
+                  contractRank={contractRank}
                   isExceeded={isExceeded}
                   isVisitorOverLimit={isVisitorOverLimit}
                   isSelected={selectedPlates.has(normalizedPlate)}
@@ -1089,7 +1098,7 @@ export function DashboardClient({ user, stats, recentEvents, materialLicensePlat
   );
 }
 
-function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, missingInErp = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, isExceeded = false, isVisitorOverLimit = false, isSelected = false, onToggleSelect, onMarkAsLeft, onReevaluate, onDelete }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; /** Δεν υπάρχει εγγραφή στο ψηφιακό πελατολόγιο του ERP. */ missingInErp?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; isExceeded?: boolean; /** true when car is inside but over contract limit → pays regular visitor fee */ isVisitorOverLimit?: boolean; isSelected?: boolean; onToggleSelect?: () => void; onMarkAsLeft?: (licensePlate: string, leftAt: Date) => Promise<void>; onReevaluate?: (eventId: string, newLicensePlate: string) => Promise<void>; /** Διαγραφή λανθασμένης αναγνώρισης (π.χ. πεζός αντί για πινακίδα). */ onDelete?: (eventId: string) => Promise<void> }) {
+function RecognitionEventCard({ event, isNew = false, isInContract = false, isInItems = false, isFromPastDate = false, isStillInside = false, isOutOnly = false, missingInErp = false, entryTime = null, contractNum01 = 0, contractCarsIn = 0, contractRank = null, isExceeded = false, isVisitorOverLimit = false, isSelected = false, onToggleSelect, onMarkAsLeft, onReevaluate, onDelete }: { event: RecognitionEventWithRelations; isNew?: boolean; isInContract?: boolean; isInItems?: boolean; isFromPastDate?: boolean; isStillInside?: boolean; isOutOnly?: boolean; /** Δεν υπάρχει εγγραφή στο ψηφιακό πελατολόγιο του ERP. */ missingInErp?: boolean; entryTime?: Date | null; contractNum01?: number; contractCarsIn?: number; /** Η σειρά άφιξης αυτού του οχήματος στη σύμβαση. */ contractRank?: number | null; isExceeded?: boolean; /** true when car is inside but over contract limit → pays regular visitor fee */ isVisitorOverLimit?: boolean; isSelected?: boolean; onToggleSelect?: () => void; onMarkAsLeft?: (licensePlate: string, leftAt: Date) => Promise<void>; onReevaluate?: (eventId: string, newLicensePlate: string) => Promise<void>; /** Διαγραφή λανθασμένης αναγνώρισης (π.χ. πεζός αντί για πινακίδα). */ onDelete?: (eventId: string) => Promise<void> }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [isLeftModalOpen, setIsLeftModalOpen] = useState(false);
@@ -1619,9 +1628,13 @@ function RecognitionEventCard({ event, isNew = false, isInContract = false, isIn
                 <Badge
                   variant={isExceeded ? "danger" : "info"}
                   className="tabular-nums"
-                  title="Οχήματα εντός προς θέσεις συμβολαίου"
+                  title={
+                    contractRank
+                      ? `Το ${contractRank}ο όχημα της σύμβασης κατά σειρά άφιξης · ${contractNum01} θέσεις · ${contractCarsIn} μέσα τώρα`
+                      : `${contractCarsIn} οχήματα εντός προς ${contractNum01} θέσεις συμβολαίου`
+                  }
                 >
-                  {contractCarsIn}/{contractNum01}
+                  {contractRank ?? contractCarsIn}/{contractNum01}
                 </Badge>
               )}
               {isInContract && isVisitorOverLimit && <Badge variant="warning">Επισκέπτης</Badge>}

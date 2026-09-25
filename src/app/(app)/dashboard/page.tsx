@@ -331,9 +331,9 @@ export default async function DashboardPage() {
     }
   }
 
-  const contractInfoByPlate: Record<string, { num01: number; carsIn: number; slotType?: "contract" | "visitor" }> = {};
+  const contractInfoByPlate: Record<string, { num01: number; carsIn: number; rank: number | null; slotType?: "contract" | "visitor" }> = {};
   for (const [plate, info] of contractInfoMap.entries()) {
-    contractInfoByPlate[plate] = { num01: info.num01, carsIn: info.carsIn, slotType: info.slotType };
+    contractInfoByPlate[plate] = { num01: info.num01, carsIn: info.carsIn, rank: info.rank, slotType: info.slotType };
   }
 
   const contractsWithPlates = contractsWithPlatesCount;
