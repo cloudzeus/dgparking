@@ -58,6 +58,7 @@ import {
   ShieldCheck,
   ShieldOff,
   TrendingUp,
+  TriangleAlert,
   User,
   UserCheck,
   UserCog,
@@ -144,6 +145,12 @@ const menuGroups: MenuGroup[] = [
         href: "/reconciliation",
         icon: Scale,
         roles: ["ADMIN", "MANAGER", "EMPLOYEE"],
+      },
+      {
+        title: "Υπερβάσεις",
+        href: "/overruns",
+        icon: TriangleAlert,
+        roles: ["ADMIN", "MANAGER"],
       },
       {
         title: "Έσοδα",
