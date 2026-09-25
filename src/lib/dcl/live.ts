@@ -16,8 +16,9 @@
  *
  * 2. ΣΥΝΤΟΜΟ ΟΡΙΟ ΧΡΟΝΟΥ. Ο κανονικός client περιμένει 30 δευτερόλεπτα, που
  *    είναι λογικό για μαζικό συγχρονισμό αλλά απαράδεκτο μέσα σε webhook
- *    κάμερας. Εδώ η αποτυχία είναι φθηνή: η εγγραφή μένει `FAILED` και ο
- *    επόμενος συγχρονισμός τη μαζεύει.
+ *    κάμερας: οι κάμερες στέλνουν κατά ριπές και μια αργή απάντηση θα
+ *    κρατούσε τη σύνδεση ανοιχτή για όλο το μπλοκ. Εδώ η αποτυχία είναι
+ *    φθηνή — η εγγραφή μένει `FAILED` και ο επόμενος συγχρονισμός τη μαζεύει.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -28,6 +29,34 @@ import { buildSendClient, buildUpdateClient, type CustomerKind, type StayForDcl 
 import { isValidGreekVat } from "./vat";
 
 const stayKey = (plate: string, entry: Date) => `${plate}|${entry.toISOString()}`;
+
+/** Πόσο περιμένουμε την ΑΑΔΕ μέσα στη ροή των καμερών. */
+const LIVE_TIMEOUT_MS = 8000;
+
+/**
+ * Εγκαταλείπει μετά από λίγο.
+ *
+ * Το αποτέλεσμα ΔΕΝ ακυρώνεται — αν η ΑΑΔΕ απαντήσει αργότερα, η εγγραφή
+ * έχει δημιουργηθεί εκεί αλλά εμείς τη θεωρούμε αποτυχημένη. Γι' αυτό ο
+ * επόμενος συγχρονισμός δεν ξαναστέλνει στα τυφλά: ελέγχει πρώτα με
+ * `RequestClients` τι υπάρχει όντως.
+ */
+async function withTimeout<T>(p: Promise<T>, label: string): Promise<T | null> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      p,
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => {
+          console.warn(`[DCL-LIVE] ${label}: η ΑΑΔΕ δεν απάντησε σε ${LIVE_TIMEOUT_MS}ms`);
+          resolve(null);
+        }, LIVE_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 /** Το ΑΦΜ του πελάτη μιας σύμβασης — μόνο αν είναι έγκυρο. */
 async function contractVat(inst: number | null): Promise<string | null> {
@@ -116,12 +145,16 @@ export async function notifyDclEntry(
       },
     });
 
-    const res = await sendClient(config, payload);
+    const res = await withTimeout(sendClient(config, payload), `άνοιγμα ${plate}`);
     await prisma.dclRecord.update({
       where: { id: record.id },
-      data: res.ok
-        ? { status: "SENT", idDcl: BigInt(res.id), error: null }
-        : { status: "FAILED", error: `${res.code}: ${res.message}` },
+      data:
+        res?.ok === true
+          ? { status: "SENT", idDcl: BigInt(res.id), error: null }
+          : {
+              status: "FAILED",
+              error: res ? `${res.code}: ${res.message}` : "λήξη χρόνου αναμονής",
+            },
     });
   } catch (error) {
     console.error(`[DCL-LIVE] Το άνοιγμα για ${plate} απέτυχε:`, error);
@@ -151,17 +184,20 @@ export async function notifyDclExit(
 
     if (!record || record.status === "FAILED" || record.idDcl == null) {
       const payload = buildSendClient(stay, Number(process.env.AADE_BRANCH ?? 0), wallClockNow());
-      const open = await sendClient(config, payload);
-      if (!open.ok) {
+      const open = await withTimeout(sendClient(config, payload), `άνοιγμα ${plate}`);
+      if (!open?.ok) {
         await prisma.dclRecord.upsert({
           where: { stayKey: key },
           create: {
             stayKey: key, plate, enteredAt, exitedAt, kind: stay.kind,
             amount, contractInst, status: "FAILED",
-            error: `${open.code}: ${open.message}`,
+            error: open ? `${open.code}: ${open.message}` : "λήξη χρόνου αναμονής",
             sentPayload: payload as unknown as object,
           },
-          update: { status: "FAILED", error: `${open.code}: ${open.message}` },
+          update: {
+            status: "FAILED",
+            error: open ? `${open.code}: ${open.message}` : "λήξη χρόνου αναμονής",
+          },
         });
         return;
       }
@@ -178,10 +214,13 @@ export async function notifyDclExit(
 
     if (record.status === "COMPLETED") return; // η ΑΑΔΕ απορρίπτει διπλό κλείσιμο
 
-    const res = await updateClient(config, buildUpdateClient(stay, Number(record.idDcl)));
+    const res = await withTimeout(
+      updateClient(config, buildUpdateClient(stay, Number(record.idDcl))),
+      `κλείσιμο ${plate}`
+    );
     await prisma.dclRecord.update({
       where: { id: record.id },
-      data: res.ok
+      data: res?.ok === true
         ? {
             status: "COMPLETED",
             updateId: BigInt(res.id),
@@ -189,7 +228,11 @@ export async function notifyDclExit(
             amount,
             error: null,
           }
-        : { exitedAt, amount, error: `${res.code}: ${res.message}` },
+        : {
+            exitedAt,
+            amount,
+            error: res ? `${res.code}: ${res.message}` : "λήξη χρόνου αναμονής",
+          },
     });
   } catch (error) {
     console.error(`[DCL-LIVE] Το κλείσιμο για ${plate} απέτυχε:`, error);

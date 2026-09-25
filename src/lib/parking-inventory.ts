@@ -19,6 +19,7 @@ import { fetchErpStays } from "@/lib/parking-reconcile";
 import { getActiveContractPlates, MIN_STAY_MINUTES } from "@/lib/parking-sessions";
 import { calculateCharge } from "@/lib/parking-tariff";
 import { isExempt } from "@/lib/exempt-plates";
+import { notifyDclEntry, notifyDclExit } from "@/lib/dcl/live";
 import type { InventorySource } from "@prisma/client";
 
 /** Πόσο πίσω ψάχνουμε ανοιχτές εγγραφές του ERP κατά το seed. */
@@ -104,14 +105,17 @@ export async function applyCameraPass(
         return { action: "ignored", reason: "βρίσκεται ήδη στην απογραφή" };
       }
       const contract = await getActiveContractPlates();
+      const contractInst = contract.get(key) ?? null;
       await prisma.parkingInventory.create({
-        data: {
-          plate: key,
-          enteredAt: at,
-          source: "CAMERA",
-          contractInst: contract.get(key) ?? null,
-        },
+        data: { plate: key, enteredAt: at, source: "CAMERA", contractInst },
       });
+
+      // Ψηφιακό Πελατολόγιο ΑΑΔΕ. Καλείται ΑΦΟΥ γραφτεί η απογραφή: χωρίς
+      // μπάρες, η καταγραφή του περάσματος είναι το μόνο που εγγυάται ότι
+      // ξέρουμε ποιος μπήκε — δεν θυσιάζεται για μια κλήση σε τρίτον.
+      // Δεν ρίχνει ποτέ και έχει δικό του σύντομο όριο χρόνου.
+      await notifyDclEntry(key, at, contractInst);
+
       return { action: "added" };
     }
 
@@ -200,6 +204,11 @@ async function closeStay(
     }),
     prisma.parkingInventory.delete({ where: { plate } }),
   ]);
+
+  // Κλείσιμο στο Ψηφιακό Πελατολόγιο, τη στιγμή της εξόδου. Με περιοδικό
+  // συγχρονισμό, η εγγραφή έμενε ανοιχτή στην ΑΑΔΕ μέχρι το επόμενο
+  // πέρασμα — που σε παραγωγικό είναι ανοιχτή φορολογική εγγραφή.
+  await notifyDclExit(plate, current.enteredAt, at, charge.amount, current.contractInst);
 
   return { action: "removed", reason: `${minutes}′ · ${charge.amount.toFixed(2)} €` };
 }

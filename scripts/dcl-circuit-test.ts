@@ -14,7 +14,6 @@
 import "dotenv/config";
 import { prisma } from "@/lib/prisma";
 import { applyCameraPass } from "@/lib/parking-inventory";
-import { notifyDclEntry, notifyDclExit } from "@/lib/dcl/live";
 import { loadDclConfig, requestClients } from "@/lib/dcl/client";
 import { wallClockNow, formatWallClock } from "@/lib/parking-time";
 import { buildRevenueOverview } from "@/lib/revenue-overview";
@@ -50,13 +49,14 @@ async function main() {
   ok("Απογραφή: το όχημα είναι μέσα", inv != null, inv ? formatWallClock(inv.enteredAt) : "—");
 
   // ── 2. Άνοιγμα στην ΑΑΔΕ ─────────────────────────────────────────────
-  await notifyDclEntry(PLATE, entry, null);
+  // ΔΕΝ καλείται τίποτα χειροκίνητα: το πέρασμα της κάμερας το ενεργοποιεί.
   const opened = await prisma.dclRecord.findUnique({ where: { stayKey: key } });
   ok("ΑΑΔΕ: άνοιγμα εγγραφής", opened?.status === "SENT",
      opened ? `${opened.status} idDcl=${opened.idDcl ?? "—"}${opened.error ? " " + opened.error : ""}` : "καμία εγγραφή");
 
-  // Διπλό άνοιγμα δεν επιτρέπεται — η ΑΑΔΕ δεν έχει idempotency.
-  await notifyDclEntry(PLATE, entry, null);
+  // Διπλό πέρασμα δεν πρέπει να γεννά δεύτερη εγγραφή — η ΑΑΔΕ δεν έχει
+  // idempotency και δύο εγγραφές δεν ενώνονται ποτέ.
+  await applyCameraPass(PLATE, "IN", entry);
   const dupes = await prisma.dclRecord.count({ where: { plate: PLATE } });
   ok("Προστασία από διπλή αποστολή", dupes === 1, `${dupes} εγγραφή/ές`);
 
@@ -72,7 +72,7 @@ async function main() {
   ok("Απογραφή: βγήκε", gone == null);
 
   // ── 4. Κλείσιμο στην ΑΑΔΕ ────────────────────────────────────────────
-  if (stay) await notifyDclExit(PLATE, stay.enteredAt, stay.exitedAt, stay.amount ?? 0, stay.contractInst);
+  // Επίσης αυτόματο: το έκανε η έξοδος του βήματος 5.
   const closed = await prisma.dclRecord.findUnique({ where: { stayKey: key } });
   ok("ΑΑΔΕ: κλείσιμο εγγραφής", closed?.status === "COMPLETED",
      closed ? `${closed.status} updateId=${closed.updateId ?? "—"}${closed.error ? " " + closed.error : ""}` : "—");
